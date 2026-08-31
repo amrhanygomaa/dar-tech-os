@@ -245,7 +245,7 @@ Tabs
 ├── QA
 ├── Bugs
 ├── Delivery
-├── Deployment
+├── Releases / Environments
 ├── Products
 ├── Licenses
 ├── Warranty

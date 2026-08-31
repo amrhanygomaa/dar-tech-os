@@ -3,7 +3,7 @@
 ### Status: Working Architecture — Approved Direction
 ### Date: 2026-08-31
 
-> This document records the entity/domain architecture agreed during the requirements workshop. It is a business/data-model blueprint, not yet the final SQL/ORM schema.
+> This document records the entity/domain architecture agreed during the requirements workshop. It is a business/data-model blueprint, not yet the final SQL/ORM schema. Technical deployment records support releases and environments; they are not a standalone business Deployment lifecycle.
 
 ---
 
@@ -64,7 +64,7 @@
 - Bug
 - TestCase
 - TestRun
-- Deployment
+- TechnicalDeploymentRecord
 
 ### Product & Licensing
 - Product
@@ -154,7 +154,7 @@ Project can have:
 - multiple Change Requests
 - QA records
 - Jira mappings
-- Deployments
+- Technical Deployment Records
 - multiple Licenses / Activations
 - Warranty/Update entitlements
 - Tickets
@@ -264,7 +264,7 @@ DAR TECH OS
 |   +-- Tasks
 |   +-- QA
 |   +-- Jira
-|   +-- Deployment
+|   +-- Technical Deployment Records
 |
 +-- Products & Licensing
 |   +-- Products

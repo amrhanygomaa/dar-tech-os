@@ -3,7 +3,7 @@
 ### Status: Recommended Master Data Architecture
 ### Date: 2026-08-31
 
-> This document defines the logical entity relationships and database boundaries for Dar Tech OS. It is not yet a physical SQL/ORM migration. Exact column types, indexes, constraints, and implementation framework are finalized in the backend design phase.
+> This document defines the logical entity relationships and database boundaries for Dar Tech OS. It is not yet a physical SQL/ORM migration. Exact column types, indexes, constraints, and implementation framework are finalized in the backend design phase. Technical deployment records support releases and environments; they are not a standalone business Deployment lifecycle.
 
 ---
 
@@ -91,7 +91,7 @@ PROJECT
  +--< BUG
  +--< TEST_CASE
  +--< TEST_RUN
- +--< DEPLOYMENT
+ +--< TECHNICAL_DEPLOYMENT_RECORD
  +--< CONTRACT
  +--< INVOICE
  +--< EXPENSE
