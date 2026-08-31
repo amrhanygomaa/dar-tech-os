@@ -1,12 +1,14 @@
 # dependencies
 node_modules/
 .pnpm-store/
+.npm-cache/
 
 # builds
 .next/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 
 # environment / secrets
 .env
@@ -30,3 +32,6 @@ Thumbs.db
 # temp
 .tmp/
 tmp/
+
+# generated clients
+packages/database/src/generated/
