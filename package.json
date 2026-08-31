@@ -22,9 +22,11 @@
     "dev:api": "npm run dev --workspace=@dar-tech/api",
     "dev:web": "npm run dev --workspace=@dar-tech/web",
     "dev:worker": "npm run dev --workspace=@dar-tech/worker",
+    "config:check": "tsx infra/scripts/validate-config.ts",
     "start:api": "npm run start --workspace=@dar-tech/api",
     "start:web": "npm run start --workspace=@dar-tech/web",
     "start:worker": "npm run start --workspace=@dar-tech/worker",
+    "test:unit": "vitest run --config vitest.config.ts",
     "typecheck": "tsc -b tsconfig.json --pretty false && npm run typecheck --workspace=@dar-tech/web"
   },
   "devDependencies": {
@@ -34,7 +36,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "@types/supertest": "7.2.1",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "3.2.7",
     "eslint": "10.9.1",
     "prettier": "3.9.6",
     "prisma": "7.10.0",
@@ -42,6 +44,6 @@
     "tsx": "4.23.13",
     "typescript": "6.0.3",
     "typescript-eslint": "8.69.0",
-    "vitest": "4.1.11"
+    "vitest": "3.2.7"
   }
 }
