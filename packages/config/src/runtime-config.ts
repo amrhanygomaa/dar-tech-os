@@ -4,6 +4,7 @@ const appEnvironmentSchema = z.enum(['development', 'test', 'staging', 'producti
 const nodeEnvironmentSchema = z.enum(['development', 'test', 'production']);
 const logLevelSchema = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']);
 const portSchema = z.coerce.number().int().min(1).max(65_535);
+const positiveIntegerSchema = z.coerce.number().int().positive();
 
 const databaseUrlSchema = z.string().min(1).superRefine((value, context) => {
   try {
@@ -46,6 +47,9 @@ const commonRuntimeSchema = z
 const databaseRuntimeSchema = commonRuntimeSchema
   .safeExtend({
     DATABASE_URL: databaseUrlSchema,
+    DATABASE_POOL_MAX: positiveIntegerSchema.max(100).default(10),
+    DATABASE_CONNECT_TIMEOUT_MS: positiveIntegerSchema.max(60_000).default(5_000),
+    DATABASE_IDLE_TIMEOUT_MS: positiveIntegerSchema.max(300_000).default(30_000),
   })
   .superRefine((value, context) => {
     if (value.APP_ENV !== 'staging' && value.APP_ENV !== 'production') {
@@ -82,6 +86,9 @@ export interface ApiConfig {
   readonly logLevel: LogLevel;
   readonly port: number;
   readonly databaseUrl: string;
+  readonly databasePoolMax: number;
+  readonly databaseConnectTimeoutMs: number;
+  readonly databaseIdleTimeoutMs: number;
 }
 
 export interface WorkerConfig {
@@ -90,6 +97,9 @@ export interface WorkerConfig {
   readonly nodeEnvironment: 'development' | 'test' | 'production';
   readonly logLevel: LogLevel;
   readonly databaseUrl: string;
+  readonly databasePoolMax: number;
+  readonly databaseConnectTimeoutMs: number;
+  readonly databaseIdleTimeoutMs: number;
 }
 
 export interface WebConfig {
@@ -129,6 +139,9 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     logLevel: parsed.LOG_LEVEL,
     port: parsed.API_PORT,
     databaseUrl: parsed.DATABASE_URL,
+    databasePoolMax: parsed.DATABASE_POOL_MAX,
+    databaseConnectTimeoutMs: parsed.DATABASE_CONNECT_TIMEOUT_MS,
+    databaseIdleTimeoutMs: parsed.DATABASE_IDLE_TIMEOUT_MS,
   };
 }
 
@@ -140,6 +153,9 @@ export function loadWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig {
     nodeEnvironment: parsed.NODE_ENV,
     logLevel: parsed.LOG_LEVEL,
     databaseUrl: parsed.DATABASE_URL,
+    databasePoolMax: parsed.DATABASE_POOL_MAX,
+    databaseConnectTimeoutMs: parsed.DATABASE_CONNECT_TIMEOUT_MS,
+    databaseIdleTimeoutMs: parsed.DATABASE_IDLE_TIMEOUT_MS,
   };
 }
 

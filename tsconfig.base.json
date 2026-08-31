@@ -23,6 +23,7 @@
     "incremental": true,
     "paths": {
       "@dar-tech/config": ["./packages/config/src/index.ts"],
+      "@dar-tech/database": ["./packages/database/src/index.ts"],
       "@dar-tech/types": ["./packages/types/src/index.ts"]
     }
   }

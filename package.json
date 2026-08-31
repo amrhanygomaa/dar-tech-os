@@ -17,17 +17,24 @@
     "deepmerge-ts": "8.0.0"
   },
   "scripts": {
-    "build": "npm run build:core && npm run build --workspace=@dar-tech/web",
+    "build": "npm run db:generate && npm run build:core && npm run build --workspace=@dar-tech/web",
     "build:core": "tsc -b tsconfig.json --pretty false",
     "dev:api": "npm run dev --workspace=@dar-tech/api",
     "dev:web": "npm run dev --workspace=@dar-tech/web",
     "dev:worker": "npm run dev --workspace=@dar-tech/worker",
     "config:check": "tsx infra/scripts/validate-config.ts",
+    "db:format": "prisma format",
+    "db:generate": "prisma generate",
+    "db:migrate:create": "prisma migrate dev --create-only",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:seed": "prisma db seed",
+    "db:validate": "prisma validate",
     "start:api": "npm run start --workspace=@dar-tech/api",
     "start:web": "npm run start --workspace=@dar-tech/web",
     "start:worker": "npm run start --workspace=@dar-tech/worker",
     "test:unit": "vitest run --config vitest.config.ts",
-    "typecheck": "tsc -b tsconfig.json --pretty false && npm run typecheck --workspace=@dar-tech/web"
+    "typecheck": "npm run db:generate && tsc -b tsconfig.json --pretty false && npm run typecheck --workspace=@dar-tech/web"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

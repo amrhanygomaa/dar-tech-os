@@ -29,6 +29,9 @@ describe('safe configuration output', () => {
       nodeEnvironment: 'development',
       logLevel: 'info',
       databaseUrl: 'postgresql://user:password@database/example',
+      databasePoolMax: 10,
+      databaseConnectTimeoutMs: 5000,
+      databaseIdleTimeoutMs: 30000,
     });
 
     expect(summary).toEqual({

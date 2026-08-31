@@ -12,6 +12,7 @@ import { AppModule } from './app.module.js';
 async function bootstrap(): Promise<void> {
   const config = loadApiConfig(process.env);
   const app = await NestFactory.create(AppModule.register(config));
+  app.enableShutdownHooks();
   app.setGlobalPrefix('api/v1');
 
   const logger = new Logger('Bootstrap');

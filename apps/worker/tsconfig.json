@@ -8,7 +8,8 @@
   },
   "references": [
     { "path": "../../packages/types" },
-    { "path": "../../packages/config" }
+    { "path": "../../packages/config" },
+    { "path": "../../packages/database" }
   ],
   "include": ["src/**/*.ts"]
 }

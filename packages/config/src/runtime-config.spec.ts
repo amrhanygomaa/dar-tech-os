@@ -18,6 +18,9 @@ describe('runtime configuration', () => {
       logLevel: 'info',
       port: 3001,
       databaseUrl: validEnvironment.DATABASE_URL,
+      databasePoolMax: 10,
+      databaseConnectTimeoutMs: 5000,
+      databaseIdleTimeoutMs: 30000,
     });
   });
 

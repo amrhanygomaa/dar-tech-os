@@ -4,6 +4,7 @@
   "references": [
     { "path": "packages/types" },
     { "path": "packages/config" },
+    { "path": "packages/database" },
     { "path": "apps/api" },
     { "path": "apps/worker" }
   ]
