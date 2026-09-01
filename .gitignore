@@ -1,17 +1,35 @@
-# Environment files
-.env
-.env.*
-
 # Dependencies
 node_modules/
+.pnpm-store/
 
-# IDE
+# Builds
+.next/
+dist/
+build/
+coverage/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# OS/editor
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 
-# OS files
-.DS_Store
-Thumbs.db
+# Prisma/local db
+*.db
+*.db-journal
+
+# Temp
+.tmp/
+tmp/
 
 # Claude Code
 .claude/
