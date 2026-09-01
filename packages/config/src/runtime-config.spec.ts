@@ -21,6 +21,12 @@ describe('runtime configuration', () => {
       databasePoolMax: 10,
       databaseConnectTimeoutMs: 5000,
       databaseIdleTimeoutMs: 30000,
+      authentication: {
+        allowedRedirectUris: [],
+        localProviderEnabled: false,
+        localIdentities: [],
+        transactionTtlSeconds: 300,
+      },
     });
   });
 
@@ -85,6 +91,71 @@ describe('runtime configuration', () => {
       jobMaxAttempts: 5,
     });
     expect(config.workerId).toMatch(/^worker-\d+$/u);
+  });
+
+  it('loads an explicitly enabled local provider only for development', () => {
+    const config = loadApiConfig({
+      ...validEnvironment,
+      AUTH_ALLOWED_REDIRECT_URIS: 'http://localhost:3000/auth/callback',
+      AUTH_LOCAL_PROVIDER_ENABLED: 'true',
+      AUTH_LOCAL_IDENTITIES_JSON: JSON.stringify([
+        {
+          loginHint: 'developer',
+          providerSubject: 'local-subject',
+          verifiedEmail: 'DEVELOPER@EXAMPLE.COM',
+        },
+      ]),
+    });
+
+    expect(config.authentication).toEqual({
+      allowedRedirectUris: ['http://localhost:3000/auth/callback'],
+      localProviderEnabled: true,
+      localIdentities: [
+        {
+          loginHint: 'developer',
+          providerSubject: 'local-subject',
+          verifiedEmail: 'developer@example.com',
+        },
+      ],
+      transactionTtlSeconds: 300,
+    });
+  });
+
+  it.each(['staging', 'production'] as const)(
+    'fails startup when local authentication is enabled in %s',
+    (appEnvironment) => {
+      expect(() =>
+        loadApiConfig({
+          ...validEnvironment,
+          APP_ENV: appEnvironment,
+          NODE_ENV: 'production',
+          DATABASE_URL: 'postgresql://service:unique@db.example.invalid:5432/dartech_os',
+          AUTH_ALLOWED_REDIRECT_URIS: 'https://portal.example.invalid/auth/callback',
+          AUTH_LOCAL_PROVIDER_ENABLED: 'true',
+        }),
+      ).toThrowError(/AUTH_LOCAL_PROVIDER_ENABLED/);
+    },
+  );
+
+  it('permits explicitly enabled local authentication in the test profile', () => {
+    expect(
+      loadApiConfig({
+        ...validEnvironment,
+        APP_ENV: 'test',
+        NODE_ENV: 'test',
+        AUTH_ALLOWED_REDIRECT_URIS: 'http://localhost:3000/auth/callback',
+        AUTH_LOCAL_PROVIDER_ENABLED: 'true',
+      }).authentication.localProviderEnabled,
+    ).toBe(true);
+  });
+
+  it('requires explicit redirect and identity configuration for development local auth', () => {
+    expect(() =>
+      loadApiConfig({
+        ...validEnvironment,
+        AUTH_LOCAL_PROVIDER_ENABLED: 'true',
+      }),
+    ).toThrowError(/AUTH_ALLOWED_REDIRECT_URIS, AUTH_LOCAL_IDENTITIES_JSON/);
   });
 
   it('rejects an invalid queue and inverted retry bounds', () => {

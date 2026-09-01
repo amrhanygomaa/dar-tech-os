@@ -18,6 +18,12 @@ const testConfig: ApiConfig = {
   databasePoolMax: 1,
   databaseConnectTimeoutMs: 100,
   databaseIdleTimeoutMs: 100,
+  authentication: {
+    allowedRedirectUris: [],
+    localProviderEnabled: false,
+    localIdentities: [],
+    transactionTtlSeconds: 300,
+  },
 };
 
 describe('API foundation', () => {
@@ -164,12 +170,19 @@ describe('API foundation', () => {
     });
     expect(employeePatch.properties).not.toHaveProperty('lifecycleStatus');
     expect(employeePatch.additionalProperties).toBe(false);
-    expect(
-      Object.keys(document.paths).some((path) =>
-        /\/(?:auth|customers?)(?:\/|$)/u.test(path),
-      ),
-    ).toBe(false);
+    expect(Object.keys(document.paths).some((path) => /\/customers?(?:\/|$)/u.test(path))).toBe(
+      false,
+    );
+    expect(document.paths).toMatchObject({
+      '/api/v1/auth/providers': { get: expect.any(Object) },
+      '/api/v1/auth/{providerKey}/start': { post: expect.any(Object) },
+      '/api/v1/auth/{providerKey}/callback': { post: expect.any(Object) },
+      '/api/v1/auth/{providerKey}/provider-logout': { post: expect.any(Object) },
+    });
     expect(document.paths['/api/v1/employees/{id}']).not.toHaveProperty('delete');
     expect(JSON.stringify(document)).not.toMatch(/passwordHash|password login|providerSecret/iu);
+    expect(JSON.stringify(document)).not.toMatch(
+      /example[^}]+(?:authorizationCode|clientSecret|refreshToken|accessToken|nonce|state)/iu,
+    );
   });
 });

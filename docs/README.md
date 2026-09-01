@@ -10,7 +10,7 @@ This directory is the implementation documentation set for Dar Tech OS.
 ### Sprint records
 - Sprint 01 specification: `../SPRINT_01_ENGINEERING_FOUNDATION.md`
 - Sprint 01 closure: `execution/SPRINT_01_CLOSURE.md`
-- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **S02-T01 ONLY AUTHORIZED**
+- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **S02-T03 ONLY AUTHORIZED; S02-T00/T01 COMPLETE**
 
 ### Source-of-truth rules
 - `SOURCE_OF_TRUTH.md`
@@ -20,6 +20,7 @@ This directory is the implementation documentation set for Dar Tech OS.
 - `engineering/REPOSITORY_BASELINE.md`
 - `engineering/SPRINT_01_REVIEW_CHECKLIST.md`
 - `engineering/SPRINT_02_T01_IDENTITY_CORE.md`
+- `engineering/SPRINT_02_T03_SSO_ABSTRACTION.md`
 - Accepted architecture decisions: `decisions/README.md`
 
 ### Primary source documents

@@ -1,8 +1,8 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T01 ONLY AUTHORIZED
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T03 ONLY AUTHORIZED
 
-> S02-T00 is completed and merged through PR #3. S02-T01 is authorized. S02-T02 through S02-T15 remain unauthorized, and completion or merge of S02-T01 does not authorize S02-T02 or any later ticket.
+> S02-T00 and S02-T01 are completed. S02-T01 merged through PR #4 at `188dd268a3bfbace0d5341a069fc403d4ff111d4`. S02-T03 is authorized. S02-T02 and S02-T04 through S02-T15 remain unauthorized.
 
 ## Sprint objective
 
@@ -22,14 +22,14 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00 is completed, and the supervisor has authorized S02-T01 only. S02-T02 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T01 must not be inferred as authorization to begin S02-T02 or any later ticket.
+Sprint 01 is closed. S02-T00 and S02-T01 are completed, and the supervisor has authorized S02-T03 only. S02-T02 and S02-T04 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T03 must not be inferred as authorization to begin any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside S02-T01;
-- add or alter identity/security database models or migrations;
-- add identity routes, pages, provider adapters, seeds, or bootstrap commands;
-- mark S02-T02 or any later ticket active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside S02-T03;
+- add or alter identity/security database models or migrations for T03;
+- add invitations, sessions, production provider adapters, roles, permissions, approvals, seeds, or bootstrap commands;
+- mark S02-T02 or S02-T04 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -95,8 +95,9 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | Ticket | Status | Evidence |
 | --- | --- | --- |
 | S02-T00 | COMPLETED | PR #3; merge commit `e3f0cab99469334058657e73015c1667c562a3e5` |
-| S02-T01 | AUTHORIZED | Controlled implementation authorization from the supervisor |
-| S02-T02 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T01 | COMPLETED | PR #4; merge commit `188dd268a3bfbace0d5341a069fc403d4ff111d4` |
+| S02-T03 | AUTHORIZED | Controlled implementation authorization from the supervisor |
+| S02-T02 and S02-T04 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -573,12 +574,23 @@ Define and implement a provider-neutral authentication contract with replaceable
 
 ### Acceptance criteria
 
-- [ ] Application/domain code depends on a provider-neutral contract, not a production vendor SDK.
-- [ ] At least one safe fake/local adapter proves the contract in automated tests and local development.
-- [ ] Local/test authentication cannot start in staging or production.
-- [ ] Authentication respects invitation and employee/account lifecycle state.
-- [ ] Secrets and provider token material are absent from logs, errors, audit, and normal database columns.
-- [ ] Contract tests, security-event hooks, OpenAPI, and configuration documentation are complete.
+- [x] Application/domain code depends on a provider-neutral contract, not a production vendor SDK.
+- [x] At least one safe fake/local adapter proves the contract in automated tests and local development.
+- [x] Local/test authentication cannot start in staging or production.
+- [x] Authentication respects invitation and employee/account lifecycle state.
+- [x] Secrets and provider token material are absent from logs, errors, audit, and normal database columns.
+- [x] Contract tests, security-event hooks, OpenAPI, and configuration documentation are complete.
+
+### Acceptance evidence — 2026-09-01
+
+- `npm ci` and `npm run quality:gate` passed; Prisma validation, migration status, and drift checks confirm the existing two-migration schema is unchanged.
+- Standalone lint, typecheck, build, and Docker Compose validation passed.
+- Unit/API suites: 91 tests passed, including shared adapter/normalization, state, nonce, replay, provider failure, unverified identity, lifecycle/account, organization mismatch, enumeration, local-environment, log redaction, event, and OpenAPI coverage.
+- PostgreSQL integration suites: 19 tests passed, including T01 organization isolation and identity linkage plus the T00/Sprint 01 queue/outbox regressions.
+- `docker compose up --build -d --wait` passed. API, web, worker, and PostgreSQL reported healthy; API readiness, provider discovery, web, and OpenAPI returned successful responses.
+- Provider discovery is empty in the default Docker runtime because the local adapter is disabled. Automated configuration and composition tests prove that enabling it in staging or production fails startup.
+- No production provider SDK/configuration, Session/Invitation model, provider credential column, Prisma migration, SSO link action, application cookie/token, bootstrap implementation, role/permission system, or later-ticket behavior was added.
+- Detailed architecture and deferred boundaries are recorded in `docs/engineering/SPRINT_02_T03_SSO_ABSTRACTION.md`; S02-T02 and S02-T04 through S02-T15 remain unauthorized.
 
 ### Do Not Change
 
