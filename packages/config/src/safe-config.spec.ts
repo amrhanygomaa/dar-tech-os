@@ -32,6 +32,8 @@ describe('safe configuration output', () => {
       databasePoolMax: 10,
       databaseConnectTimeoutMs: 5000,
       databaseIdleTimeoutMs: 30000,
+      healthFile: null,
+      heartbeatIntervalMs: 10000,
     });
 
     expect(summary).toEqual({

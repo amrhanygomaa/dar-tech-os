@@ -2,8 +2,7 @@ import { DynamicModule, Module } from '@nestjs/common';
 import type { WorkerConfig } from '@dar-tech/config';
 import { DatabaseModule } from '@dar-tech/database';
 import { WorkerRuntimeService } from './worker-runtime.service.js';
-
-export const WORKER_CONFIG = Symbol('WORKER_CONFIG');
+import { WORKER_CONFIG } from './worker.tokens.js';
 
 @Module({})
 export class WorkerModule {

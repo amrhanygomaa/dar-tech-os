@@ -70,7 +70,10 @@ const apiEnvironmentSchema = databaseRuntimeSchema.safeExtend({
   API_PORT: portSchema.default(3001),
 });
 
-const workerEnvironmentSchema = databaseRuntimeSchema;
+const workerEnvironmentSchema = databaseRuntimeSchema.safeExtend({
+  WORKER_HEALTH_FILE: z.string().trim().default(''),
+  WORKER_HEARTBEAT_INTERVAL_MS: positiveIntegerSchema.min(1_000).max(60_000).default(10_000),
+});
 
 const webEnvironmentSchema = commonRuntimeSchema.safeExtend({
   WEB_PORT: portSchema.default(3000),
@@ -100,6 +103,8 @@ export interface WorkerConfig {
   readonly databasePoolMax: number;
   readonly databaseConnectTimeoutMs: number;
   readonly databaseIdleTimeoutMs: number;
+  readonly healthFile: string | null;
+  readonly heartbeatIntervalMs: number;
 }
 
 export interface WebConfig {
@@ -156,6 +161,8 @@ export function loadWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig {
     databasePoolMax: parsed.DATABASE_POOL_MAX,
     databaseConnectTimeoutMs: parsed.DATABASE_CONNECT_TIMEOUT_MS,
     databaseIdleTimeoutMs: parsed.DATABASE_IDLE_TIMEOUT_MS,
+    healthFile: parsed.WORKER_HEALTH_FILE || null,
+    heartbeatIntervalMs: parsed.WORKER_HEARTBEAT_INTERVAL_MS,
   };
 }
 
