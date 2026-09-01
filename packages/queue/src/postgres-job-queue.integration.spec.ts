@@ -5,6 +5,7 @@ import { PostgresJobQueue } from './postgres-job-queue.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const integrationQueue = 'foundation-integration';
+const immediatelyEligibleAt = new Date('2000-01-01T00:00:00.000Z');
 
 describe.skipIf(!databaseUrl)('PostgresJobQueue integration', () => {
   let client: DatabaseClient;
@@ -65,6 +66,7 @@ describe.skipIf(!databaseUrl)('PostgresJobQueue integration', () => {
       version: 1,
       payload: { probe: true },
       correlationId: 'correlation-final-state',
+      availableAt: immediatelyEligibleAt,
       maxAttempts: 2,
     });
     const claimOptions = {
