@@ -7,8 +7,9 @@ This directory is the implementation documentation set for Dar Tech OS.
 ### Permanent execution rules
 - `../CODEX_MASTER_EXECUTION_PROMPT.md`
 
-### Active sprint
-- `../SPRINT_01_ENGINEERING_FOUNDATION.md`
+### Sprint records
+- Sprint 01 specification: `../SPRINT_01_ENGINEERING_FOUNDATION.md`
+- Sprint 01 closure: `execution/SPRINT_01_CLOSURE.md`
 
 ### Source-of-truth rules
 - `SOURCE_OF_TRUTH.md`

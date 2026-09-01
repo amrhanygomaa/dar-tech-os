@@ -4,7 +4,9 @@ Internal company operating system for Dar Tech.
 
 ## Current status
 
-**Sprint 01 — Engineering Foundation is implemented on its review branch.** No Sprint 02 or business module is authorized until supervisor approval.
+**Sprint 01 — Engineering Foundation: COMPLETED**
+
+Sprint 01 was supervisor-approved and merged through PR #1. See `docs/execution/SPRINT_01_CLOSURE.md` for the closure record. Sprint 02 and business-module implementation have not started.
 
 ## Start here
 
@@ -16,7 +18,7 @@ Codex must read these files before implementation:
 4. `docs/README.md`
 5. Only the documentation relevant to Sprint 01
 
-Do **not** start Sprint 02 or business modules until Sprint 01 is reviewed and approved.
+Do **not** start Sprint 02 or business modules without explicit supervisor authorization for Sprint 02.
 
 ## Initial architecture baseline
 
