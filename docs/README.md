@@ -13,6 +13,12 @@ This directory is the implementation documentation set for Dar Tech OS.
 ### Source-of-truth rules
 - `SOURCE_OF_TRUTH.md`
 
+### Engineering foundation
+- `engineering/SPRINT_01_FOUNDATION_GUIDE.md`
+- `engineering/REPOSITORY_BASELINE.md`
+- `engineering/SPRINT_01_REVIEW_CHECKLIST.md`
+- Accepted architecture decisions: `decisions/README.md`
+
 ### Primary source documents
 - `source/System-Requirements.md`
 - `source/Dar_Tech_AI_Agent_Company_Memory.md`

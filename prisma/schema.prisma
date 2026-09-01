@@ -1,0 +1,109 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../packages/database/src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  engineType             = "client"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum QueueJobStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+
+  @@map("queue_job_status")
+}
+
+enum OutboxEventStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+
+  @@map("outbox_event_status")
+}
+
+model QueueJob {
+  id                String         @id @default(uuid()) @db.Uuid
+  queue             String         @default("default") @db.VarChar(64)
+  name              String         @db.VarChar(160)
+  version           Int            @default(1)
+  payload           Json           @db.JsonB
+  organizationId    String?        @map("organization_id") @db.Uuid
+  correlationId     String         @map("correlation_id") @db.VarChar(128)
+  causationId       String?        @map("causation_id") @db.VarChar(128)
+  deduplicationKey  String?        @map("deduplication_key") @db.VarChar(255)
+  deduplicationHash String?        @map("deduplication_hash") @db.Char(64)
+  status            QueueJobStatus @default(PENDING)
+  availableAt       DateTime       @default(now()) @map("available_at") @db.Timestamptz(3)
+  attemptCount      Int            @default(0) @map("attempt_count")
+  maxAttempts       Int            @default(5) @map("max_attempts")
+  lockedBy          String?        @map("locked_by") @db.VarChar(128)
+  leaseToken        String?        @map("lease_token") @db.Uuid
+  lockedAt          DateTime?      @map("locked_at") @db.Timestamptz(3)
+  lockExpiresAt     DateTime?      @map("lock_expires_at") @db.Timestamptz(3)
+  lastErrorCode     String?        @map("last_error_code") @db.VarChar(128)
+  lastErrorMessage  String?        @map("last_error_message") @db.VarChar(2048)
+  completedAt       DateTime?      @map("completed_at") @db.Timestamptz(3)
+  failedAt          DateTime?      @map("failed_at") @db.Timestamptz(3)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([queue, deduplicationKey], map: "queue_jobs_queue_deduplication_key")
+  @@index([queue, status, availableAt, createdAt], map: "queue_jobs_claim_idx")
+  @@index([status, lockExpiresAt], map: "queue_jobs_expired_lease_idx")
+  @@index([correlationId], map: "queue_jobs_correlation_id_idx")
+  @@index([organizationId, createdAt], map: "queue_jobs_organization_created_at_idx")
+  @@map("queue_jobs")
+}
+
+model OutboxEvent {
+  id               String                  @id @default(uuid()) @db.Uuid
+  eventType        String                  @map("event_type") @db.VarChar(200)
+  eventVersion     Int                     @default(1) @map("event_version")
+  payload          Json                    @db.JsonB
+  organizationId   String?                 @map("organization_id") @db.Uuid
+  correlationId    String                  @map("correlation_id") @db.VarChar(128)
+  causationId      String?                 @map("causation_id") @db.VarChar(128)
+  occurredAt       DateTime                @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  status           OutboxEventStatus       @default(PENDING)
+  availableAt      DateTime                @default(now()) @map("available_at") @db.Timestamptz(3)
+  attemptCount     Int                     @default(0) @map("attempt_count")
+  maxAttempts      Int                     @default(5) @map("max_attempts")
+  lockedBy         String?                 @map("locked_by") @db.VarChar(128)
+  leaseToken       String?                 @map("lease_token") @db.Uuid
+  lockedAt         DateTime?               @map("locked_at") @db.Timestamptz(3)
+  lockExpiresAt    DateTime?               @map("lock_expires_at") @db.Timestamptz(3)
+  lastErrorCode    String?                 @map("last_error_code") @db.VarChar(128)
+  lastErrorMessage String?                 @map("last_error_message") @db.VarChar(2048)
+  processedAt      DateTime?               @map("processed_at") @db.Timestamptz(3)
+  failedAt         DateTime?               @map("failed_at") @db.Timestamptz(3)
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  consumerReceipts OutboxConsumerReceipt[]
+
+  @@index([status, availableAt, occurredAt], map: "outbox_events_claim_idx")
+  @@index([status, lockExpiresAt], map: "outbox_events_expired_lease_idx")
+  @@index([correlationId], map: "outbox_events_correlation_id_idx")
+  @@index([organizationId, createdAt], map: "outbox_events_organization_created_at_idx")
+  @@map("outbox_events")
+}
+
+model OutboxConsumerReceipt {
+  eventId       String      @map("event_id") @db.Uuid
+  consumerName  String      @map("consumer_name") @db.VarChar(160)
+  correlationId String      @map("correlation_id") @db.VarChar(128)
+  processedAt   DateTime    @default(now()) @map("processed_at") @db.Timestamptz(3)
+  event         OutboxEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@id([eventId, consumerName], map: "outbox_consumer_receipts_pkey")
+  @@index([consumerName, processedAt], map: "outbox_consumer_receipts_consumer_processed_idx")
+  @@map("outbox_consumer_receipts")
+}

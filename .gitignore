@@ -1,12 +1,14 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+.npm-cache/
 
 # Builds
 .next/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 
 # Environment / secrets
 .env
@@ -30,6 +32,9 @@ Thumbs.db
 # Temp
 .tmp/
 tmp/
+
+# Generated clients
+packages/database/src/generated/
 
 # Claude Code
 .claude/

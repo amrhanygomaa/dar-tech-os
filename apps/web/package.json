@@ -1,0 +1,20 @@
+{
+  "name": "@dar-tech/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --hostname 0.0.0.0",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit --pretty false"
+  },
+  "dependencies": {
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5"
+  }
+}
