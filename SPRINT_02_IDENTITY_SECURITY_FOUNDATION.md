@@ -1,8 +1,8 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: PLANNING — NOT AUTHORIZED FOR IMPLEMENTATION
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T00 ONLY AUTHORIZED
 
-> This document is a planning specification only. It does not authorize Sprint 02 code, database migrations, seed data, production identity-provider configuration, or application-behavior changes.
+> S02-T00 foundation test-determinism maintenance is authorized. S02-T01 through S02-T15 remain unauthorized. Completion or merge of S02-T00 does not authorize S02-T01 or any later ticket.
 
 ## Sprint objective
 
@@ -22,14 +22,14 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. Sprint 02 remains planning-only until the supervisor explicitly authorizes implementation. A later authorization must identify the ticket or ticket group that may begin; it must not be inferred from approval of this document or its pull request.
+Sprint 01 is closed. The supervisor has authorized S02-T00 only. S02-T01 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T00 must not be inferred as authorization to begin S02-T01 or any later ticket.
 
-Until that authorization is recorded, agents must not:
+Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior;
+- implement any Sprint 02 application behavior outside S02-T00;
 - add or alter identity/security database models or migrations;
 - add identity routes, pages, provider adapters, seeds, or bootstrap commands;
-- mark Sprint 02 active, ready, or implementation-authorized; or
+- mark S02-T01 or any later ticket active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -240,22 +240,24 @@ STEP_UP_AND_APPROVAL
 
 Policies receive action, resource, actor, scope, organization, risk, and environment context. Approver resolution is an interface backed by authorized role/employee configuration, not a hard-coded founder or job title. Financial, licensing, warranty, discount, export, and production-deployment thresholds remain out of scope.
 
-## Bootstrap administrator recommended policy
+## Bootstrap administrator policy
 
-**Status: SUPERVISOR_APPROVAL_REQUIRED before code implementation.**
+**Status: SUPERVISOR APPROVED — IMPLEMENTATION NOT YET AUTHORIZED.**
 
-The recommended implementation policy is:
+The approved policy is:
 
-- the first administrator is created using a one-time bootstrap mechanism;
-- bootstrap identity/email is explicit configuration, never hard-coded;
-- bootstrap is allowed only while no active administrator exists;
-- there is no public bootstrap endpoint;
-- every bootstrap attempt and its outcome are fully audited;
-- bootstrap capability disables after successful initialization;
-- normal future employee creation uses invitation plus SSO; and
-- Founder status alone grants no implicit administrative authority.
+- the first administrator uses a one-time bootstrap mechanism;
+- bootstrap identity/email comes from explicit configuration and is never hard-coded;
+- bootstrap is allowed only while zero active administrators exist;
+- bootstrap is invoked only through an explicit local/operations management command;
+- bootstrap never runs automatically at application startup;
+- bootstrap never has a public HTTP endpoint;
+- every bootstrap attempt and outcome is fully audited;
+- bootstrap permanently disables after successful initialization;
+- future normal employee creation uses invitation plus SSO; and
+- Founder status gives no implicit administrative authority.
 
-This recommendation is not an authorization to implement, seed, or expose bootstrap behavior. The supervisor must approve it explicitly before the affected ticket begins.
+This policy approval does not authorize implementation, a seed, a management command, an endpoint, or any other bootstrap behavior in S02-T00. Implementation may begin only when the bootstrap-owning Sprint 02 ticket is explicitly authorized.
 
 ## Configuration values that must remain configurable
 
@@ -314,12 +316,22 @@ Remove the documented Sprint 01 PostgreSQL timestamp-sensitive integration-test 
 
 ### Acceptance criteria
 
-- [ ] The previously intermittent queue/outbox integration assertions pass deterministically across repeated runs.
-- [ ] Existing queue/outbox unit and integration tests still pass unchanged in meaning.
-- [ ] No Prisma migration or application schema change exists.
-- [ ] Queue/outbox claim eligibility, retry, lease, deduplication, and delivery semantics are unchanged.
-- [ ] Lint, typecheck, tests, and build pass.
-- [ ] The maintenance convention is documented.
+- [x] The previously intermittent queue/outbox integration assertions pass deterministically across repeated runs.
+- [x] Existing queue/outbox unit and integration tests still pass unchanged in meaning.
+- [x] No Prisma migration or application schema change exists.
+- [x] Queue/outbox claim eligibility, retry, lease, deduplication, and delivery semantics are unchanged.
+- [x] Lint, typecheck, tests, and build pass.
+- [x] The maintenance convention is documented.
+
+### Acceptance evidence — 2026-09-01
+
+- PostgreSQL diagnostics confirmed that `timestamptz(3)` rounding can place a just-written eligibility timestamp up to 427 microseconds ahead of the unrounded database comparison time.
+- Immediate-claim integration fixtures now set queue jobs, outbox events, and generated outbox delivery jobs to an explicit fixed-past `availableAt` value. Production queue/outbox source and runtime configuration are unchanged.
+- Queue integration suite: 20 consecutive successful runs.
+- Outbox integration suite: 20 consecutive successful runs.
+- `npm run quality:gate`: passed, including lint, typecheck, migration validation, 35 unit tests, 5 PostgreSQL integration tests, production build, and Docker Compose validation.
+- Standalone `npm run test:unit`, `npm run test:integration`, `npm run build`, and `docker compose config`: passed.
+- No Prisma schema change, migration, identity/security implementation, or S02-T01+ authorization was introduced.
 
 ### Do Not Change
 
@@ -1444,7 +1456,7 @@ Prove Sprint 02 behavior, security, migrations, APIs, frontend, Docker runtime, 
 ### Security considerations
 
 - Perform targeted secret/token leakage review, dependency audit, authorization bypass review, organization-isolation review, secure-session/CSRF review, rate-limit review, and production local-adapter fail-closed validation.
-- Bootstrap policy cannot be enabled unless separately supervisor-approved.
+- Bootstrap policy is supervisor-approved, but implementation remains unauthorized until its owning ticket is explicitly authorized.
 
 ### Acceptance criteria
 
@@ -1491,6 +1503,6 @@ The final implementation report must use the repository completion format and in
 - Keep temporary/emergency access explicit, expiring, revocable, reasoned, policy-aware, and audited.
 - Keep queue/outbox semantics unchanged by S02-T00.
 - Keep production identity-provider choice deferred and provider-specific code behind adapters.
-- Keep bootstrap administrator policy unimplemented until explicit supervisor approval.
+- Keep the approved bootstrap administrator policy unimplemented until its owning ticket is explicitly authorized.
 - Do not add plaintext secrets/tokens, direct database authorization shortcuts, fake business modules, or hard-coded Founder/Super Admin behavior.
 - Do not implement Sprint 02 from this document until explicitly authorized, and do not start the next sprint without explicit supervisor approval.

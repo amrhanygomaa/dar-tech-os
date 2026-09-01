@@ -229,6 +229,14 @@ Hostinger is the first deployment environment, not an application dependency. Po
 
 An AWS queue adapter must match the existing contract for correlation, bounded retry, durable handoff, deduplication, and observable terminal failure. A provider cutover must drain or explicitly transfer pending work and requires a reviewed operational plan.
 
+## Deterministic database-time integration tests
+
+PostgreSQL stores queue and outbox eligibility timestamps as `timestamptz(3)`. A value produced at the current instant can round up to the next millisecond while the database comparison clock still retains finer precision, so an immediate write-and-claim test can briefly see the new record as ineligible.
+
+When an integration test intends a queue job or outbox event to be eligible immediately, set its `availableAt` fixture to an explicit fixed time safely in the past before claiming it. Apply the same fixture to an outbox delivery job before processing it. Tests for deferred eligibility, retry scheduling, or lease expiry must instead use explicit timestamps appropriate to those boundaries.
+
+Use injected fixed clocks for retry-time calculations already exposed through technical application contracts. Do not use sleeps as an eligibility mechanism, widen production claim windows, change database timestamp precision, or expose test-clock configuration to a production runtime.
+
 ## Troubleshooting
 
 - Missing `generated/prisma/client.js`: run `npm run db:generate` or the full gate.

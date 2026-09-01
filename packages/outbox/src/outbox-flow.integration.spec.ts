@@ -36,6 +36,7 @@ import {
 import { OutboxConsumerRegistry, OutboxRouteRegistry } from './route-registry.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
+const immediatelyEligibleAt = new Date('2000-01-01T00:00:00.000Z');
 
 function logger(): OutboxLogger {
   return { info: vi.fn(), warnEvent: vi.fn(), errorEvent: vi.fn() };
@@ -100,6 +101,10 @@ describe.skipIf(!databaseUrl)('transactional outbox reference flow', () => {
         correlationId: 'correlation-reference-flow',
       }),
     );
+    await client.outboxEvent.update({
+      where: { id: eventId },
+      data: { availableAt: immediatelyEligibleAt },
+    });
     const queue = new PostgresJobQueue(client);
     const dispatcher = new OutboxDispatcher(
       new PostgresOutboxStore(client),
@@ -121,6 +126,10 @@ describe.skipIf(!databaseUrl)('transactional outbox reference flow', () => {
     expect(dispatched.status).toBe(OutboxEventStatus.PROCESSED);
     const queued = await client.queueJob.findFirstOrThrow({
       where: { deduplicationKey: `outbox:${consumer.name}:${eventId}` },
+    });
+    await client.queueJob.update({
+      where: { id: queued.id },
+      data: { availableAt: immediatelyEligibleAt },
     });
     expect(queued.correlationId).toBe('correlation-reference-flow');
 
@@ -190,6 +199,10 @@ describe.skipIf(!databaseUrl)('transactional outbox reference flow', () => {
         maxAttempts: 2,
       }),
     );
+    await client.outboxEvent.update({
+      where: { id: eventId },
+      data: { availableAt: immediatelyEligibleAt },
+    });
     let providerCalls = 0;
     const queue: JobQueuePort = {
       enqueue: (_input: EnqueueJobInput): Promise<EnqueueJobResult> => {
