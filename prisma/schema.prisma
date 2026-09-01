@@ -30,6 +30,93 @@ enum OutboxEventStatus {
   @@map("outbox_event_status")
 }
 
+enum EmployeeLifecycleStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  OFFBOARDING
+  ARCHIVED
+
+  @@map("employee_lifecycle_status")
+}
+
+model Organization {
+  id            String        @id @default(uuid()) @db.Uuid
+  displayName   String        @map("display_name") @db.VarChar(160)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employees     Employee[]
+  userAccounts  UserAccount[]
+  ssoIdentities SSOIdentity[]
+
+  @@map("organizations")
+}
+
+model Employee {
+  id              String                  @id @default(uuid()) @db.Uuid
+  organizationId  String                  @map("organization_id") @db.Uuid
+  employeeCode    String                  @map("employee_code") @db.VarChar(64)
+  firstName       String                  @map("first_name") @db.VarChar(100)
+  lastName        String                  @map("last_name") @db.VarChar(100)
+  displayName     String                  @map("display_name") @db.VarChar(160)
+  workEmail       String                  @map("work_email") @db.VarChar(320)
+  lifecycleStatus EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
+  invitedAt       DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
+  activatedAt     DateTime?               @map("activated_at") @db.Timestamptz(3)
+  suspendedAt     DateTime?               @map("suspended_at") @db.Timestamptz(3)
+  offboardingAt   DateTime?               @map("offboarding_at") @db.Timestamptz(3)
+  archivedAt      DateTime?               @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userAccount     UserAccount?
+
+  @@unique([organizationId, id], map: "employees_organization_id_id_key")
+  @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
+  @@index([organizationId, lifecycleStatus, createdAt], map: "employees_organization_lifecycle_created_at_idx")
+  @@index([organizationId, workEmail], map: "employees_organization_work_email_idx")
+  @@map("employees")
+}
+
+model UserAccount {
+  id                     String        @id @default(uuid()) @db.Uuid
+  organizationId         String        @map("organization_id") @db.Uuid
+  employeeId             String        @unique(map: "user_accounts_employee_id_key") @map("employee_id") @db.Uuid
+  authenticationEligible Boolean       @default(false) @map("authentication_eligible")
+  activatedAt            DateTime?     @map("activated_at") @db.Timestamptz(3)
+  disabledAt             DateTime?     @map("disabled_at") @db.Timestamptz(3)
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee               Employee      @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+  ssoIdentities          SSOIdentity[]
+
+  @@unique([organizationId, id], map: "user_accounts_organization_id_id_key")
+  @@unique([organizationId, employeeId], map: "user_accounts_organization_employee_id_key")
+  @@index([organizationId, authenticationEligible], map: "user_accounts_organization_authentication_eligible_idx")
+  @@map("user_accounts")
+}
+
+model SSOIdentity {
+  id                      String       @id @default(uuid()) @db.Uuid
+  organizationId          String       @map("organization_id") @db.Uuid
+  userAccountId           String       @map("user_account_id") @db.Uuid
+  providerKey             String       @map("provider_key") @db.VarChar(64)
+  providerSubject         String       @map("provider_subject") @db.VarChar(255)
+  verifiedEmailNormalized String?      @map("verified_email_normalized") @db.VarChar(320)
+  linkedAt                DateTime     @default(now()) @map("linked_at") @db.Timestamptz(3)
+  lastAuthenticatedAt     DateTime?    @map("last_authenticated_at") @db.Timestamptz(3)
+  createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userAccount             UserAccount  @relation(fields: [organizationId, userAccountId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([providerKey, providerSubject], map: "sso_identities_provider_subject_key")
+  @@index([organizationId, userAccountId], map: "sso_identities_organization_account_idx")
+  @@index([organizationId, verifiedEmailNormalized], map: "sso_identities_organization_verified_email_idx")
+  @@map("sso_identities")
+}
+
 model QueueJob {
   id                String         @id @default(uuid()) @db.Uuid
   queue             String         @default("default") @db.VarChar(64)

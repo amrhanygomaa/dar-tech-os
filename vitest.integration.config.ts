@@ -22,7 +22,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['packages/**/*.integration.spec.ts'],
+    include: ['apps/**/*.integration.spec.ts', 'packages/**/*.integration.spec.ts'],
     fileParallelism: false,
     maxWorkers: 1,
     minWorkers: 1,

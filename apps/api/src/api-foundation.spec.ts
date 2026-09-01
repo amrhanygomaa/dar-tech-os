@@ -129,4 +129,47 @@ describe('API foundation', () => {
     });
     await request(app.getHttpServer()).get('/api/v1/health').expect(404);
   });
+
+  it.each(['/api/v1/me', '/api/v1/employees'])(
+    'fails closed for identity route %s when no trusted actor exists',
+    async (path) => {
+      const response = await request(app.getHttpServer()).get(path).expect(401);
+
+      expect(response.body).toEqual({
+        error: {
+          code: 'AUTHENTICATION_REQUIRED',
+          message: 'Trusted authentication is required',
+          requestId: response.headers['x-request-id'],
+        },
+      });
+    },
+  );
+
+  it('publishes versioned OpenAPI identity contracts without lifecycle PATCH fields', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/openapi.json').expect(200);
+    const document = response.body.data ?? response.body;
+
+    expect(document.paths).toMatchObject({
+      '/api/v1/me': { get: expect.any(Object), patch: expect.any(Object) },
+      '/api/v1/employees': { get: expect.any(Object) },
+      '/api/v1/employees/{id}': { get: expect.any(Object), patch: expect.any(Object) },
+    });
+    const employeePatch =
+      document.paths['/api/v1/employees/{id}'].patch.requestBody.content['application/json'].schema;
+    expect(employeePatch.properties).toEqual({
+      firstName: expect.any(Object),
+      lastName: expect.any(Object),
+      displayName: expect.any(Object),
+      workEmail: expect.any(Object),
+    });
+    expect(employeePatch.properties).not.toHaveProperty('lifecycleStatus');
+    expect(employeePatch.additionalProperties).toBe(false);
+    expect(
+      Object.keys(document.paths).some((path) =>
+        /\/(?:auth|customers?)(?:\/|$)/u.test(path),
+      ),
+    ).toBe(false);
+    expect(document.paths['/api/v1/employees/{id}']).not.toHaveProperty('delete');
+    expect(JSON.stringify(document)).not.toMatch(/passwordHash|password login|providerSecret/iu);
+  });
 });

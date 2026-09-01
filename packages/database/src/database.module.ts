@@ -18,6 +18,7 @@ export class DatabaseModule {
     const client = createPrismaClient(options);
     return {
       module: DatabaseModule,
+      global: true,
       providers: [
         { provide: DATABASE_CLIENT, useValue: client },
         { provide: DatabaseLifecycle, useValue: new DatabaseLifecycle(client) },
