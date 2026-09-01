@@ -1,0 +1,37 @@
+# dependencies
+node_modules/
+.pnpm-store/
+.npm-cache/
+
+# builds
+.next/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# environment / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+logs/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Prisma/local db
+*.db
+*.db-journal
+
+# temp
+.tmp/
+tmp/
+
+# generated clients
+packages/database/src/generated/

@@ -1,0 +1,20 @@
+# Environment files
+.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# Legacy systems
+old system & tools/
