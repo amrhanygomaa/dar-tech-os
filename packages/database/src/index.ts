@@ -10,4 +10,9 @@ export {
   type DatabaseTransaction,
   type TransactionWork,
 } from './transaction.js';
-export { OutboxEventStatus, Prisma, QueueJobStatus } from './generated/prisma/client.js';
+export {
+  EmployeeLifecycleStatus,
+  OutboxEventStatus,
+  Prisma,
+  QueueJobStatus,
+} from './generated/prisma/client.js';

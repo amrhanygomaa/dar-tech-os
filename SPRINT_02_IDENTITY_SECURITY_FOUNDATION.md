@@ -1,8 +1,8 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T00 ONLY AUTHORIZED
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T01 ONLY AUTHORIZED
 
-> S02-T00 foundation test-determinism maintenance is authorized. S02-T01 through S02-T15 remain unauthorized. Completion or merge of S02-T00 does not authorize S02-T01 or any later ticket.
+> S02-T00 is completed and merged through PR #3. S02-T01 is authorized. S02-T02 through S02-T15 remain unauthorized, and completion or merge of S02-T01 does not authorize S02-T02 or any later ticket.
 
 ## Sprint objective
 
@@ -22,14 +22,14 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. The supervisor has authorized S02-T00 only. S02-T01 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T00 must not be inferred as authorization to begin S02-T01 or any later ticket.
+Sprint 01 is closed. S02-T00 is completed, and the supervisor has authorized S02-T01 only. S02-T02 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T01 must not be inferred as authorization to begin S02-T02 or any later ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside S02-T00;
+- implement any Sprint 02 application behavior outside S02-T01;
 - add or alter identity/security database models or migrations;
 - add identity routes, pages, provider adapters, seeds, or bootstrap commands;
-- mark S02-T01 or any later ticket active, ready, or implementation-authorized; or
+- mark S02-T02 or any later ticket active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -89,6 +89,14 @@ S02-T00
 ```
 
 Parallel work is permitted only where dependencies are satisfied and the supervisor has authorized the affected tickets.
+
+## Ticket execution record
+
+| Ticket | Status | Evidence |
+| --- | --- | --- |
+| S02-T00 | COMPLETED | PR #3; merge commit `e3f0cab99469334058657e73015c1667c562a3e5` |
+| S02-T01 | AUTHORIZED | Controlled implementation authorization from the supervisor |
+| S02-T02 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -257,7 +265,7 @@ The approved policy is:
 - future normal employee creation uses invitation plus SSO; and
 - Founder status gives no implicit administrative authority.
 
-This policy approval does not authorize implementation, a seed, a management command, an endpoint, or any other bootstrap behavior in S02-T00. Implementation may begin only when the bootstrap-owning Sprint 02 ticket is explicitly authorized.
+This policy approval does not authorize implementation, a seed, a management command, an endpoint, or any other bootstrap behavior in S02-T01. Implementation may begin only when the bootstrap-owning Sprint 02 ticket is explicitly authorized.
 
 ## Configuration values that must remain configurable
 
@@ -408,12 +416,14 @@ Create only the identity/security aggregate required by Sprint 02: `Organization
 
 ### Acceptance criteria
 
-- [ ] The four planned entities and lifecycle constraints exist in an authorized migration.
-- [ ] Every mutable identity record is organization-scoped and cross-organization tests deny access.
-- [ ] An employee can have at most one internal account while an account can link provider identities safely.
-- [ ] Only approved explicit commands can alter lifecycle state.
-- [ ] Archived/historical employee references remain intact.
-- [ ] API validation, authorization, error contracts, OpenAPI, events, audit hooks, and tests are complete.
+- [x] The four planned entities and lifecycle constraints exist in an authorized migration.
+- [x] Every mutable identity record is organization-scoped and cross-organization tests deny access.
+- [x] An employee can have at most one internal account while an account can link provider identities safely.
+- [x] Only approved explicit commands can alter lifecycle state.
+- [x] Archived/historical employee references remain intact.
+- [x] API validation, authorization, error contracts, OpenAPI, events, audit hooks, and tests are complete.
+
+Acceptance evidence: migration `20260901165304_sprint_02_t01_identity_core`; 60 unit tests; 18 PostgreSQL integration tests; fresh and Sprint 01 upgrade migration validation; zero schema drift; production build; and healthy API, web, worker, and PostgreSQL containers. S02-T02 through S02-T15 remain unauthorized.
 
 ### Do Not Change
 
@@ -1505,4 +1515,4 @@ The final implementation report must use the repository completion format and in
 - Keep production identity-provider choice deferred and provider-specific code behind adapters.
 - Keep the approved bootstrap administrator policy unimplemented until its owning ticket is explicitly authorized.
 - Do not add plaintext secrets/tokens, direct database authorization shortcuts, fake business modules, or hard-coded Founder/Super Admin behavior.
-- Do not implement Sprint 02 from this document until explicitly authorized, and do not start the next sprint without explicit supervisor approval.
+- Do not implement an unauthorized Sprint 02 ticket from this document, and do not start the next sprint without explicit supervisor approval.

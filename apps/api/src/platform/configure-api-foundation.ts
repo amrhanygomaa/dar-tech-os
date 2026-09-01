@@ -6,6 +6,7 @@ import {
 } from '@dar-tech/observability';
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import { ApiResponseInterceptor } from './api-response.interceptor.js';
+import { configureOpenApi } from './configure-openapi.js';
 
 export function configureApiFoundation(
   app: INestApplication,
@@ -23,4 +24,5 @@ export function configureApiFoundation(
   });
   app.useGlobalFilters(new ApiExceptionFilter(contextStore, logger));
   app.useGlobalInterceptors(new ApiResponseInterceptor(contextStore));
+  configureOpenApi(app);
 }

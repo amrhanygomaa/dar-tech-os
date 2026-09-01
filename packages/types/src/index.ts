@@ -10,6 +10,10 @@ export const API_ERROR_CODES = {
   invalidRequest: 'INVALID_REQUEST',
   notFound: 'NOT_FOUND',
   serviceUnavailable: 'SERVICE_UNAVAILABLE',
+  authenticationRequired: 'AUTHENTICATION_REQUIRED',
+  authorizationDenied: 'AUTHORIZATION_DENIED',
+  identityLifecycleMutationNotAllowed: 'IDENTITY_LIFECYCLE_MUTATION_NOT_ALLOWED',
+  identityUpdateInvalid: 'IDENTITY_UPDATE_INVALID',
   internalError: 'INTERNAL_ERROR',
 } as const;
 
