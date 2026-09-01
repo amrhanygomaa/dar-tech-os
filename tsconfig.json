@@ -5,6 +5,7 @@
     { "path": "packages/types" },
     { "path": "packages/config" },
     { "path": "packages/database" },
+    { "path": "packages/observability" },
     { "path": "apps/api" },
     { "path": "apps/worker" }
   ]

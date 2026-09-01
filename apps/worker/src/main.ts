@@ -1,20 +1,30 @@
 import 'reflect-metadata';
 import 'dotenv/config';
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
   ConfigValidationError,
   loadWorkerConfig,
   toSafeConfigSummary,
 } from '@dar-tech/config';
+import { RequestContextStore, StructuredLogger } from '@dar-tech/observability';
 import { WorkerModule } from './worker.module.js';
 
 async function bootstrap(): Promise<void> {
   const config = loadWorkerConfig(process.env);
-  const app = await NestFactory.createApplicationContext(WorkerModule.register(config));
+  const contextStore = new RequestContextStore();
+  const logger = new StructuredLogger(contextStore, {
+    runtime: 'worker',
+    environment: config.appEnvironment,
+    level: config.logLevel,
+  });
+  const app = await NestFactory.createApplicationContext(
+    WorkerModule.register(config, { contextStore, logger }),
+    { logger },
+  );
   app.enableShutdownHooks();
-  const logger = new Logger('Bootstrap');
-  logger.log({ configuration: toSafeConfigSummary(config) }, 'Configuration validated');
+  logger.info('application.configuration.validated', {
+    configuration: toSafeConfigSummary(config),
+  });
 }
 
 void bootstrap().catch((error: unknown) => {

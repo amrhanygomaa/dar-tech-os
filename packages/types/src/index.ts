@@ -5,3 +5,29 @@ export interface FoundationDescriptor {
   readonly runtime: RuntimeName;
   readonly apiVersion: 'v1';
 }
+
+export const API_ERROR_CODES = {
+  invalidRequest: 'INVALID_REQUEST',
+  notFound: 'NOT_FOUND',
+  serviceUnavailable: 'SERVICE_UNAVAILABLE',
+  internalError: 'INTERNAL_ERROR',
+} as const;
+
+export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];
+
+export interface ApiResponseMeta {
+  readonly requestId: string;
+}
+
+export interface ApiSuccessResponse<T> {
+  readonly data: T;
+  readonly meta: ApiResponseMeta;
+}
+
+export interface ApiErrorResponse {
+  readonly error: {
+    readonly code: ApiErrorCode;
+    readonly message: string;
+    readonly requestId: string;
+  };
+}

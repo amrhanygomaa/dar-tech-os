@@ -1,22 +1,32 @@
 import 'reflect-metadata';
 import 'dotenv/config';
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
   ConfigValidationError,
   loadApiConfig,
   toSafeConfigSummary,
 } from '@dar-tech/config';
+import { RequestContextStore, StructuredLogger } from '@dar-tech/observability';
 import { AppModule } from './app.module.js';
+import { configureApiFoundation } from './platform/configure-api-foundation.js';
 
 async function bootstrap(): Promise<void> {
   const config = loadApiConfig(process.env);
-  const app = await NestFactory.create(AppModule.register(config));
+  const contextStore = new RequestContextStore();
+  const logger = new StructuredLogger(contextStore, {
+    runtime: 'api',
+    environment: config.appEnvironment,
+    level: config.logLevel,
+  });
+  const app = await NestFactory.create(
+    AppModule.register(config, { contextStore, logger }),
+    { logger },
+  );
   app.enableShutdownHooks();
-  app.setGlobalPrefix('api/v1');
-
-  const logger = new Logger('Bootstrap');
-  logger.log({ configuration: toSafeConfigSummary(config) }, 'Configuration validated');
+  configureApiFoundation(app, contextStore, logger);
+  logger.info('application.configuration.validated', {
+    configuration: toSafeConfigSummary(config),
+  });
   await app.listen(config.port, '0.0.0.0');
 }
 

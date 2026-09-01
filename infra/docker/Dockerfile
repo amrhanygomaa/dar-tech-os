@@ -14,6 +14,7 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY packages/config/package.json ./packages/config/package.json
 COPY packages/database/package.json ./packages/database/package.json
+COPY packages/observability/package.json ./packages/observability/package.json
 COPY packages/types/package.json ./packages/types/package.json
 
 RUN npm ci --ignore-scripts --cache /tmp/npm-cache && rm -rf /tmp/npm-cache
@@ -42,6 +43,7 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY packages/config/package.json ./packages/config/package.json
 COPY packages/database/package.json ./packages/database/package.json
+COPY packages/observability/package.json ./packages/observability/package.json
 COPY packages/types/package.json ./packages/types/package.json
 
 RUN npm ci --omit=dev --ignore-scripts --cache /tmp/npm-cache && rm -rf /tmp/npm-cache

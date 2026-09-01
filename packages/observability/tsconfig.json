@@ -7,10 +7,8 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "references": [
-    { "path": "../../packages/types" },
-    { "path": "../../packages/config" },
-    { "path": "../../packages/database" },
-    { "path": "../../packages/observability" }
+    { "path": "../types" },
+    { "path": "../config" }
   ],
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.spec.ts"]

@@ -9,7 +9,9 @@
   "references": [
     { "path": "../../packages/types" },
     { "path": "../../packages/config" },
-    { "path": "../../packages/database" }
+    { "path": "../../packages/database" },
+    { "path": "../../packages/observability" }
   ],
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts"]
 }
