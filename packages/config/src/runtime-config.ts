@@ -17,6 +17,61 @@ const queueNameSchema = z
   .min(1)
   .max(64)
   .regex(/^[a-z][a-z0-9._-]*$/u);
+const booleanStringSchema = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
+const localAuthenticationIdentitiesSchema = z
+  .string()
+  .trim()
+  .default('[]')
+  .transform((value, context) => {
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      context.addIssue({ code: 'custom', message: 'must be valid JSON' });
+      return z.NEVER;
+    }
+  })
+  .pipe(
+    z.array(
+      z
+        .object({
+          loginHint: z.string().trim().min(1).max(160),
+          providerSubject: z.string().trim().min(1).max(255),
+          verifiedEmail: z.string().trim().email().max(320).optional(),
+        })
+        .strict(),
+    ).max(100),
+  );
+const redirectAllowlistSchema = z
+  .string()
+  .trim()
+  .default('')
+  .transform((value, context) => {
+    const redirects = value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    const uniqueRedirects = [...new Set(redirects)];
+    for (const redirect of uniqueRedirects) {
+      try {
+        const parsed = new URL(redirect);
+        if (
+          !['http:', 'https:'].includes(parsed.protocol) ||
+          parsed.username.length > 0 ||
+          parsed.password.length > 0 ||
+          parsed.hash.length > 0
+        ) {
+          throw new Error('unsafe redirect');
+        }
+      } catch {
+        context.addIssue({ code: 'custom', message: 'must contain safe absolute HTTP(S) URLs' });
+        return z.NEVER;
+      }
+    }
+    return uniqueRedirects;
+  });
 
 const databaseUrlSchema = z.string().min(1).superRefine((value, context) => {
   try {
@@ -78,9 +133,65 @@ const databaseRuntimeSchema = commonRuntimeSchema
     }
   });
 
-const apiEnvironmentSchema = databaseRuntimeSchema.safeExtend({
-  API_PORT: portSchema.default(3001),
-});
+const apiEnvironmentSchema = databaseRuntimeSchema
+  .safeExtend({
+    API_PORT: portSchema.default(3001),
+    AUTH_ALLOWED_REDIRECT_URIS: redirectAllowlistSchema,
+    AUTH_LOCAL_IDENTITIES_JSON: localAuthenticationIdentitiesSchema,
+    AUTH_LOCAL_PROVIDER_ENABLED: booleanStringSchema,
+    AUTH_TRANSACTION_TTL_SECONDS: positiveIntegerSchema.min(60).max(900).default(300),
+  })
+  .superRefine((value, context) => {
+    if (
+      value.AUTH_LOCAL_PROVIDER_ENABLED &&
+      (value.APP_ENV === 'staging' || value.APP_ENV === 'production')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_LOCAL_PROVIDER_ENABLED'],
+        message: 'must be false in staging and production',
+      });
+    }
+
+    if (value.AUTH_LOCAL_PROVIDER_ENABLED && value.AUTH_ALLOWED_REDIRECT_URIS.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_ALLOWED_REDIRECT_URIS'],
+        message: 'must contain at least one URI when local authentication is enabled',
+      });
+    }
+
+    if (
+      value.AUTH_LOCAL_PROVIDER_ENABLED &&
+      value.APP_ENV === 'development' &&
+      value.AUTH_LOCAL_IDENTITIES_JSON.length === 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_LOCAL_IDENTITIES_JSON'],
+        message: 'must contain at least one identity in development',
+      });
+    }
+
+    const localLoginHints = value.AUTH_LOCAL_IDENTITIES_JSON.map(({ loginHint }) => loginHint);
+    const localSubjects = value.AUTH_LOCAL_IDENTITIES_JSON.map(
+      ({ providerSubject }) => providerSubject,
+    );
+    if (new Set(localLoginHints).size !== localLoginHints.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_LOCAL_IDENTITIES_JSON'],
+        message: 'must not contain duplicate login hints',
+      });
+    }
+    if (new Set(localSubjects).size !== localSubjects.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_LOCAL_IDENTITIES_JSON'],
+        message: 'must not contain duplicate provider subjects',
+      });
+    }
+  });
 
 const workerEnvironmentSchema = databaseRuntimeSchema
   .safeExtend({
@@ -133,6 +244,20 @@ export interface ApiConfig {
   readonly databasePoolMax: number;
   readonly databaseConnectTimeoutMs: number;
   readonly databaseIdleTimeoutMs: number;
+  readonly authentication: AuthenticationConfig;
+}
+
+export interface LocalAuthenticationIdentityConfig {
+  readonly loginHint: string;
+  readonly providerSubject: string;
+  readonly verifiedEmail?: string;
+}
+
+export interface AuthenticationConfig {
+  readonly allowedRedirectUris: readonly string[];
+  readonly localProviderEnabled: boolean;
+  readonly localIdentities: readonly LocalAuthenticationIdentityConfig[];
+  readonly transactionTtlSeconds: number;
 }
 
 export interface WorkerConfig {
@@ -195,6 +320,18 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     databasePoolMax: parsed.DATABASE_POOL_MAX,
     databaseConnectTimeoutMs: parsed.DATABASE_CONNECT_TIMEOUT_MS,
     databaseIdleTimeoutMs: parsed.DATABASE_IDLE_TIMEOUT_MS,
+    authentication: {
+      allowedRedirectUris: parsed.AUTH_ALLOWED_REDIRECT_URIS,
+      localProviderEnabled: parsed.AUTH_LOCAL_PROVIDER_ENABLED,
+      localIdentities: parsed.AUTH_LOCAL_IDENTITIES_JSON.map((identity) => ({
+        loginHint: identity.loginHint,
+        providerSubject: identity.providerSubject,
+        ...(identity.verifiedEmail
+          ? { verifiedEmail: identity.verifiedEmail.toLowerCase() }
+          : {}),
+      })),
+      transactionTtlSeconds: parsed.AUTH_TRANSACTION_TTL_SECONDS,
+    },
   };
 }
 

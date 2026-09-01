@@ -7,10 +7,15 @@ import { AppService } from './app.service.js';
 import { HealthModule } from './health/health.module.js';
 import { IdentityModule, type IdentityTestAdapters } from './identity/identity.module.js';
 import { ApiFallbackModule } from './platform/api-fallback.module.js';
+import {
+  AuthenticationModule,
+  type AuthenticationTestAdapters,
+} from './auth/auth.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
 export interface AppModuleRegistrationOptions {
+  readonly authenticationTestAdapters?: AuthenticationTestAdapters;
   readonly identityTestAdapters?: IdentityTestAdapters;
 }
 
@@ -34,6 +39,11 @@ export class AppModule {
         ObservabilityModule.register(observability),
         DatabaseModule.register(databaseOptions),
         HealthModule,
+        AuthenticationModule.register(
+          config.appEnvironment,
+          config.authentication,
+          options.authenticationTestAdapters,
+        ),
         IdentityModule.register(config.appEnvironment, options.identityTestAdapters),
         ApiFallbackModule,
       ],

@@ -13,6 +13,8 @@ Application publishers and processors depend on technical ports such as `JobQueu
 
 Provider construction belongs in runtime composition (`WorkerModule`), not in handlers. Provider configuration and IDs stay outside business payloads and entities.
 
+S02-T03 applies the same decision to authentication. Application code depends on `AuthenticationProviderAdapter`, normalized identity evidence, and explicit provider capabilities. Issuer, audience, signature, timestamp, state/nonce, PKCE, redirect, replay, and identity-claim verification remain adapter responsibilities declared through the neutral contract. Callback correlation uses `AuthenticationTransactionPort`, allowing a future shared technical store without creating a business entity. No production identity provider is selected by this extension.
+
 ## Alternatives Considered
 
 - Import a cloud SDK throughout application code: rejected because it creates lock-in and complicates local tests.
@@ -24,6 +26,7 @@ Provider construction belongs in runtime composition (`WorkerModule`), not in ha
 - Adapters must pass the shared contract and integration tests.
 - Provider-specific operational tooling can differ, but the application envelope and safety guarantees cannot silently weaken.
 - Exactly-once delivery is not claimed; deduplication and consumer idempotency provide the safety boundary.
+- Authentication adapters cannot leak vendor SDK objects or external group/role claims into Dar Tech domain authorization.
 
 ## Security / Data Impact
 
@@ -38,4 +41,7 @@ Migration to another provider is a composition/configuration change plus an adap
 - `packages/queue/src/contracts.ts`
 - `packages/queue/src/postgres-job-queue.ts`
 - `apps/worker/src/worker.module.ts`
+- `apps/api/src/auth/auth.contracts.ts`
+- `apps/api/src/auth/auth.module.ts`
+- `docs/engineering/SPRINT_02_T03_SSO_ABSTRACTION.md`
 - `docs/engineering/SPRINT_01_FOUNDATION_GUIDE.md`

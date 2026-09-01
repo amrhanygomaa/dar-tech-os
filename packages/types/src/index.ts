@@ -11,6 +11,7 @@ export const API_ERROR_CODES = {
   notFound: 'NOT_FOUND',
   serviceUnavailable: 'SERVICE_UNAVAILABLE',
   authenticationRequired: 'AUTHENTICATION_REQUIRED',
+  authenticationFailed: 'AUTHENTICATION_FAILED',
   authorizationDenied: 'AUTHORIZATION_DENIED',
   identityLifecycleMutationNotAllowed: 'IDENTITY_LIFECYCLE_MUTATION_NOT_ALLOWED',
   identityUpdateInvalid: 'IDENTITY_UPDATE_INVALID',

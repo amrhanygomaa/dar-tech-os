@@ -7,6 +7,8 @@ export {
   loadWorkerConfig,
   type ApiConfig,
   type AppEnvironment,
+  type AuthenticationConfig,
+  type LocalAuthenticationIdentityConfig,
   type LogLevel,
   type WebConfig,
   type WorkerConfig,

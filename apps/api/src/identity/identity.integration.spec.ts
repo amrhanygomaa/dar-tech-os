@@ -13,6 +13,7 @@ import {
 import { RequestContextStore, StructuredLogger } from '@dar-tech/observability';
 import { AppModule } from '../app.module.js';
 import { configureApiFoundation } from '../platform/configure-api-foundation.js';
+import { PrismaAuthenticationIdentityRepository } from '../auth/prisma-auth-identity.repository.js';
 import type { IdentityAuditHook, TrustedActor } from './identity.contracts.js';
 import { PrismaIdentityRepository } from './prisma-identity.repository.js';
 
@@ -121,12 +122,14 @@ async function createFixtures(client: DatabaseClient): Promise<void> {
 describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration', () => {
   let client: DatabaseClient;
   let repository: PrismaIdentityRepository;
+  let authenticationRepository: PrismaAuthenticationIdentityRepository;
   let app: INestApplication;
   const auditRecord = vi.fn();
 
   beforeAll(async () => {
     client = createPrismaClient({ databaseUrl: databaseUrl as string });
     repository = new PrismaIdentityRepository(client);
+    authenticationRepository = new PrismaAuthenticationIdentityRepository(client);
     const destination = new Writable({
       write(_chunk, _encoding, callback) {
         callback();
@@ -149,6 +152,12 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
       databasePoolMax: 2,
       databaseConnectTimeoutMs: 2_000,
       databaseIdleTimeoutMs: 2_000,
+      authentication: {
+        allowedRedirectUris: [],
+        localProviderEnabled: false,
+        localIdentities: [],
+        transactionTtlSeconds: 300,
+      },
     };
     const audit: IdentityAuditHook = { record: auditRecord };
     app = await NestFactory.create(
@@ -320,6 +329,30 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
     await expect(
       repository.findSSOIdentity(orgAId, ' MICROSOFT-ENTRA ', ' subject-org-a '),
     ).resolves.toMatchObject({ id: orgASSOId, organizationId: orgAId });
+  });
+
+  it('resolves linked authentication eligibility from the canonical T01 identity tuple', async () => {
+    await expect(
+      authenticationRepository.findLinkedIdentity(' MICROSOFT-ENTRA ', ' subject-org-a '),
+    ).resolves.toMatchObject({
+      ssoIdentityId: orgASSOId,
+      organizationId: orgAId,
+      userAccount: {
+        id: actorAccountId,
+        organizationId: orgAId,
+        employeeId: actorEmployeeId,
+        authenticationEligible: true,
+        disabledAt: null,
+      },
+      employee: {
+        id: actorEmployeeId,
+        organizationId: orgAId,
+        lifecycleStatus: 'ACTIVE',
+      },
+    });
+    await expect(
+      authenticationRepository.findLinkedIdentity('microsoft-entra', 'unknown-subject'),
+    ).resolves.toBeNull();
   });
 
   it('lists and fetches only employees in the trusted actor organization', async () => {

@@ -6,19 +6,19 @@ Internal company operating system for Dar Tech.
 
 **Sprint 01 — Engineering Foundation: COMPLETED**
 
-Sprint 01 was supervisor-approved and merged through PR #1. See `docs/execution/SPRINT_01_CLOSURE.md` for the closure record. Sprint 02 and business-module implementation have not started.
+Sprint 02 is under controlled implementation. S02-T00 and S02-T01 are complete; S02-T03 is the only currently authorized ticket. S02-T02 and S02-T04 through S02-T15 remain unauthorized. Business-module implementation has not started.
 
 ## Start here
 
 Codex must read these files before implementation:
 
 1. `CODEX_MASTER_EXECUTION_PROMPT.md`
-2. `SPRINT_01_ENGINEERING_FOUNDATION.md`
+2. The active ticket in `SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md`
 3. `docs/SOURCE_OF_TRUTH.md`
 4. `docs/README.md`
-5. Only the documentation relevant to Sprint 01
+5. Only the documentation relevant to the active ticket
 
-Do **not** start Sprint 02 or business modules without explicit supervisor authorization for Sprint 02.
+Do **not** start another Sprint 02 ticket or any business module without explicit supervisor authorization.
 
 ## Initial architecture baseline
 
