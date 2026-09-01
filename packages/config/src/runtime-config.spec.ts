@@ -72,4 +72,29 @@ describe('runtime configuration', () => {
       }),
     ).toThrowError(/NODE_ENV/);
   });
+
+  it('loads bounded worker queue and retry defaults', () => {
+    const config = loadWorkerConfig(validEnvironment);
+
+    expect(config).toMatchObject({
+      queueName: 'foundation',
+      pollIntervalMs: 1000,
+      leaseDurationMs: 30000,
+      retryBaseDelayMs: 1000,
+      retryMaxDelayMs: 60000,
+      jobMaxAttempts: 5,
+    });
+    expect(config.workerId).toMatch(/^worker-\d+$/u);
+  });
+
+  it('rejects an invalid queue and inverted retry bounds', () => {
+    expect(() =>
+      loadWorkerConfig({
+        ...validEnvironment,
+        WORKER_QUEUE: 'Business Queue',
+        WORKER_RETRY_BASE_DELAY_MS: '5000',
+        WORKER_RETRY_MAX_DELAY_MS: '1000',
+      }),
+    ).toThrowError(/WORKER_QUEUE, WORKER_RETRY_MAX_DELAY_MS/);
+  });
 });

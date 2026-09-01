@@ -11,6 +11,12 @@ export default defineConfig({
       '@dar-tech/observability': fileURLToPath(
         new URL('./packages/observability/src/index.ts', import.meta.url),
       ),
+      '@dar-tech/outbox': fileURLToPath(
+        new URL('./packages/outbox/src/index.ts', import.meta.url),
+      ),
+      '@dar-tech/queue': fileURLToPath(
+        new URL('./packages/queue/src/index.ts', import.meta.url),
+      ),
       '@dar-tech/types': fileURLToPath(new URL('./packages/types/src/index.ts', import.meta.url)),
     },
   },

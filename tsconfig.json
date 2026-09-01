@@ -6,6 +6,8 @@
     { "path": "packages/config" },
     { "path": "packages/database" },
     { "path": "packages/observability" },
+    { "path": "packages/queue" },
+    { "path": "packages/outbox" },
     { "path": "apps/api" },
     { "path": "apps/worker" }
   ]

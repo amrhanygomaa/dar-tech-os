@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { type DynamicModule, Module } from '@nestjs/common';
 import { RequestContextMiddleware } from './http-middleware.js';
 import type { StructuredLogger } from './logger.js';
 import type { RequestContextStore } from './request-context.js';

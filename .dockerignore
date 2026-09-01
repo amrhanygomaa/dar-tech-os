@@ -1,5 +1,7 @@
 .git
 .github
+dar-tech-os
+old system & tools
 .env
 .env.*
 !.env.example

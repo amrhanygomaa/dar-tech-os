@@ -4,7 +4,7 @@ Internal company operating system for Dar Tech.
 
 ## Current status
 
-**Implementation has not started.** The repository is prepared for **Sprint 01 — Engineering Foundation**.
+**Sprint 01 — Engineering Foundation is implemented on its review branch.** No Sprint 02 or business module is authorized until supervisor approval.
 
 ## Start here
 
@@ -30,3 +30,12 @@ Do **not** start Sprint 02 or business modules until Sprint 01 is reviewed and a
 - Hostinger-first deployment with AWS portability
 
 See the master specifications under `docs/` for detailed requirements and guardrails.
+
+## Foundation commands
+
+```sh
+npm run quality:gate
+docker compose up --build -d --wait
+```
+
+See `docs/engineering/SPRINT_01_FOUNDATION_GUIDE.md` for local development, configuration, migrations, Docker, logging/errors, worker/queue, outbox, CI, and portability conventions.

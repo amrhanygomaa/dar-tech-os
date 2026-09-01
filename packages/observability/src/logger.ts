@@ -35,7 +35,7 @@ function safeEventName(value: string): string {
 function scrubText(value: string): string {
   return value
     .replace(/(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s/]+@/giu, '$1[REDACTED]:[REDACTED]@')
-    .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/giu, 'Bearer [REDACTED]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/giu, 'Bearer [REDACTED]')
     .replace(
       /\b(password|secret|token|authorization)\s*[:=]\s*[^\s,;]+/giu,
       '$1=[REDACTED]',

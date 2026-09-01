@@ -1,4 +1,4 @@
-import { DynamicModule, Module, OnModuleDestroy } from '@nestjs/common';
+import { type DynamicModule, Module, type OnModuleDestroy } from '@nestjs/common';
 import type { DatabaseClientOptions } from './client.js';
 import { createPrismaClient } from './client.js';
 

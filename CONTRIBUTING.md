@@ -9,6 +9,7 @@ Dar Tech OS is developed through controlled sprint/ticket execution.
 - Run quality gates before submitting a PR.
 - Use ADRs for material architecture decisions.
 - Do not bundle unrelated refactors with feature work.
+- Run `npm run quality:gate` before requesting review.
 
 ## Commit examples
 - `chore: initialize engineering foundation`

@@ -5,6 +5,18 @@ const nodeEnvironmentSchema = z.enum(['development', 'test', 'production']);
 const logLevelSchema = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']);
 const portSchema = z.coerce.number().int().min(1).max(65_535);
 const positiveIntegerSchema = z.coerce.number().int().positive();
+const workerIdentifierSchema = z
+  .string()
+  .trim()
+  .max(128)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u)
+  .or(z.literal(''));
+const queueNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z][a-z0-9._-]*$/u);
 
 const databaseUrlSchema = z.string().min(1).superRefine((value, context) => {
   try {
@@ -70,10 +82,39 @@ const apiEnvironmentSchema = databaseRuntimeSchema.safeExtend({
   API_PORT: portSchema.default(3001),
 });
 
-const workerEnvironmentSchema = databaseRuntimeSchema.safeExtend({
-  WORKER_HEALTH_FILE: z.string().trim().default(''),
-  WORKER_HEARTBEAT_INTERVAL_MS: positiveIntegerSchema.min(1_000).max(60_000).default(10_000),
-});
+const workerEnvironmentSchema = databaseRuntimeSchema
+  .safeExtend({
+    WORKER_HEALTH_FILE: z.string().trim().default(''),
+    WORKER_HEARTBEAT_INTERVAL_MS: positiveIntegerSchema
+      .min(1_000)
+      .max(60_000)
+      .default(10_000),
+    WORKER_ID: workerIdentifierSchema.default(''),
+    WORKER_QUEUE: queueNameSchema.default('foundation'),
+    WORKER_POLL_INTERVAL_MS: positiveIntegerSchema.min(100).max(60_000).default(1_000),
+    WORKER_LEASE_DURATION_MS: positiveIntegerSchema
+      .min(1_000)
+      .max(3_600_000)
+      .default(30_000),
+    WORKER_RETRY_BASE_DELAY_MS: positiveIntegerSchema
+      .min(100)
+      .max(86_400_000)
+      .default(1_000),
+    WORKER_RETRY_MAX_DELAY_MS: positiveIntegerSchema
+      .min(100)
+      .max(86_400_000)
+      .default(60_000),
+    WORKER_JOB_MAX_ATTEMPTS: positiveIntegerSchema.max(25).default(5),
+  })
+  .superRefine((value, context) => {
+    if (value.WORKER_RETRY_MAX_DELAY_MS < value.WORKER_RETRY_BASE_DELAY_MS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['WORKER_RETRY_MAX_DELAY_MS'],
+        message: 'must be greater than or equal to WORKER_RETRY_BASE_DELAY_MS',
+      });
+    }
+  });
 
 const webEnvironmentSchema = commonRuntimeSchema.safeExtend({
   WEB_PORT: portSchema.default(3000),
@@ -105,6 +146,13 @@ export interface WorkerConfig {
   readonly databaseIdleTimeoutMs: number;
   readonly healthFile: string | null;
   readonly heartbeatIntervalMs: number;
+  readonly workerId: string;
+  readonly queueName: string;
+  readonly pollIntervalMs: number;
+  readonly leaseDurationMs: number;
+  readonly retryBaseDelayMs: number;
+  readonly retryMaxDelayMs: number;
+  readonly jobMaxAttempts: number;
 }
 
 export interface WebConfig {
@@ -163,6 +211,13 @@ export function loadWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig {
     databaseIdleTimeoutMs: parsed.DATABASE_IDLE_TIMEOUT_MS,
     healthFile: parsed.WORKER_HEALTH_FILE || null,
     heartbeatIntervalMs: parsed.WORKER_HEARTBEAT_INTERVAL_MS,
+    workerId: parsed.WORKER_ID || `worker-${process.pid}`,
+    queueName: parsed.WORKER_QUEUE,
+    pollIntervalMs: parsed.WORKER_POLL_INTERVAL_MS,
+    leaseDurationMs: parsed.WORKER_LEASE_DURATION_MS,
+    retryBaseDelayMs: parsed.WORKER_RETRY_BASE_DELAY_MS,
+    retryMaxDelayMs: parsed.WORKER_RETRY_MAX_DELAY_MS,
+    jobMaxAttempts: parsed.WORKER_JOB_MAX_ATTEMPTS,
   };
 }
 

@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { type DynamicModule, Module } from '@nestjs/common';
 import { DatabaseModule, type DatabaseClientOptions } from '@dar-tech/database';
 import { DATABASE_READINESS_PORT } from './database-readiness.port.js';
 import { HealthController } from './health.controller.js';

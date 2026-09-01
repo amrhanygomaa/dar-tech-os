@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApplicationError } from '@dar-tech/observability';
+import { type ApplicationError } from '@dar-tech/observability';
 import type { DatabaseReadinessPort } from './database-readiness.port.js';
 import { HealthService } from './health.service.js';
 

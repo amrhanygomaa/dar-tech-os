@@ -34,6 +34,13 @@ describe('safe configuration output', () => {
       databaseIdleTimeoutMs: 30000,
       healthFile: null,
       heartbeatIntervalMs: 10000,
+      workerId: 'worker-test',
+      queueName: 'foundation',
+      pollIntervalMs: 1000,
+      leaseDurationMs: 30000,
+      retryBaseDelayMs: 1000,
+      retryMaxDelayMs: 60000,
+      jobMaxAttempts: 5,
     });
 
     expect(summary).toEqual({
