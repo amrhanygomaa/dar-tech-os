@@ -1,21 +1,21 @@
-# dependencies
+# Dependencies
 node_modules/
 .pnpm-store/
 .npm-cache/
 
-# builds
+# Builds
 .next/
 dist/
 build/
 coverage/
 *.tsbuildinfo
 
-# environment / secrets
+# Environment / secrets
 .env
 .env.*
 !.env.example
 
-# logs
+# Logs
 *.log
 logs/
 
@@ -29,9 +29,15 @@ Thumbs.db
 *.db
 *.db-journal
 
-# temp
+# Temp
 .tmp/
 tmp/
 
-# generated clients
+# Generated clients
 packages/database/src/generated/
+
+# Claude Code
+.claude/
+
+# Legacy systems
+old system & tools/
