@@ -80,6 +80,17 @@ describe('API foundation', () => {
     expect(JSON.stringify(response.body)).not.toContain('stack');
   });
 
+  it('replaces an invalid inbound request identifier', async () => {
+    const invalidIdentifier = `request-${'x'.repeat(130)}`;
+    const response = await request(app.getHttpServer())
+      .get('/api/v1')
+      .set('X-Request-ID', invalidIdentifier)
+      .expect(200);
+
+    expect(response.headers['x-request-id']).not.toBe(invalidIdentifier);
+    expect(response.body.meta.requestId).toBe(response.headers['x-request-id']);
+  });
+
   it('assigns request IDs before malformed JSON is rejected', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1')
@@ -92,5 +103,30 @@ describe('API foundation', () => {
       code: 'INVALID_REQUEST',
       requestId: response.headers['x-request-id'],
     });
+  });
+
+  it('exposes liveness outside the versioned API without querying PostgreSQL', async () => {
+    const response = await request(app.getHttpServer()).get('/health/live').expect(200);
+
+    expect(response.body).toEqual({
+      data: { status: 'ok' },
+      meta: { requestId: response.headers['x-request-id'] },
+    });
+  });
+
+  it('reports degraded health and fails readiness when PostgreSQL is unavailable', async () => {
+    const health = await request(app.getHttpServer()).get('/health').expect(200);
+    const readiness = await request(app.getHttpServer()).get('/health/ready').expect(503);
+
+    expect(health.body.data).toMatchObject({
+      status: 'degraded',
+      checks: { database: { status: 'down' } },
+    });
+    expect(readiness.body.error).toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'Service is not ready',
+      requestId: readiness.headers['x-request-id'],
+    });
+    await request(app.getHttpServer()).get('/api/v1/health').expect(404);
   });
 });

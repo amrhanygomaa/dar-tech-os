@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import { RequestMethod, type INestApplication } from '@nestjs/common';
 import {
   RequestContextMiddleware,
   type RequestContextStore,
@@ -14,7 +14,13 @@ export function configureApiFoundation(
 ): void {
   const requestContextMiddleware = app.get(RequestContextMiddleware);
   app.use(requestContextMiddleware.use.bind(requestContextMiddleware));
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      { path: 'health', method: RequestMethod.GET },
+      { path: 'health/live', method: RequestMethod.GET },
+      { path: 'health/ready', method: RequestMethod.GET },
+    ],
+  });
   app.useGlobalFilters(new ApiExceptionFilter(contextStore, logger));
   app.useGlobalInterceptors(new ApiResponseInterceptor(contextStore));
 }
