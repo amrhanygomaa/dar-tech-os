@@ -40,36 +40,49 @@ enum EmployeeLifecycleStatus {
   @@map("employee_lifecycle_status")
 }
 
+enum EventRisk {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("event_risk")
+}
+
 model Organization {
-  id            String        @id @default(uuid()) @db.Uuid
-  displayName   String        @map("display_name") @db.VarChar(160)
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  employees     Employee[]
-  userAccounts  UserAccount[]
-  ssoIdentities SSOIdentity[]
+  id             String          @id @default(uuid()) @db.Uuid
+  displayName    String          @map("display_name") @db.VarChar(160)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employees      Employee[]
+  userAccounts   UserAccount[]
+  ssoIdentities  SSOIdentity[]
+  auditEvents    AuditEvent[]
+  securityEvents SecurityEvent[]
 
   @@map("organizations")
 }
 
 model Employee {
-  id              String                  @id @default(uuid()) @db.Uuid
-  organizationId  String                  @map("organization_id") @db.Uuid
-  employeeCode    String                  @map("employee_code") @db.VarChar(64)
-  firstName       String                  @map("first_name") @db.VarChar(100)
-  lastName        String                  @map("last_name") @db.VarChar(100)
-  displayName     String                  @map("display_name") @db.VarChar(160)
-  workEmail       String                  @map("work_email") @db.VarChar(320)
-  lifecycleStatus EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
-  invitedAt       DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
-  activatedAt     DateTime?               @map("activated_at") @db.Timestamptz(3)
-  suspendedAt     DateTime?               @map("suspended_at") @db.Timestamptz(3)
-  offboardingAt   DateTime?               @map("offboarding_at") @db.Timestamptz(3)
-  archivedAt      DateTime?               @map("archived_at") @db.Timestamptz(3)
-  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  userAccount     UserAccount?
+  id                  String                  @id @default(uuid()) @db.Uuid
+  organizationId      String                  @map("organization_id") @db.Uuid
+  employeeCode        String                  @map("employee_code") @db.VarChar(64)
+  firstName           String                  @map("first_name") @db.VarChar(100)
+  lastName            String                  @map("last_name") @db.VarChar(100)
+  displayName         String                  @map("display_name") @db.VarChar(160)
+  workEmail           String                  @map("work_email") @db.VarChar(320)
+  lifecycleStatus     EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
+  invitedAt           DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
+  activatedAt         DateTime?               @map("activated_at") @db.Timestamptz(3)
+  suspendedAt         DateTime?               @map("suspended_at") @db.Timestamptz(3)
+  offboardingAt       DateTime?               @map("offboarding_at") @db.Timestamptz(3)
+  archivedAt          DateTime?               @map("archived_at") @db.Timestamptz(3)
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userAccount         UserAccount?
+  authoredAuditEvents AuditEvent[]            @relation("AuditEventActor")
+  securityEvents      SecurityEvent[]         @relation("SecurityEventActor")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
@@ -79,17 +92,18 @@ model Employee {
 }
 
 model UserAccount {
-  id                     String        @id @default(uuid()) @db.Uuid
-  organizationId         String        @map("organization_id") @db.Uuid
-  employeeId             String        @unique(map: "user_accounts_employee_id_key") @map("employee_id") @db.Uuid
-  authenticationEligible Boolean       @default(false) @map("authentication_eligible")
-  activatedAt            DateTime?     @map("activated_at") @db.Timestamptz(3)
-  disabledAt             DateTime?     @map("disabled_at") @db.Timestamptz(3)
-  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee               Employee      @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+  id                     String          @id @default(uuid()) @db.Uuid
+  organizationId         String          @map("organization_id") @db.Uuid
+  employeeId             String          @unique(map: "user_accounts_employee_id_key") @map("employee_id") @db.Uuid
+  authenticationEligible Boolean         @default(false) @map("authentication_eligible")
+  activatedAt            DateTime?       @map("activated_at") @db.Timestamptz(3)
+  disabledAt             DateTime?       @map("disabled_at") @db.Timestamptz(3)
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization           Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee               Employee        @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
   ssoIdentities          SSOIdentity[]
+  securityEvents         SecurityEvent[] @relation("SecurityEventAccount")
 
   @@unique([organizationId, id], map: "user_accounts_organization_id_id_key")
   @@unique([organizationId, employeeId], map: "user_accounts_organization_employee_id_key")
@@ -115,6 +129,65 @@ model SSOIdentity {
   @@index([organizationId, userAccountId], map: "sso_identities_organization_account_idx")
   @@index([organizationId, verifiedEmailNormalized], map: "sso_identities_organization_verified_email_idx")
   @@map("sso_identities")
+}
+
+model AuditEvent {
+  id                String       @id @default(uuid()) @db.Uuid
+  organizationId    String       @map("organization_id") @db.Uuid
+  actionKey         String       @map("action_key") @db.VarChar(160)
+  actorEmployeeId   String?      @map("actor_employee_id") @db.Uuid
+  actorSnapshot     Json         @map("actor_snapshot") @db.JsonB
+  targetType        String       @map("target_type") @db.VarChar(80)
+  targetId          String       @map("target_id") @db.VarChar(128)
+  targetSnapshot    Json?        @map("target_snapshot") @db.JsonB
+  requestId         String?      @map("request_id") @db.VarChar(128)
+  correlationId     String       @map("correlation_id") @db.VarChar(128)
+  sessionReference  String?      @map("session_reference") @db.VarChar(128)
+  safeReason        String?      @map("safe_reason") @db.VarChar(1024)
+  changeDelta       Json?        @map("change_delta") @db.JsonB
+  approvalReference String?      @map("approval_reference") @db.VarChar(128)
+  occurredAt        DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  eventVersion      Int          @default(1) @map("event_version")
+  integrityVersion  Int          @default(1) @map("integrity_version")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actorEmployee     Employee?    @relation("AuditEventActor", fields: [organizationId, actorEmployeeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, occurredAt, id], map: "audit_events_organization_occurred_at_idx")
+  @@index([organizationId, actionKey, occurredAt], map: "audit_events_organization_action_occurred_idx")
+  @@index([organizationId, targetType, targetId], map: "audit_events_organization_target_idx")
+  @@map("audit_events")
+}
+
+model SecurityEvent {
+  id               String        @id @default(uuid()) @db.Uuid
+  organizationId   String?       @map("organization_id") @db.Uuid
+  eventType        String        @map("event_type") @db.VarChar(160)
+  category         String        @db.VarChar(80)
+  risk             EventRisk
+  outcome          String        @db.VarChar(64)
+  actorEmployeeId  String?       @map("actor_employee_id") @db.Uuid
+  actorAccountId   String?       @map("actor_account_id") @db.Uuid
+  providerKey      String?       @map("provider_key") @db.VarChar(64)
+  sessionReference String?       @map("session_reference") @db.VarChar(128)
+  actorSnapshot    Json?         @map("actor_snapshot") @db.JsonB
+  safeContext      Json?         @map("safe_context") @db.JsonB
+  requestId        String?       @map("request_id") @db.VarChar(128)
+  correlationId    String        @map("correlation_id") @db.VarChar(128)
+  networkContext   Json?         @map("network_context") @db.JsonB
+  deviceContext    Json?         @map("device_context") @db.JsonB
+  occurredAt       DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  eventVersion     Int           @default(1) @map("event_version")
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actorEmployee    Employee?     @relation("SecurityEventActor", fields: [organizationId, actorEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  actorAccount     UserAccount?  @relation("SecurityEventAccount", fields: [organizationId, actorAccountId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, occurredAt, id], map: "security_events_organization_occurred_at_idx")
+  @@index([organizationId, eventType, occurredAt], map: "security_events_organization_type_occurred_idx")
+  @@index([organizationId, category, risk, outcome], map: "security_events_organization_classification_idx")
+  @@index([occurredAt, id], map: "security_events_unresolved_occurred_at_idx")
+  @@map("security_events")
 }
 
 model QueueJob {

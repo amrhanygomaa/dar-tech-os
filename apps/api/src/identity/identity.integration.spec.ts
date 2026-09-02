@@ -2,7 +2,7 @@ import { Writable } from 'node:stream';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { ApiConfig } from '@dar-tech/config';
 import {
   createPrismaClient,
@@ -14,7 +14,7 @@ import { RequestContextStore, StructuredLogger } from '@dar-tech/observability';
 import { AppModule } from '../app.module.js';
 import { configureApiFoundation } from '../platform/configure-api-foundation.js';
 import { PrismaAuthenticationIdentityRepository } from '../auth/prisma-auth-identity.repository.js';
-import type { IdentityAuditHook, TrustedActor } from './identity.contracts.js';
+import type { TrustedActor } from './identity.contracts.js';
 import { PrismaIdentityRepository } from './prisma-identity.repository.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -35,6 +35,7 @@ const actor: TrustedActor = {
 };
 
 async function clearIdentityData(client: DatabaseClient): Promise<void> {
+  await client.$executeRawUnsafe('TRUNCATE TABLE "audit_events", "security_events"');
   await client.sSOIdentity.deleteMany();
   await client.userAccount.deleteMany();
   await client.employee.deleteMany();
@@ -124,7 +125,6 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
   let repository: PrismaIdentityRepository;
   let authenticationRepository: PrismaAuthenticationIdentityRepository;
   let app: INestApplication;
-  const auditRecord = vi.fn();
 
   beforeAll(async () => {
     client = createPrismaClient({ databaseUrl: databaseUrl as string });
@@ -159,7 +159,6 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
         transactionTtlSeconds: 300,
       },
     };
-    const audit: IdentityAuditHook = { record: auditRecord };
     app = await NestFactory.create(
       AppModule.register(
         config,
@@ -168,7 +167,6 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
           identityTestAdapters: {
             actors: { currentActor: () => Promise.resolve(actor) },
             authorization: { authorize: () => Promise.resolve(true) },
-            audit,
           },
         },
       ),
@@ -179,7 +177,6 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
   });
 
   beforeEach(async () => {
-    auditRecord.mockReset();
     await clearIdentityData(client);
     await createFixtures(client);
   });
@@ -386,13 +383,26 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
       workEmail: 'updated@orga.example',
       lifecycleStatus: 'INVITED',
     });
-    expect(auditRecord).toHaveBeenCalledWith({
-      action: 'admin.employee.update',
-      actor,
-      targetType: 'employee',
+    await expect(
+      client.auditEvent.findFirstOrThrow({
+        where: { organizationId: orgAId, actionKey: 'admin.employee.update' },
+      }),
+    ).resolves.toMatchObject({
+      actionKey: 'admin.employee.update',
+      actorEmployeeId,
       targetId: targetEmployeeId,
       organizationId: orgAId,
-      changedFields: ['displayName', 'workEmail'],
+      requestId: response.headers['x-request-id'],
+      actorSnapshot: {
+        type: 'employee',
+        displayName: 'Actor Employee',
+        employeeCode: 'A-001',
+      },
+      targetSnapshot: {
+        displayName: 'Target Employee',
+        employeeCode: 'A-002',
+      },
+      changeDelta: { changedFields: ['displayName', 'workEmail'] },
     });
   });
 

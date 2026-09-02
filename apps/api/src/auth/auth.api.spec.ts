@@ -77,6 +77,7 @@ describe('provider-neutral authentication API', () => {
           authenticationTestAdapters: {
             identities: { findLinkedIdentity: () => Promise.resolve(linkedIdentity) },
             invitations: { authorize: () => Promise.resolve(null) },
+            security: { record: () => Promise.resolve() },
           },
         },
       ),

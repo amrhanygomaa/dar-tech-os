@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { DatabaseTransaction } from '@dar-tech/database';
 import type { StructuredLogger } from '@dar-tech/observability';
 import type {
   AuthenticatedActorPort,
@@ -7,6 +8,7 @@ import type {
   IdentityAuditHook,
   IdentityAuthorizationPort,
   IdentityRepositoryPort,
+  IdentityTransactionPort,
   SelfIdentityView,
   TrustedActor,
 } from './identity.contracts.js';
@@ -88,11 +90,20 @@ function harness(options: { actor?: TrustedActor | null; allowed?: boolean } = {
     findAccountById: vi.fn().mockResolvedValue(employee.userAccount),
     findSSOIdentity: vi.fn().mockResolvedValue(null),
   };
-  const audit: IdentityAuditHook = { record: vi.fn().mockResolvedValue(undefined) };
+  const audit: IdentityAuditHook = {
+    record: vi.fn().mockResolvedValue(undefined),
+  };
+  const transaction = {} as DatabaseTransaction;
+  const transactions: IdentityTransactionPort = {
+    run: (work) => work(transaction),
+  };
   const loggerInfo = vi.fn();
-  const logger = { info: loggerInfo, warnEvent: vi.fn() } as unknown as StructuredLogger;
+  const logger = {
+    info: loggerInfo,
+    warnEvent: vi.fn(),
+  } as unknown as StructuredLogger;
   return {
-    service: new IdentityService(actors, authorization, repository, audit, logger),
+    service: new IdentityService(actors, authorization, repository, audit, transactions, logger),
     repository,
     authorization,
     audit,
@@ -154,18 +165,28 @@ describe('IdentityService security boundary', () => {
       workEmail: ' UPDATED@EXAMPLE.COM ',
     });
 
-    expect(repository.updateEmployeeProfile).toHaveBeenCalledWith(organizationId, employeeId, {
-      displayName: 'Updated Name',
-      workEmail: 'updated@example.com',
-    });
-    expect(audit.record).toHaveBeenCalledWith({
-      action: 'admin.employee.update',
-      actor,
-      targetType: 'employee',
-      targetId: employeeId,
+    expect(repository.updateEmployeeProfile).toHaveBeenCalledWith(
       organizationId,
-      changedFields: ['displayName', 'workEmail'],
-    });
+      employeeId,
+      {
+        displayName: 'Updated Name',
+        workEmail: 'updated@example.com',
+      },
+      expect.anything(),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      {
+        action: 'admin.employee.update',
+        actor,
+        targetType: 'employee',
+        targetId: employeeId,
+        organizationId,
+        changedFields: ['displayName', 'workEmail'],
+        actorSnapshot: { displayName: 'Amr Hassan', employeeCode: 'DT-001' },
+        targetSnapshot: { displayName: 'Amr Hassan', employeeCode: 'DT-001' },
+      },
+      expect.anything(),
+    );
     expect(loggerInfo).toHaveBeenCalledWith(
       'identity.employee.profile_updated',
       expect.objectContaining({ organizationId, targetId: employeeId }),
@@ -195,9 +216,12 @@ describe('IdentityService security boundary', () => {
 
     await service.updateMe({ displayName: ' Self Name ' });
 
-    expect(repository.updateEmployeeProfile).toHaveBeenCalledWith(organizationId, employeeId, {
-      displayName: 'Self Name',
-    });
+    expect(repository.updateEmployeeProfile).toHaveBeenCalledWith(
+      organizationId,
+      employeeId,
+      { displayName: 'Self Name' },
+      expect.anything(),
+    );
     expect(repository.findSelf).toHaveBeenCalledWith(organizationId, employeeId, accountId);
   });
 

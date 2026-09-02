@@ -10,13 +10,16 @@ import {
   IDENTITY_AUDIT_HOOK,
   IDENTITY_AUTHORIZATION_PORT,
   IDENTITY_REPOSITORY_PORT,
+  IDENTITY_TRANSACTION_PORT,
   type AuthenticatedActorPort,
   type EmployeeDetailView,
   type EmployeePage,
   type IdentityAction,
+  type IdentityAuditEntry,
   type IdentityAuditHook,
   type IdentityAuthorizationPort,
   type IdentityRepositoryPort,
+  type IdentityTransactionPort,
   type SelfIdentityView,
   type TrustedActor,
 } from './identity.contracts.js';
@@ -38,6 +41,8 @@ export class IdentityService {
     private readonly repository: IdentityRepositoryPort,
     @Inject(IDENTITY_AUDIT_HOOK)
     private readonly audit: IdentityAuditHook,
+    @Inject(IDENTITY_TRANSACTION_PORT)
+    private readonly transactions: IdentityTransactionPort,
     @Inject(STRUCTURED_LOGGER)
     private readonly logger: StructuredLogger,
   ) {}
@@ -52,13 +57,7 @@ export class IdentityService {
     );
     if (!view) {
       const error = authenticationRequired();
-      this.logFailure(
-        actor,
-        IDENTITY_ACTIONS.readSelf,
-        actor.userAccountId,
-        error,
-        'user-account',
-      );
+      this.logFailure(actor, IDENTITY_ACTIONS.readSelf, actor.userAccountId, error, 'user-account');
       throw error;
     }
     return view;
@@ -67,18 +66,21 @@ export class IdentityService {
   async updateMe(input: unknown): Promise<SelfIdentityView> {
     const actor = await this.requireActor();
     await this.requireAuthorization(actor, IDENTITY_ACTIONS.updateSelf, 'user-account');
-    const patch = this.parsePatch(actor, IDENTITY_ACTIONS.updateSelf, actor.employeeId, input, 'self');
-    const employee = await this.repository.updateEmployeeProfile(
-      actor.organizationId,
+    const patch = this.parsePatch(
+      actor,
+      IDENTITY_ACTIONS.updateSelf,
+      actor.employeeId,
+      input,
+      'self',
+    );
+    const employee = await this.mutateProfile(
+      actor,
+      IDENTITY_ACTIONS.updateSelf,
       actor.employeeId,
       patch,
+      'authentication',
     );
-    if (!employee) {
-      const error = authenticationRequired();
-      this.logFailure(actor, IDENTITY_ACTIONS.updateSelf, actor.employeeId, error);
-      throw error;
-    }
-    await this.auditMutation(actor, IDENTITY_ACTIONS.updateSelf, employee.id, Object.keys(patch));
+    this.logMutation(actor, IDENTITY_ACTIONS.updateSelf, employee.id, Object.keys(patch));
     const view = await this.repository.findSelf(
       actor.organizationId,
       actor.employeeId,
@@ -126,22 +128,14 @@ export class IdentityService {
       input,
       'admin',
     );
-    const employee = await this.repository.updateEmployeeProfile(
-      actor.organizationId,
-      employeeId,
-      patch,
-    );
-    if (!employee) {
-      const error = identityResourceNotFound();
-      this.logFailure(actor, IDENTITY_ACTIONS.updateEmployee, employeeId, error);
-      throw error;
-    }
-    await this.auditMutation(
+    const employee = await this.mutateProfile(
       actor,
       IDENTITY_ACTIONS.updateEmployee,
-      employee.id,
-      Object.keys(patch),
+      employeeId,
+      patch,
+      'not-found',
     );
+    this.logMutation(actor, IDENTITY_ACTIONS.updateEmployee, employee.id, Object.keys(patch));
     return employee;
   }
 
@@ -180,20 +174,74 @@ export class IdentityService {
     }
   }
 
-  private async auditMutation(
+  private async mutateProfile(
+    actor: TrustedActor,
+    action: IdentityAuditEntry['action'],
+    targetId: string,
+    patch: Parameters<IdentityRepositoryPort['updateEmployeeProfile']>[2],
+    missingTarget: 'authentication' | 'not-found',
+  ): Promise<EmployeeDetailView> {
+    return this.transactions.run(async (transaction) => {
+      const actorEmployee = await this.repository.findEmployeeById(
+        actor.organizationId,
+        actor.employeeId,
+        transaction,
+      );
+      const targetEmployee =
+        actor.employeeId === targetId
+          ? actorEmployee
+          : await this.repository.findEmployeeById(actor.organizationId, targetId, transaction);
+      if (!actorEmployee || !targetEmployee) {
+        const error =
+          missingTarget === 'authentication'
+            ? authenticationRequired()
+            : identityResourceNotFound();
+        this.logFailure(actor, action, targetId, error);
+        throw error;
+      }
+      await this.audit.record(
+        {
+          action,
+          actor,
+          targetType: 'employee',
+          targetId,
+          organizationId: actor.organizationId,
+          changedFields: Object.keys(patch).sort(),
+          actorSnapshot: {
+            displayName: actorEmployee.displayName,
+            employeeCode: actorEmployee.employeeCode,
+          },
+          targetSnapshot: {
+            displayName: targetEmployee.displayName,
+            employeeCode: targetEmployee.employeeCode,
+          },
+        },
+        transaction,
+      );
+      const employee = await this.repository.updateEmployeeProfile(
+        actor.organizationId,
+        targetId,
+        patch,
+        transaction,
+      );
+      if (!employee) {
+        const error =
+          missingTarget === 'authentication'
+            ? authenticationRequired()
+            : identityResourceNotFound();
+        this.logFailure(actor, action, targetId, error);
+        throw error;
+      }
+      return employee;
+    });
+  }
+
+  private logMutation(
     actor: TrustedActor,
     action: IdentityAction,
     targetId: string,
     changedFields: readonly string[],
-  ): Promise<void> {
-    await this.audit.record({
-      action,
-      actor,
-      targetType: 'employee',
-      targetId,
-      organizationId: actor.organizationId,
-      changedFields: [...changedFields].sort(),
-    });
+  ): void {
     this.logger.info('identity.employee.profile_updated', {
       outcome: 'succeeded',
       action,

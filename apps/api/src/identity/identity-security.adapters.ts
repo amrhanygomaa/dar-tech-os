@@ -1,10 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
+import { REQUEST_CONTEXT_STORE, type RequestContextStore } from '@dar-tech/observability';
 import {
-  REQUEST_CONTEXT_STORE,
-  STRUCTURED_LOGGER,
-  type RequestContextStore,
-  type StructuredLogger,
-} from '@dar-tech/observability';
+  AUDIT_EVENT_APPEND_PORT,
+  type AuditEventAppendPort,
+} from '../event-history/event-history.contracts.js';
 import type {
   AuthenticatedActorPort,
   IdentityAuditEntry,
@@ -29,25 +29,36 @@ export class DenyAllIdentityAuthorizationAdapter implements IdentityAuthorizatio
 }
 
 @Injectable()
-export class StructuredIdentityAuditHook implements IdentityAuditHook {
+export class DurableIdentityAuditHook implements IdentityAuditHook {
   constructor(
-    @Inject(REQUEST_CONTEXT_STORE) private readonly contextStore: RequestContextStore,
-    @Inject(STRUCTURED_LOGGER) private readonly logger: StructuredLogger,
+    @Inject(REQUEST_CONTEXT_STORE)
+    private readonly contextStore: RequestContextStore,
+    @Inject(AUDIT_EVENT_APPEND_PORT)
+    private readonly auditEvents: AuditEventAppendPort,
   ) {}
 
-  record(entry: IdentityAuditEntry): Promise<void> {
+  async record(
+    entry: IdentityAuditEntry,
+    transaction: Parameters<IdentityAuditHook['record']>[1],
+  ): Promise<void> {
     const context = this.contextStore.get();
-    this.logger.info('identity.audit.hook_recorded', {
-      action: entry.action,
-      actorEmployeeId: entry.actor.employeeId,
-      organizationId: entry.organizationId,
-      targetType: entry.targetType,
-      targetId: entry.targetId,
-      changedFields: entry.changedFields,
-      ...(context?.requestId ? { requestIdPresent: true } : {}),
-      correlationIdPresent: context?.correlationId !== undefined,
-      persistenceOwner: 'S02-T12',
-    });
-    return Promise.resolve();
+    await this.auditEvents.append(
+      {
+        organizationId: entry.organizationId,
+        actionKey: entry.action,
+        actorEmployeeId: entry.actor.employeeId,
+        actorSnapshot: { type: 'employee', ...entry.actorSnapshot },
+        targetType: entry.targetType,
+        targetId: entry.targetId,
+        targetSnapshot: entry.targetSnapshot,
+        ...(context?.requestId ? { requestId: context.requestId } : {}),
+        correlationId: context?.correlationId ?? randomUUID(),
+        changeDelta: { changedFields: entry.changedFields },
+        occurredAt: new Date(),
+        eventVersion: 1,
+        integrityVersion: 1,
+      },
+      transaction,
+    );
   }
 }

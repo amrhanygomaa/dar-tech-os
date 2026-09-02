@@ -1,8 +1,7 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T03 ONLY AUTHORIZED
-
-> S02-T00 and S02-T01 are completed. S02-T01 merged through PR #4 at `188dd268a3bfbace0d5341a069fc403d4ff111d4`. S02-T03 is authorized. S02-T02 and S02-T04 through S02-T15 remain unauthorized.
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T12 ONLY AUTHORIZED
+> S02-T00, S02-T01, and S02-T03 are completed. S02-T03 merged through PR #5 at `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec`. S02-T12 is authorized. S02-T02, S02-T04 through S02-T11, and S02-T13 through S02-T15 remain unauthorized.
 
 ## Sprint objective
 
@@ -22,14 +21,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00 and S02-T01 are completed, and the supervisor has authorized S02-T03 only. S02-T02 and S02-T04 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T03 must not be inferred as authorization to begin any other ticket.
+Sprint 01 is closed. S02-T00, S02-T01, and S02-T03 are completed, and the supervisor has authorized S02-T12 only. S02-T02, S02-T04 through S02-T11, and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T12 must not be inferred as authorization to begin any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside S02-T03;
-- add or alter identity/security database models or migrations for T03;
-- add invitations, sessions, production provider adapters, roles, permissions, approvals, seeds, or bootstrap commands;
-- mark S02-T02 or S02-T04 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside S02-T12;
+- add invitations, sessions, production provider adapters, roles, permission registry/engine, approvals, temporary/emergency access, offboarding, seeds, or bootstrap commands;
+- mark S02-T02, S02-T04 through S02-T11, or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -96,8 +94,9 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | --- | --- | --- |
 | S02-T00 | COMPLETED | PR #3; merge commit `e3f0cab99469334058657e73015c1667c562a3e5` |
 | S02-T01 | COMPLETED | PR #4; merge commit `188dd268a3bfbace0d5341a069fc403d4ff111d4` |
-| S02-T03 | AUTHORIZED | Controlled implementation authorization from the supervisor |
-| S02-T02 and S02-T04 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T03 | COMPLETED | PR #5; merge commit `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec` |
+| S02-T12 | AUTHORIZED | Controlled implementation authorization from the supervisor |
+| S02-T02, S02-T04 through S02-T11, and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -1254,12 +1253,24 @@ Provide tamper-resistant application audit history and security-focused event re
 
 ### Acceptance criteria
 
-- [ ] Every required Sprint 02 security/audit event is captured with request/correlation and historical actor/context.
-- [ ] Critical mutations and their audit record are transactionally consistent where required.
-- [ ] History cannot be generally edited or hard-deleted through the API.
-- [ ] Cross-organization and unauthorized reads deny; sensitive fields are minimized/redacted.
-- [ ] No plaintext secret, invitation/session token, SSO code/token, or credential is stored.
-- [ ] APIs, OpenAPI, authorized UI, event documentation, tests, and failure alerts are complete.
+- [x] Every currently authorized T01/T03 security/audit event is captured with request/correlation and historical actor/context.
+- [x] Critical mutations and their audit record are transactionally consistent where required.
+- [x] History cannot be generally edited or hard-deleted through the API.
+- [x] Cross-organization and unauthorized reads deny; sensitive fields are minimized/redacted.
+- [x] No plaintext secret, invitation/session token, SSO code/token, or credential is stored.
+- [x] APIs, OpenAPI, the explicitly deferred T14-dependent UI boundary, event documentation, tests, and failure observability are complete.
+
+### Acceptance evidence — 2026-09-02
+
+- Added the organization-scoped `AuditEvent` and nullable-pre-identity `SecurityEvent` entities in the single additive migration `20260902120000_sprint_02_t12_audit_security_events`; database triggers reject event row update/delete and all retained actor/account foreign keys use `RESTRICT`.
+- T01 self/admin profile writes and required audit appends now commit in one Prisma transaction. PostgreSQL tests prove successful joint commit, audit-failure mutation rollback, and mutation-failure audit rollback.
+- T03 `AuthenticationSucceeded.v1` and `AuthenticationFailed.v1` hooks now persist minimized security records. Replay/failure responses remain the same non-enumerating public contract; state, nonce, code, email, provider subject, login hint, tokens, and raw provider data are absent from event persistence and logs.
+- All four GET-only audit/security endpoints are documented in OpenAPI with validated explicit filters, maximum page size 100, safe views, trusted organization scope, and `audit.event.read` / `security.event.read` fail-closed authorization ports. Cross-organization detail reads return the same `NOT_FOUND` response as absent IDs.
+- The current structured metrics adapter records bounded audit/security write success/failure and safe category/outcome/risk volume; critical persistence failure logs contain bounded classifications only and successful logs reference the event ID.
+- Fresh migration, canonical-main-to-T12 upgrade, migration status, Prisma validation, and drift checks passed with no destructive change. `npm run quality:gate` passed with 102 unit tests and 27 PostgreSQL integration tests, plus lint, typecheck, build, and Docker Compose validation.
+- Docker runtime validation passed: migration exited 0; PostgreSQL, API, web, and worker reported healthy; direct web/API probes returned HTTP 200 and the worker heartbeat check passed.
+- No T12 screen was added because the current web shell has no authorized application-session or central authorization capability; implementing a trustworthy administration route would prematurely enter S02-T04/T07/T14. This boundary is documented in `docs/engineering/SPRINT_02_T12_AUDIT_SECURITY_EVENTS.md` under the supervisor's explicit frontend deferral rule.
+- Retention policy and cryptographic chaining remain deliberately unimplemented; no cleanup/export API, mutable correction mechanism, or fake future-workflow event was introduced.
 
 ### Do Not Change
 
