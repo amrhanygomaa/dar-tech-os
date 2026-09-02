@@ -11,11 +11,16 @@ import {
   AuthenticationModule,
   type AuthenticationTestAdapters,
 } from './auth/auth.module.js';
+import {
+  EventHistoryModule,
+  type EventHistoryTestAdapters,
+} from './event-history/event-history.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
 export interface AppModuleRegistrationOptions {
   readonly authenticationTestAdapters?: AuthenticationTestAdapters;
+  readonly eventHistoryTestAdapters?: EventHistoryTestAdapters;
   readonly identityTestAdapters?: IdentityTestAdapters;
 }
 
@@ -39,6 +44,7 @@ export class AppModule {
         ObservabilityModule.register(observability),
         DatabaseModule.register(databaseOptions),
         HealthModule,
+        EventHistoryModule.register(config.appEnvironment, options.eventHistoryTestAdapters),
         AuthenticationModule.register(
           config.appEnvironment,
           config.authentication,

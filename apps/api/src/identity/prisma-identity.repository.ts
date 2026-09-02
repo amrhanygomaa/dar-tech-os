@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE_CLIENT, type DatabaseClient, type Prisma } from '@dar-tech/database';
+import {
+  DATABASE_CLIENT,
+  type DatabaseClient,
+  type DatabaseTransaction,
+  type Prisma,
+} from '@dar-tech/database';
 import type {
   EmployeeDetailView,
   EmployeePage,
@@ -120,8 +125,10 @@ export class PrismaIdentityRepository implements IdentityRepositoryPort {
   async findEmployeeById(
     organizationId: string,
     employeeId: string,
+    transaction?: DatabaseTransaction,
   ): Promise<EmployeeDetailView | null> {
-    const employee = await this.client.employee.findFirst({
+    const database = transaction ?? this.client;
+    const employee = await database.employee.findFirst({
       where: { id: employeeId, organizationId },
       select: employeeDetailSelect,
     });
@@ -132,13 +139,15 @@ export class PrismaIdentityRepository implements IdentityRepositoryPort {
     organizationId: string,
     employeeId: string,
     patch: EmployeeProfilePatch,
+    transaction?: DatabaseTransaction,
   ): Promise<EmployeeDetailView | null> {
-    const updated = await this.client.employee.updateMany({
+    const database = transaction ?? this.client;
+    const updated = await database.employee.updateMany({
       where: { id: employeeId, organizationId },
       data: patch,
     });
     if (updated.count !== 1) return null;
-    return this.findEmployeeById(organizationId, employeeId);
+    return this.findEmployeeById(organizationId, employeeId, transaction);
   }
 
   async findAccountById(

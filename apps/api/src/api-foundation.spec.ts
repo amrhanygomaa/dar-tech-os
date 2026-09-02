@@ -136,7 +136,12 @@ describe('API foundation', () => {
     await request(app.getHttpServer()).get('/api/v1/health').expect(404);
   });
 
-  it.each(['/api/v1/me', '/api/v1/employees'])(
+  it.each([
+    '/api/v1/me',
+    '/api/v1/employees',
+    '/api/v1/audit-events',
+    '/api/v1/security-events',
+  ])(
     'fails closed for identity route %s when no trusted actor exists',
     async (path) => {
       const response = await request(app.getHttpServer()).get(path).expect(401);
@@ -180,6 +185,21 @@ describe('API foundation', () => {
       '/api/v1/auth/{providerKey}/provider-logout': { post: expect.any(Object) },
     });
     expect(document.paths['/api/v1/employees/{id}']).not.toHaveProperty('delete');
+    expect(document.paths).toMatchObject({
+      '/api/v1/audit-events': { get: expect.any(Object) },
+      '/api/v1/audit-events/{id}': { get: expect.any(Object) },
+      '/api/v1/security-events': { get: expect.any(Object) },
+      '/api/v1/security-events/{id}': { get: expect.any(Object) },
+    });
+    for (const path of [
+      '/api/v1/audit-events',
+      '/api/v1/audit-events/{id}',
+      '/api/v1/security-events',
+      '/api/v1/security-events/{id}',
+    ]) {
+      expect(document.paths[path]).not.toHaveProperty('patch');
+      expect(document.paths[path]).not.toHaveProperty('delete');
+    }
     expect(JSON.stringify(document)).not.toMatch(/passwordHash|password login|providerSecret/iu);
     expect(JSON.stringify(document)).not.toMatch(
       /example[^}]+(?:authorizationCode|clientSecret|refreshToken|accessToken|nonce|state)/iu,

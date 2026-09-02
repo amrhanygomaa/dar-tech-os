@@ -12,6 +12,7 @@ export {
 } from './transaction.js';
 export {
   EmployeeLifecycleStatus,
+  EventRisk,
   OutboxEventStatus,
   Prisma,
   QueueJobStatus,

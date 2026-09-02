@@ -43,16 +43,28 @@ export interface IdentityAuthorizationPort {
 }
 
 export interface IdentityAuditEntry {
-  readonly action: IdentityAction;
+  readonly action: typeof IDENTITY_ACTIONS.updateSelf | typeof IDENTITY_ACTIONS.updateEmployee;
   readonly actor: TrustedActor;
   readonly targetType: 'employee';
   readonly targetId: string;
   readonly organizationId: string;
   readonly changedFields: readonly string[];
+  readonly actorSnapshot: {
+    readonly displayName: string;
+    readonly employeeCode: string;
+  };
+  readonly targetSnapshot: {
+    readonly displayName: string;
+    readonly employeeCode: string;
+  };
 }
 
 export interface IdentityAuditHook {
-  record(entry: IdentityAuditEntry): Promise<void>;
+  record(entry: IdentityAuditEntry, transaction: DatabaseTransaction): Promise<void>;
+}
+
+export interface IdentityTransactionPort {
+  run<T>(work: (transaction: DatabaseTransaction) => Promise<T>): Promise<T>;
 }
 
 export interface EmployeeProfilePatch {
@@ -132,16 +144,15 @@ export interface IdentityRepositoryPort {
   findEmployeeById(
     organizationId: string,
     employeeId: string,
+    transaction?: DatabaseTransaction,
   ): Promise<EmployeeDetailView | null>;
   updateEmployeeProfile(
     organizationId: string,
     employeeId: string,
     patch: EmployeeProfilePatch,
+    transaction?: DatabaseTransaction,
   ): Promise<EmployeeDetailView | null>;
-  findAccountById(
-    organizationId: string,
-    userAccountId: string,
-  ): Promise<UserAccountView | null>;
+  findAccountById(organizationId: string, userAccountId: string): Promise<UserAccountView | null>;
   findSSOIdentity(
     organizationId: string,
     providerKey: string,
@@ -153,3 +164,5 @@ export const AUTHENTICATED_ACTOR_PORT = Symbol('AUTHENTICATED_ACTOR_PORT');
 export const IDENTITY_AUTHORIZATION_PORT = Symbol('IDENTITY_AUTHORIZATION_PORT');
 export const IDENTITY_AUDIT_HOOK = Symbol('IDENTITY_AUDIT_HOOK');
 export const IDENTITY_REPOSITORY_PORT = Symbol('IDENTITY_REPOSITORY_PORT');
+export const IDENTITY_TRANSACTION_PORT = Symbol('IDENTITY_TRANSACTION_PORT');
+import type { DatabaseTransaction } from '@dar-tech/database';

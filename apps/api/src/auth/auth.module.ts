@@ -15,7 +15,7 @@ import {
 import { AuthenticationController } from './auth.controller.js';
 import {
   DenyAllInvitationAuthenticationEligibilityAdapter,
-  StructuredAuthenticationSecurityHook,
+  DurableAuthenticationSecurityHook,
 } from './auth-security.adapters.js';
 import { AuthenticationService, AUTHENTICATION_CONFIG } from './auth.service.js';
 import { InMemoryAuthenticationTransactionAdapter } from './in-memory-auth-transaction.adapter.js';
@@ -74,7 +74,7 @@ export class AuthenticationModule {
         };
     const securityProvider: Provider = testAdapters?.security
       ? { provide: AUTH_SECURITY_HOOK, useValue: testAdapters.security }
-      : { provide: AUTH_SECURITY_HOOK, useClass: StructuredAuthenticationSecurityHook };
+      : { provide: AUTH_SECURITY_HOOK, useClass: DurableAuthenticationSecurityHook };
 
     return {
       module: AuthenticationModule,

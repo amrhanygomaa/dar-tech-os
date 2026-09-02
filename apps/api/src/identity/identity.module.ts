@@ -5,6 +5,7 @@ import {
   IDENTITY_AUDIT_HOOK,
   IDENTITY_AUTHORIZATION_PORT,
   IDENTITY_REPOSITORY_PORT,
+  IDENTITY_TRANSACTION_PORT,
   type AuthenticatedActorPort,
   type IdentityAuditHook,
   type IdentityAuthorizationPort,
@@ -13,9 +14,10 @@ import { EmployeesController, MeController } from './identity.controller.js';
 import {
   DenyAllAuthenticatedActorAdapter,
   DenyAllIdentityAuthorizationAdapter,
-  StructuredIdentityAuditHook,
+  DurableIdentityAuditHook,
 } from './identity-security.adapters.js';
 import { PrismaIdentityRepository } from './prisma-identity.repository.js';
+import { PrismaIdentityTransactionAdapter } from './prisma-identity-transaction.adapter.js';
 import { IdentityService } from './identity.service.js';
 
 export interface IdentityTestAdapters {
@@ -45,7 +47,7 @@ export class IdentityModule {
         };
     const auditProvider: Provider = testAdapters?.audit
       ? { provide: IDENTITY_AUDIT_HOOK, useValue: testAdapters.audit }
-      : { provide: IDENTITY_AUDIT_HOOK, useClass: StructuredIdentityAuditHook };
+      : { provide: IDENTITY_AUDIT_HOOK, useClass: DurableIdentityAuditHook };
 
     return {
       module: IdentityModule,
@@ -54,6 +56,11 @@ export class IdentityModule {
         actorProvider,
         authorizationProvider,
         auditProvider,
+        PrismaIdentityTransactionAdapter,
+        {
+          provide: IDENTITY_TRANSACTION_PORT,
+          useExisting: PrismaIdentityTransactionAdapter,
+        },
         PrismaIdentityRepository,
         { provide: IDENTITY_REPOSITORY_PORT, useExisting: PrismaIdentityRepository },
         IdentityService,
