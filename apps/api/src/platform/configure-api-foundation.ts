@@ -12,7 +12,16 @@ export function configureApiFoundation(
   app: INestApplication,
   contextStore: RequestContextStore,
   logger: StructuredLogger,
+  allowedBrowserOrigins: readonly string[] = [],
 ): void {
+  if (allowedBrowserOrigins.length > 0) {
+    app.enableCors({
+      origin: [...new Set(allowedBrowserOrigins)],
+      credentials: true,
+      methods: ['GET', 'POST', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'X-Request-ID', 'X-Correlation-ID'],
+    });
+  }
   const requestContextMiddleware = app.get(RequestContextMiddleware);
   app.use(requestContextMiddleware.use.bind(requestContextMiddleware));
   app.setGlobalPrefix('api/v1', {

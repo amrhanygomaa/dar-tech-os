@@ -158,6 +158,7 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
         localIdentities: [],
         transactionTtlSeconds: 300,
       },
+      invitation: { ttlSeconds: 300, rateLimitMaxRequests: 30, rateLimitWindowSeconds: 60 },
     };
     app = await NestFactory.create(
       AppModule.register(

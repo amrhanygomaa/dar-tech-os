@@ -1,5 +1,6 @@
-import { type DynamicModule, Module, type Provider } from '@nestjs/common';
+import { type DynamicModule, Global, Module, type Provider } from '@nestjs/common';
 import type { AppEnvironment, AuthenticationConfig } from '@dar-tech/config';
+import { DATABASE_CLIENT, type DatabaseClient } from '@dar-tech/database';
 import {
   AUTH_IDENTITY_REPOSITORY_PORT,
   AUTH_INVITATION_ELIGIBILITY_PORT,
@@ -14,8 +15,8 @@ import {
 } from './auth.contracts.js';
 import { AuthenticationController } from './auth.controller.js';
 import {
-  DenyAllInvitationAuthenticationEligibilityAdapter,
   DurableAuthenticationSecurityHook,
+  PrismaInvitationAuthenticationEligibilityAdapter,
 } from './auth-security.adapters.js';
 import { AuthenticationService, AUTHENTICATION_CONFIG } from './auth.service.js';
 import { InMemoryAuthenticationTransactionAdapter } from './in-memory-auth-transaction.adapter.js';
@@ -43,12 +44,14 @@ function selectedProviders(
   return [new LocalAuthenticationProviderAdapter(config.localIdentities)];
 }
 
+@Global()
 @Module({})
 export class AuthenticationModule {
   static register(
     environment: AppEnvironment,
     config: AuthenticationConfig,
     testAdapters?: AuthenticationTestAdapters,
+    invitationClock: { now(): Date } = { now: () => new Date() },
   ): DynamicModule {
     if (testAdapters && environment !== 'test') {
       throw new Error('Authentication test adapters are available only in the test environment');
@@ -70,7 +73,12 @@ export class AuthenticationModule {
       ? { provide: AUTH_INVITATION_ELIGIBILITY_PORT, useValue: testAdapters.invitations }
       : {
           provide: AUTH_INVITATION_ELIGIBILITY_PORT,
-          useClass: DenyAllInvitationAuthenticationEligibilityAdapter,
+          useFactory: (client: DatabaseClient) =>
+            new PrismaInvitationAuthenticationEligibilityAdapter(
+              client,
+              () => invitationClock.now(),
+            ),
+          inject: [DATABASE_CLIENT],
         };
     const securityProvider: Provider = testAdapters?.security
       ? { provide: AUTH_SECURITY_HOOK, useValue: testAdapters.security }

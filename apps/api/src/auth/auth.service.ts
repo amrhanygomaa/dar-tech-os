@@ -84,6 +84,22 @@ export class AuthenticationService {
   }
 
   async start(providerInput: string, input: unknown): Promise<PublicAuthenticationStart> {
+    return this.startBound(providerInput, input);
+  }
+
+  startForInvitation(
+    providerInput: string,
+    input: unknown,
+    authorizationReference: string,
+  ): Promise<PublicAuthenticationStart> {
+    return this.startBound(providerInput, input, authorizationReference);
+  }
+
+  private async startBound(
+    providerInput: string,
+    input: unknown,
+    authorizationReference?: string,
+  ): Promise<PublicAuthenticationStart> {
     const startedAt = performance.now();
     const providerKey = parseProviderKey(providerInput);
     const parsed = parseAuthenticationStart(input);
@@ -94,6 +110,7 @@ export class AuthenticationService {
         providerKey,
         redirectUri: parsed.redirectUri,
         ttlSeconds: this.config.transactionTtlSeconds,
+        ...(authorizationReference ? { authorizationReference } : {}),
       });
       const started = await provider.start({
         transactionId: transaction.id,
@@ -159,7 +176,10 @@ export class AuthenticationService {
         pkceVerifier: transaction.pkceVerifier,
       });
       this.requireValidProviderVerification(provider, verified);
-      const principal = await this.resolvePrincipal(verified.identity);
+      const principal = await this.resolvePrincipal(
+        verified.identity,
+        transaction.authorizationReference,
+      );
       const outcome: VerifiedAuthenticationOutcome = {
         status: 'VERIFIED',
         providerKey,
@@ -298,13 +318,16 @@ export class AuthenticationService {
     }
   }
 
-  private async resolvePrincipal(identity: NormalizedProviderIdentity) {
+  private async resolvePrincipal(
+    identity: NormalizedProviderIdentity,
+    authorizationReference?: string,
+  ) {
     const linked = await this.identities.findLinkedIdentity(
       identity.providerKey,
       identity.providerSubject,
     );
     if (!linked) {
-      const invitation = await this.invitations.authorize(identity);
+      const invitation = await this.invitations.authorize(identity, authorizationReference);
       if (!invitation) throw new ProviderAuthenticationError('identity_unlinked');
       return {
         kind: 'invitation_authorized' as const,

@@ -13,6 +13,7 @@ export {
 export {
   EmployeeLifecycleStatus,
   EventRisk,
+  InvitationStatus,
   OutboxEventStatus,
   Prisma,
   QueueJobStatus,

@@ -6,7 +6,7 @@ Internal company operating system for Dar Tech.
 
 **Sprint 01 — Engineering Foundation: COMPLETED**
 
-Sprint 02 is under controlled implementation. S02-T00, S02-T01, and S02-T03 are complete; S02-T12 is the only currently authorized ticket. S02-T02, S02-T04 through S02-T11, and S02-T13 through S02-T15 remain unauthorized. Business-module implementation has not started.
+Sprint 02 is under controlled implementation. S02-T00, S02-T01, S02-T03, and S02-T12 are complete; S02-T02 is the only currently authorized ticket. S02-T04 through S02-T11 and S02-T13 through S02-T15 remain unauthorized. Business-module implementation has not started.
 
 ## Start here
 

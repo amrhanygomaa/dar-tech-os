@@ -6,12 +6,27 @@ export type EventRisk = (typeof EVENT_RISKS)[number];
 export const AUDIT_ACTION_KEYS = {
   updateSelf: 'identity.account.update_self',
   updateEmployee: 'admin.employee.update',
+  invitationIssued: 'admin.employee.invite',
+  invitationRevoked: 'admin.invitation.revoke',
+  invitationAccepted: 'identity.invitation.accept',
+  onboardingCompleted: 'identity.onboarding.complete',
+  invitationExpired: 'system.invitation.expire',
+  invitationSuperseded: 'admin.invitation.supersede',
+  invitationReissued: 'admin.invitation.resend',
 } as const;
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
 export const SECURITY_EVENT_TYPES = {
   authenticationSucceeded: 'AuthenticationSucceeded.v1',
   authenticationFailed: 'AuthenticationFailed.v1',
+  invitationIssued: 'InvitationIssued.v1',
+  invitationRevoked: 'InvitationRevoked.v1',
+  invitationAccepted: 'InvitationAccepted.v1',
+  invitationExpired: 'InvitationExpired.v1',
+  onboardingCompleted: 'OnboardingCompleted.v1',
+  invitationAcceptanceFailed: 'InvitationAcceptanceFailed.v1',
+  invitationSuperseded: 'InvitationSuperseded.v1',
+  invitationReissued: 'InvitationReissued.v1',
 } as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[keyof typeof SECURITY_EVENT_TYPES];
 
@@ -19,8 +34,7 @@ export const EVENT_HISTORY_READ_ACTIONS = {
   audit: 'audit.event.read',
   security: 'security.event.read',
 } as const;
-export type EventHistoryReadAction =
-  (typeof EVENT_HISTORY_READ_ACTIONS)[keyof typeof EVENT_HISTORY_READ_ACTIONS];
+export type EventHistoryReadAction = (typeof EVENT_HISTORY_READ_ACTIONS)[keyof typeof EVENT_HISTORY_READ_ACTIONS];
 
 export interface HistoricalActorSnapshot {
   readonly type: 'employee' | 'system' | 'unresolved';
@@ -161,10 +175,7 @@ export interface AuditEventAppendPort {
 }
 
 export interface SecurityEventAppendPort {
-  append(
-    input: SecurityEventAppendInput,
-    transaction?: DatabaseTransaction,
-  ): Promise<SecurityEventView>;
+  append(input: SecurityEventAppendInput, transaction?: DatabaseTransaction): Promise<SecurityEventView>;
 }
 
 export interface AuditEventReadRepositoryPort {

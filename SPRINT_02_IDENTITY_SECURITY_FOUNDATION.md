@@ -1,7 +1,7 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T12 ONLY AUTHORIZED
-> S02-T00, S02-T01, and S02-T03 are completed. S02-T03 merged through PR #5 at `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec`. S02-T12 is authorized. S02-T02, S02-T04 through S02-T11, and S02-T13 through S02-T15 remain unauthorized.
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T02 ONLY AUTHORIZED
+> S02-T00, S02-T01, S02-T03, and S02-T12 are completed. S02-T12 merged through PR #6 at `81dc731123d95ecc8376867b27efe1c23e7b8119`. S02-T02 is authorized. S02-T04 through S02-T11 and S02-T13 through S02-T15 remain unauthorized.
 
 ## Sprint objective
 
@@ -21,13 +21,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00, S02-T01, and S02-T03 are completed, and the supervisor has authorized S02-T12 only. S02-T02, S02-T04 through S02-T11, and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T12 must not be inferred as authorization to begin any other ticket.
+Sprint 01 is closed. S02-T00, S02-T01, S02-T03, and S02-T12 are completed, and the supervisor has authorized S02-T02 only. S02-T04 through S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T02 must not be inferred as authorization to begin any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside S02-T12;
-- add invitations, sessions, production provider adapters, roles, permission registry/engine, approvals, temporary/emergency access, offboarding, seeds, or bootstrap commands;
-- mark S02-T02, S02-T04 through S02-T11, or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside S02-T02;
+- add sessions, production provider adapters, roles, permission registry/engine, approvals, temporary/emergency access, offboarding, seeds, or bootstrap commands;
+- mark S02-T04 through S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -95,8 +95,9 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T00 | COMPLETED | PR #3; merge commit `e3f0cab99469334058657e73015c1667c562a3e5` |
 | S02-T01 | COMPLETED | PR #4; merge commit `188dd268a3bfbace0d5341a069fc403d4ff111d4` |
 | S02-T03 | COMPLETED | PR #5; merge commit `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec` |
-| S02-T12 | AUTHORIZED | Controlled implementation authorization from the supervisor |
-| S02-T02, S02-T04 through S02-T11, and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T12 | COMPLETED | PR #6; merge commit `81dc731123d95ecc8376867b27efe1c23e7b8119` |
+| S02-T02 | AUTHORIZED | Controlled implementation authorization from the supervisor |
+| S02-T04 through S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -444,15 +445,17 @@ Implement the internal invitation-only flow from invitation through provider aut
 
 ### Schema scope
 
-- `Invitation`: `organization_id`, employee/account target, normalized invited email, secure token hash, status, issuer, issued/expiry/accepted/revoked timestamps, revoker and reason, and audit timestamps.
-- Invitation states: `PENDING`, `ACCEPTED`, `REVOKED`; expiry is enforced from `expires_at` and may also be materialized as `EXPIRED` for reporting, but authorization must rely on time comparison.
+- `Invitation`: `organization_id`, employee/account target, normalized invited email, secure token hash, status, issuer, issued/expiry/accepted/revoked/superseded timestamps, revoker/reason, superseding invitation reference, and audit timestamps. Multiple terminal historical invitations may reference the same employee/account.
+- Invitation states: `PENDING`, `ACCEPTED`, `REVOKED`, `EXPIRED`, `SUPERSEDED`; expiry is enforced from `expires_at`, and terminal invitations are never restored to `PENDING`.
 - Onboarding completion metadata may live on the invitation/account; do not create an HR profile subsystem.
 
 ### API scope
 
 - `POST /api/v1/employees/invite`
+- `POST /api/v1/employees/:id/reinvite`
 - `GET /api/v1/invitations`
 - `POST /api/v1/invitations/:id/revoke`
+- `POST /api/v1/invitations/:id/resend`
 - Provider-neutral invitation inspection/authentication/onboarding commands under `/api/v1/auth` and `/api/v1/onboarding`.
 - Raw invitation secrets must be redacted from logs, errors, analytics, and referrers.
 
@@ -461,6 +464,7 @@ Implement the internal invitation-only flow from invitation through provider aut
 - `admin.employee.invite`
 - `admin.invitation.read`
 - `admin.invitation.revoke`
+- `admin.invitation.resend`
 - The invited user receives no general application permission before activation.
 
 ### Events
@@ -469,12 +473,14 @@ Implement the internal invitation-only flow from invitation through provider aut
 - `InvitationAccepted.v1`
 - `InvitationRevoked.v1`
 - `InvitationExpired.v1` for observable expiry processing; enforcement cannot depend on event delivery.
+- `InvitationSuperseded.v1`
+- `InvitationReissued.v1`
 - `OnboardingCompleted.v1`
 
 ### Frontend
 
-- Internal invitation-management list and create/revoke actions.
-- Invitation landing, provider-auth transition, expired/revoked/invalid states, and minimum onboarding completion screen.
+- Internal invitation-management list and create/revoke/resend/re-invite actions with explicit one-time link copy.
+- Invitation landing, provider-auth transition, expired/revoked/superseded/invalid states, and minimum onboarding completion screen.
 - No public registration or customer onboarding UI.
 
 ### Tests
@@ -482,6 +488,8 @@ Implement the internal invitation-only flow from invitation through provider aut
 - Valid invitation to verified SSO identity to onboarding to active account.
 - Expired, revoked, reused, unknown, organization-mismatched, and identity/email-mismatched invitation denial.
 - Concurrent/double acceptance allows one successful result only.
+- Concurrent resend/re-invite and resend versus accept/revoke/expiry preserve at most one usable pending invitation.
+- Every resend/re-invite rotates the 256-bit secret, creates a new historical row, and invalidates old links.
 - Token hashing/redaction and non-enumerating errors.
 - Unauthorized invitation creation/read/revocation.
 - Audit/security events for every lifecycle outcome.
@@ -499,12 +507,31 @@ Implement the internal invitation-only flow from invitation through provider aut
 
 ### Acceptance criteria
 
-- [ ] There is no path to an active account without a valid invitation or separately approved bootstrap mechanism.
-- [ ] Expired, revoked, reused, and mismatched invitations fail closed.
-- [ ] Invitation acceptance is concurrency-safe and single-use.
-- [ ] Successful onboarding produces the approved active lifecycle state and authenticated account relationship.
-- [ ] Invitation secrets never appear in persistence, logs, events, audit, URLs retained by analytics, or API responses after initial issuance.
-- [ ] API, UI states, OpenAPI, audit/security events, and PostgreSQL integration tests are complete.
+- [x] There is no path to an active account without a valid invitation or separately approved bootstrap mechanism.
+- [x] Expired, revoked, reused, and mismatched invitations fail closed.
+- [x] Invitation acceptance is concurrency-safe and single-use.
+- [x] Resend and re-invite preserve history, rotate secrets, and leave at most one usable `PENDING` invitation under concurrency.
+- [x] `SUPERSEDED` is terminal and an old superseded token cannot authorize authentication or onboarding.
+- [x] Successful onboarding produces the approved active lifecycle state and authenticated account relationship.
+- [x] Invitation secrets never appear in persistence, logs, events, audit, URLs retained by analytics, or API responses after initial issuance.
+- [x] API, UI states, OpenAPI, audit/security events, and PostgreSQL integration tests are complete.
+
+### Acceptance evidence — 2026-09-02
+
+- Added the organization-scoped `Invitation` entity and the single additive migration `20260902190000_sprint_02_t02_invitation_onboarding`. Fresh-database and canonical-main upgrade validation passed with existing sentinel data preserved, no schema drift, and no destructive change.
+- Invitation issuance generates 256-bit random base64url secrets, persists only a SHA-256 digest, returns the fragment-based acceptance URL once under `Cache-Control: no-store`, and never exposes the digest or URL from list/revoke APIs.
+- Invitation inspection, provider start, and acceptance directly enforce `current_time < expires_at`; exact-boundary, expired, revoked, reused, unknown, organization-mismatched, unverified-email, and verified-email-mismatch tests deny closed. The T03 pre-check and T02 acceptance path use the injected invitation clock.
+- The T03 authentication transaction carries only the exact invitation UUID authorization reference. Existing state, nonce, PKCE, expiry, and replay protections remain intact, and callback input cannot substitute another invitation.
+- PostgreSQL target-first employee/account locks, deterministic invitation-history locks, and conditional terminal updates enforce at most one usable `PENDING` invitation. Double-accept, accept/revoke, accept/expiry, resend/resend, re-invite/re-invite, resend/accept, and resend/revoke race tests prove one valid outcome.
+- The supervisor-approved resend/re-invite amendment preserves multiple terminal invitation rows per employee/account, adds terminal `SUPERSEDED` metadata, and exposes `POST /api/v1/invitations/:id/resend` plus `POST /api/v1/employees/:id/reinvite`. Each successful command creates a new row, 256-bit secret, SHA-256 digest, and one-time fragment URL; an old token cannot authorize authentication after supersession.
+- Successful acceptance atomically consumes the invitation, links `SSOIdentity`, sets `UserAccount.authenticationEligible=true`, transitions Employee `INVITED → ACTIVE`, completes onboarding, appends required T12 audit/security history, and persists all required outbox events. Forced failures at audit, SSO identity, account activation, employee activation, and outbox stages leave no partial active account.
+- Resend transactionally records `InvitationSuperseded.v1` and `InvitationReissued.v1`; re-invite records `InvitationReissued.v1`. T12 audit/security history and outbox payloads contain the actor scope, old/new IDs, operation, safe outcome, and timestamps without token, digest, URL, or email. Forced history failure rolls the replacement and supersession back together.
+- The onboarding UI removes the fragment immediately, keeps the secret only in React memory, uses POST bodies with no-referrer/no-store handling, and uses no local/session storage, cookie, or client logging. It safely identifies `SUPERSEDED` without exposing replacement details. The internal invitation UI covers create/list/revoke/resend/re-invite, explicit link copy, one-time/no-email messaging, and loading, empty, unauthorized, forbidden, and error states.
+- Amendment migration validation passed on a fresh database and from the canonical-main schema with existing Organization, Employee, UserAccount, and SSOIdentity sentinel records preserved. Both resulting schemas report zero drift.
+- `npm run quality:gate` passed with lint, Prisma validation/status/drift, typecheck, 122 unit tests, 63 PostgreSQL integration tests, production build, and Compose validation. The pre-existing two high-severity Prisma/mysql2 dependency advisories are unchanged.
+- Rebuilt runtime validation passed: the T02 migration container exited 0; PostgreSQL, API, web, and worker are healthy; health/readiness, web, onboarding, internal invitation UI, Swagger UI, and OpenAPI probes returned the expected results; protected invitation management denied without a trusted actor.
+- Runtime token-shaped error probes were not echoed or logged. OpenAPI exposes invitation secrets only as write-only request-body fields and contains no invitation token query/path parameter, public/customer signup, password registration/login, or application-session issuance route.
+- S02-T04 and every other unauthorized Sprint 02 ticket remain deferred. No Session model, bearer/refresh token, bootstrap implementation, production provider, customer onboarding, or public signup was added. The pre-existing Prisma/mysql2 advisory and dependency versions are unchanged.
 
 ### Do Not Change
 

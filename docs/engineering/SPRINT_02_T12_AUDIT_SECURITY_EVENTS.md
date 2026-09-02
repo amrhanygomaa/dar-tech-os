@@ -4,7 +4,7 @@
 
 S02-T12 establishes the canonical durable history layer for existing Sprint 02 identity and authentication actions. It implements `AuditEvent` and `SecurityEvent`, the four organization-scoped read endpoints, the T01 employee-profile audit integration, and the T03 authentication security-event integration.
 
-It does not implement invitations/onboarding, application sessions, roles, the permission registry or central authorization engine, approvals, temporary/emergency access, offboarding, bootstrap administration, a production SSO provider, or any business module. Those owning workflows must integrate the ports defined here only when separately authorized.
+It does not own invitations/onboarding, application sessions, roles, the permission registry or central authorization engine, approvals, temporary/emergency access, offboarding, bootstrap administration, a production SSO provider, or any business module. The separately authorized S02-T02 workflow now integrates the typed ports defined here; all other owning workflows remain deferred until separately authorized.
 
 ## Persistence architecture
 
@@ -43,10 +43,21 @@ Current typed keys are:
 AUDIT
 identity.account.update_self
 admin.employee.update
+admin.employee.invite
+admin.invitation.revoke
+identity.invitation.accept
+identity.onboarding.complete
+system.invitation.expire
 
 SECURITY
 AuthenticationSucceeded.v1
 AuthenticationFailed.v1
+InvitationIssued.v1
+InvitationRevoked.v1
+InvitationAccepted.v1
+InvitationExpired.v1
+OnboardingCompleted.v1
+InvitationAcceptanceFailed.v1
 ```
 
 Future owners extend the typed append contracts; they do not pre-create placeholder rows.
@@ -94,6 +105,10 @@ Both `identity.account.update_self` and `admin.employee.update` use durable audi
 
 Current technical default classifications are `LOW` for a successful authentication record and `MEDIUM` for an authentication failure record. These classifications do not define alert/escalation policy; production escalation remains configurable/deferred.
 
+### T02 invitation and onboarding outcomes
+
+Invitation issue, revoke, accept, expiry materialization, and onboarding completion append minimal organization-scoped audit/security history. Successful state mutations and their required history share the same database transaction. Invalid, reused, expired, mismatched, or transaction-failed acceptance attempts use `InvitationAcceptanceFailed.v1` with only a bounded failure category and resolved organization when safe. Raw invitation token, acceptance URL, invited email, and provider subject are never event fields.
+
 ## Observability
 
 Persistence emits bounded operational counter events for:
@@ -111,5 +126,5 @@ The metrics contract is adapter-based. The current adapter emits structured coun
 - Retention duration and production purge procedure require later policy approval. No cleanup/delete API is invented.
 - No cryptographic hash chain, blockchain-style mechanism, or mutable correction record is implemented.
 - Investigation workflow/status/notes remain absent until explicitly authorized.
-- Session, approval, invitation, role, temporary/emergency access, suspension/offboarding, and bootstrap references remain optional future inputs; no fake events exist.
+- Session, approval, role, temporary/emergency access, suspension/offboarding, and bootstrap references remain optional future inputs; no fake events exist.
 - No T12 frontend is added. The current web application is a Sprint 01 shell with no authenticated application session or authorization-capability contract; adding an event administration route now would prematurely implement T14 and could not provide an authoritative denied state. The four backend endpoints and safe OpenAPI contracts are the authorized operational surface until T04/T07/T14 are separately authorized.

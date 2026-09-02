@@ -25,8 +25,70 @@ import type {
 export class DenyAllInvitationAuthenticationEligibilityAdapter implements InvitationAuthenticationEligibilityPort {
   authorize(
     _identity: NormalizedProviderIdentity,
+    _authorizationReference?: string,
   ): Promise<InvitationAuthenticationAuthorization | null> {
     return Promise.resolve(null);
+  }
+}
+
+@Injectable()
+export class PrismaInvitationAuthenticationEligibilityAdapter implements InvitationAuthenticationEligibilityPort {
+  constructor(
+    private readonly client: DatabaseClient,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  async authorize(
+    identity: NormalizedProviderIdentity,
+    authorizationReference?: string,
+  ): Promise<InvitationAuthenticationAuthorization | null> {
+    if (
+      !authorizationReference ||
+      identity.emailVerificationStatus !== 'verified' ||
+      !identity.verifiedEmail
+    ) {
+      return null;
+    }
+    const invitation = await this.client.invitation.findFirst({
+      where: {
+        id: authorizationReference,
+        status: 'PENDING',
+        expiresAt: { gt: this.now() },
+        invitedEmailNormalized: identity.verifiedEmail.trim().toLowerCase(),
+      },
+      select: {
+        id: true,
+        organizationId: true,
+        employeeId: true,
+        userAccountId: true,
+        employee: { select: { organizationId: true, lifecycleStatus: true } },
+        userAccount: {
+          select: {
+            organizationId: true,
+            employeeId: true,
+            authenticationEligible: true,
+            activatedAt: true,
+            disabledAt: true,
+          },
+        },
+      },
+    });
+    if (
+      !invitation ||
+      invitation.organizationId !== invitation.employee.organizationId ||
+      invitation.organizationId !== invitation.userAccount.organizationId ||
+      invitation.employeeId !== invitation.userAccount.employeeId ||
+      invitation.employee.lifecycleStatus !== 'INVITED' ||
+      invitation.userAccount.authenticationEligible ||
+      invitation.userAccount.activatedAt !== null ||
+      invitation.userAccount.disabledAt !== null
+    ) {
+      return null;
+    }
+    return {
+      organizationId: invitation.organizationId,
+      authorizationReference: invitation.id,
+    };
   }
 }
 

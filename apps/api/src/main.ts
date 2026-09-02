@@ -23,7 +23,12 @@ async function bootstrap(): Promise<void> {
     { logger },
   );
   app.enableShutdownHooks();
-  configureApiFoundation(app, contextStore, logger);
+  configureApiFoundation(
+    app,
+    contextStore,
+    logger,
+    config.authentication.allowedRedirectUris.map((uri) => new URL(uri).origin),
+  );
   logger.info('application.configuration.validated', {
     configuration: toSafeConfigSummary(config),
   });

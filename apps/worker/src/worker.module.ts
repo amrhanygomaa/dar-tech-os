@@ -34,6 +34,10 @@ import {
   OUTBOX_DISPATCHER,
   WORKER_CONFIG,
 } from './worker.tokens.js';
+import {
+  IDENTITY_OUTBOX_CONSUMERS,
+  IDENTITY_OUTBOX_ROUTES,
+} from './identity-outbox-events.js';
 
 @Module({})
 export class WorkerModule {
@@ -67,7 +71,10 @@ export class WorkerModule {
           ): JobProcessor => {
             const deliveryHandler = new OutboxDeliveryJobHandler(
               client,
-              new OutboxConsumerRegistry([new ReferenceOutboxConsumer()]),
+              new OutboxConsumerRegistry([
+                new ReferenceOutboxConsumer(),
+                ...IDENTITY_OUTBOX_CONSUMERS,
+              ]),
               logger,
             );
             return new JobProcessor(
@@ -95,7 +102,7 @@ export class WorkerModule {
             new OutboxDispatcher(
               new PostgresOutboxStore(client),
               queue,
-              new OutboxRouteRegistry([REFERENCE_OUTBOX_ROUTE]),
+              new OutboxRouteRegistry([REFERENCE_OUTBOX_ROUTE, ...IDENTITY_OUTBOX_ROUTES]),
               contextStore,
               logger,
               new CappedExponentialRetryPolicy({

@@ -73,4 +73,28 @@ describe('in-memory authentication transaction adapter', () => {
       }),
     ).resolves.toEqual({ status: 'denied', reason: 'invalid' });
   });
+
+  it('binds only an opaque invitation authorization reference to the exact transaction', async () => {
+    const adapter = new InMemoryAuthenticationTransactionAdapter(
+      () => new Date('2026-09-02T12:00:00.000Z'),
+    );
+    const transaction = await adapter.create({
+      providerKey: 'test-provider',
+      redirectUri: 'http://localhost/callback',
+      ttlSeconds: 60,
+      authorizationReference: '018f53d4-2f68-7c52-a399-3df2364d8701',
+    });
+    const consumed = await adapter.consume({
+      transactionId: transaction.id,
+      providerKey: transaction.providerKey,
+      receivedState: transaction.state,
+    });
+    expect(consumed).toMatchObject({
+      status: 'consumed',
+      transaction: {
+        authorizationReference: '018f53d4-2f68-7c52-a399-3df2364d8701',
+      },
+    });
+    expect(JSON.stringify(consumed)).not.toContain('#invite=');
+  });
 });

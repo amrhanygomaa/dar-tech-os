@@ -10,7 +10,8 @@
     { "path": "../../packages/types" },
     { "path": "../../packages/config" },
     { "path": "../../packages/database" },
-    { "path": "../../packages/observability" }
+    { "path": "../../packages/observability" },
+    { "path": "../../packages/outbox" }
   ],
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.spec.ts"]

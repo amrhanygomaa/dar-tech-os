@@ -140,6 +140,9 @@ const apiEnvironmentSchema = databaseRuntimeSchema
     AUTH_LOCAL_IDENTITIES_JSON: localAuthenticationIdentitiesSchema,
     AUTH_LOCAL_PROVIDER_ENABLED: booleanStringSchema,
     AUTH_TRANSACTION_TTL_SECONDS: positiveIntegerSchema.min(60).max(900).default(300),
+    INVITATION_TTL_SECONDS: positiveIntegerSchema.min(60).max(2_592_000),
+    ONBOARDING_RATE_LIMIT_MAX_REQUESTS: positiveIntegerSchema.min(1).max(1_000).default(30),
+    ONBOARDING_RATE_LIMIT_WINDOW_SECONDS: positiveIntegerSchema.min(1).max(3_600).default(60),
   })
   .superRefine((value, context) => {
     if (
@@ -245,6 +248,7 @@ export interface ApiConfig {
   readonly databaseConnectTimeoutMs: number;
   readonly databaseIdleTimeoutMs: number;
   readonly authentication: AuthenticationConfig;
+  readonly invitation: InvitationConfig;
 }
 
 export interface LocalAuthenticationIdentityConfig {
@@ -258,6 +262,12 @@ export interface AuthenticationConfig {
   readonly localProviderEnabled: boolean;
   readonly localIdentities: readonly LocalAuthenticationIdentityConfig[];
   readonly transactionTtlSeconds: number;
+}
+
+export interface InvitationConfig {
+  readonly ttlSeconds: number;
+  readonly rateLimitMaxRequests: number;
+  readonly rateLimitWindowSeconds: number;
 }
 
 export interface WorkerConfig {
@@ -331,6 +341,11 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
           : {}),
       })),
       transactionTtlSeconds: parsed.AUTH_TRANSACTION_TTL_SECONDS,
+    },
+    invitation: {
+      ttlSeconds: parsed.INVITATION_TTL_SECONDS,
+      rateLimitMaxRequests: parsed.ONBOARDING_RATE_LIMIT_MAX_REQUESTS,
+      rateLimitWindowSeconds: parsed.ONBOARDING_RATE_LIMIT_WINDOW_SECONDS,
     },
   };
 }

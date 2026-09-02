@@ -24,6 +24,7 @@ const testConfig: ApiConfig = {
     localIdentities: [],
     transactionTtlSeconds: 300,
   },
+  invitation: { ttlSeconds: 300, rateLimitMaxRequests: 30, rateLimitWindowSeconds: 60 },
 };
 
 describe('API foundation', () => {

@@ -49,6 +49,16 @@ enum EventRisk {
   @@map("event_risk")
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+  SUPERSEDED
+
+  @@map("invitation_status")
+}
+
 model Organization {
   id             String          @id @default(uuid()) @db.Uuid
   displayName    String          @map("display_name") @db.VarChar(160)
@@ -59,6 +69,7 @@ model Organization {
   ssoIdentities  SSOIdentity[]
   auditEvents    AuditEvent[]
   securityEvents SecurityEvent[]
+  invitations    Invitation[]
 
   @@map("organizations")
 }
@@ -83,6 +94,9 @@ model Employee {
   userAccount         UserAccount?
   authoredAuditEvents AuditEvent[]            @relation("AuditEventActor")
   securityEvents      SecurityEvent[]         @relation("SecurityEventActor")
+  invitations         Invitation[]            @relation("InvitationEmployee")
+  issuedInvitations   Invitation[]            @relation("InvitationIssuer")
+  revokedInvitations  Invitation[]            @relation("InvitationRevoker")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
@@ -104,11 +118,52 @@ model UserAccount {
   employee               Employee        @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
   ssoIdentities          SSOIdentity[]
   securityEvents         SecurityEvent[] @relation("SecurityEventAccount")
+  invitations            Invitation[]
 
   @@unique([organizationId, id], map: "user_accounts_organization_id_id_key")
   @@unique([organizationId, employeeId], map: "user_accounts_organization_employee_id_key")
   @@index([organizationId, authenticationEligible], map: "user_accounts_organization_authentication_eligible_idx")
   @@map("user_accounts")
+}
+
+model Invitation {
+  id                       String           @id @default(uuid()) @db.Uuid
+  organizationId           String           @map("organization_id") @db.Uuid
+  employeeId               String           @map("employee_id") @db.Uuid
+  userAccountId            String           @map("user_account_id") @db.Uuid
+  invitedEmailNormalized   String           @map("invited_email_normalized") @db.VarChar(320)
+  tokenHash                String           @unique(map: "invitations_token_hash_key") @map("token_hash") @db.Char(64)
+  status                   InvitationStatus @default(PENDING)
+  issuerEmployeeId         String           @map("issuer_employee_id") @db.Uuid
+  issuedAt                 DateTime         @default(now()) @map("issued_at") @db.Timestamptz(3)
+  expiresAt                DateTime         @map("expires_at") @db.Timestamptz(3)
+  acceptedAt               DateTime?        @map("accepted_at") @db.Timestamptz(3)
+  revokedAt                DateTime?        @map("revoked_at") @db.Timestamptz(3)
+  revokedByEmployeeId      String?          @map("revoked_by_employee_id") @db.Uuid
+  safeRevocationReason     String?          @map("safe_revocation_reason") @db.VarChar(500)
+  supersededAt             DateTime?        @map("superseded_at") @db.Timestamptz(3)
+  supersededByInvitationId String?          @map("superseded_by_invitation_id") @db.Uuid
+  onboardingCompletedAt    DateTime?        @map("onboarding_completed_at") @db.Timestamptz(3)
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization             Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee                 Employee         @relation("InvitationEmployee", fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+  userAccount              UserAccount      @relation(fields: [organizationId, userAccountId], references: [organizationId, id], onDelete: Restrict)
+  issuerEmployee           Employee         @relation("InvitationIssuer", fields: [organizationId, issuerEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  revokedByEmployee        Employee?        @relation("InvitationRevoker", fields: [organizationId, revokedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  supersededByInvitation   Invitation?      @relation("InvitationSupersession", fields: [organizationId, supersededByInvitationId], references: [organizationId, id], onDelete: Restrict)
+  supersededInvitations    Invitation[]     @relation("InvitationSupersession")
+
+  @@unique([organizationId, id], map: "invitations_organization_id_id_key")
+  @@index([organizationId, employeeId, issuedAt], map: "invitations_organization_employee_issued_at_idx")
+  @@index([organizationId, userAccountId, issuedAt], map: "invitations_organization_account_issued_at_idx")
+  @@index([organizationId, status, createdAt], map: "invitations_organization_status_created_at_idx")
+  @@index([status, expiresAt], map: "invitations_status_expires_at_idx")
+  @@index([organizationId, expiresAt], map: "invitations_organization_expires_at_idx")
+  @@index([organizationId, issuerEmployeeId], map: "invitations_organization_issuer_idx")
+  @@index([organizationId, revokedByEmployeeId], map: "invitations_organization_revoker_idx")
+  @@index([organizationId, supersededByInvitationId], map: "invitations_organization_superseded_by_idx")
+  @@map("invitations")
 }
 
 model SSOIdentity {

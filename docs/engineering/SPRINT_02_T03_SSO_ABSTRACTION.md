@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-S02-T03 implements provider-neutral authentication verification for internal employee identities. It selects no production identity provider and creates no Dar Tech application session. S02-T02 and S02-T04 through S02-T15 remain unauthorized.
+S02-T03 implements provider-neutral authentication verification for internal employee identities. It selects no production identity provider and creates no Dar Tech application session. S02-T02 now owns the separately authorized invitation/onboarding integration; S02-T04 through S02-T11 and S02-T13 through S02-T15 remain unauthorized.
 
 The implementation adds no Prisma model or migration. It reuses the S02-T01 `SSOIdentity`, `UserAccount`, and `Employee` records only to decide whether a verified provider identity is already linked and authentication-eligible.
 
@@ -18,7 +18,7 @@ HTTP /api/v1/auth
      -> AuthenticationIdentityRepositoryPort
         (read-only T01 identity/account/lifecycle lookup)
      -> InvitationAuthenticationEligibilityPort
-        (deny-all until S02-T02 supplies explicit authorization)
+        (S02-T02 validates the exact transaction-bound invitation reference)
      -> AuthenticationSecurityHook
         (typed contracts; persistence remains S02-T12)
 ```
@@ -53,6 +53,8 @@ The current transaction implementation is in-memory because no production provid
 - passes the expected nonce and PKCE verifier only through the technical port; and
 - never logs state, nonce, verifier, authorization code, or transaction contents.
 
+S02-T02 makes one backward-compatible addition: an authentication transaction may carry an opaque server-created invitation authorization reference. Normal authentication starts carry none. The reference is the validated Invitation ID, never its raw token or acceptance URL, and is returned only through the internal consumed-transaction contract. State, nonce, PKCE, redirect, expiry, and replay guarantees are unchanged.
+
 The local adapter validates state and nonce a second time, uses a random one-use local authorization code, and denies reused or expired codes. PKCE is not applicable to its non-OAuth local fixture protocol; the neutral contract and transaction port supply PKCE inputs for future authorization-code adapters.
 
 A future production adapter may require a shared transient store for multi-instance callback correlation. That remains a technical adapter behind `AuthenticationTransactionPort`, not a business entity. No production persistence solution is introduced by T03.
@@ -69,7 +71,7 @@ After provider verification, the repository finds the globally unique `(provider
 
 `INVITED`, `SUSPENDED`, `OFFBOARDING`, and `ARCHIVED` employees, disabled or ineligible accounts, inconsistent organization linkage, and unknown provider subjects fail closed.
 
-For an unknown subject, `InvitationAuthenticationEligibilityPort` is the only future integration point. Its default adapter always denies. A test-only fake proves that S02-T02 can later return an opaque authorization reference without T03 persisting, accepting, revoking, or fabricating an Invitation. Public callback responses do not reveal whether the internal principal was linked or invitation-authorized.
+For an unknown subject, `InvitationAuthenticationEligibilityPort` is the only invitation integration point. With S02-T02 installed, its Prisma adapter requires the exact authorization reference consumed from the authentication transaction, a still-pending/unexpired invitation, a verified matching email, and consistent invited employee/account state. Starts from the normal `/auth` surface have no reference and therefore deny. T03 still does not persist, accept, revoke, or fabricate invitations. Public callback responses do not reveal whether the internal principal was linked or invitation-authorized.
 
 ## Local/test adapter restrictions
 
@@ -132,7 +134,7 @@ No frontend sign-in page is added. The current web runtime is still a Sprint 01 
 
 ## Explicitly deferred
 
-- invitation persistence, issue/accept/revoke, and onboarding (S02-T02);
+- invitation persistence, issue/accept/revoke, and onboarding remain owned and documented by S02-T02 rather than T03;
 - session persistence, cookies, bearer/refresh tokens, and application logout (S02-T04);
 - Google Workspace, Microsoft Entra ID, or any production provider adapter/credentials;
 - roles, permissions, central authorization, approvals, temporary/emergency access;
