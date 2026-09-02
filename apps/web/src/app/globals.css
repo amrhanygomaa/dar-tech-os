@@ -21,9 +21,9 @@ body {
   margin: 0;
   background: radial-gradient(circle at 5% 5%, rgb(49 92 207 / 8%), transparent 28rem), #f3f6fa;
 }
-button, input { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
-button:focus-visible, a:focus-visible, input:focus-visible {
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid rgb(49 92 207 / 28%);
   outline-offset: 3px;
 }
@@ -144,7 +144,7 @@ h2 { margin-bottom: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
   font-size: 0.86rem;
   font-weight: 700;
 }
-.form-grid input {
+.form-grid input, .form-grid select, .form-grid textarea {
   min-width: 0;
   border: 1px solid #cbd5e1;
   border-radius: 0.68rem;
@@ -152,7 +152,9 @@ h2 { margin-bottom: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
   padding: 0.78rem 0.85rem;
   color: var(--ink);
 }
-.form-grid input:focus { border-color: var(--accent); background: #ffffff; }
+.form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { border-color: var(--accent); background: #ffffff; }
+.form-grid textarea { resize: vertical; }
+.form-grid input[readonly] { color: var(--muted); cursor: not-allowed; }
 .split-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
 .secret-delivery {
   display: grid;
@@ -192,6 +194,8 @@ h2 { margin-bottom: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
 }
 .pill.accepted { background: #ecfdf3; color: var(--success); }
 .pill.revoked, .pill.expired { background: #fef3f2; color: var(--danger); }
+.pill.active { background: #ecfdf3; color: var(--success); }
+.pill.archived { background: #f2f4f7; color: #475467; }
 .danger, .error-banner { color: var(--danger); }
 .error-banner { border-radius: 0.7rem; background: #fef3f2; padding: 0.85rem; }
 .state-card { margin: 8vh auto; }
@@ -246,6 +250,11 @@ h2 { margin-bottom: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
   font-size: 0.76rem;
   line-height: 1.55;
 }
+.security-note.compact { margin-top: 1rem; border-top: 0; padding-top: 0; }
+.role-workspace { align-items: start; }
+.assignment-history { display: grid; gap: 0.8rem; margin-top: 2rem; border-top: 1px solid var(--line); padding-top: 1.5rem; }
+.assignment-row { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-top: 1px solid #e7edf4; padding-top: 1rem; }
+.assignment-row p { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.78rem; overflow-wrap: anywhere; }
 
 @media (max-width: 800px) {
   .workspace-grid { grid-template-columns: 1fr; }

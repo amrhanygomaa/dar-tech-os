@@ -20,6 +20,11 @@ export const API_ERROR_CODES = {
   authorizationDenied: 'AUTHORIZATION_DENIED',
   identityLifecycleMutationNotAllowed: 'IDENTITY_LIFECYCLE_MUTATION_NOT_ALLOWED',
   identityUpdateInvalid: 'IDENTITY_UPDATE_INVALID',
+  roleInputInvalid: 'ROLE_INPUT_INVALID',
+  roleKeyImmutable: 'ROLE_KEY_IMMUTABLE',
+  roleConflict: 'ROLE_CONFLICT',
+  roleArchived: 'ROLE_ARCHIVED',
+  roleAssignmentConflict: 'EMPLOYEE_ROLE_ASSIGNMENT_CONFLICT',
   internalError: 'INTERNAL_ERROR',
 } as const;
 

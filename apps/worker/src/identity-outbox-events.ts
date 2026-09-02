@@ -10,6 +10,11 @@ const eventTypes = [
   'identity.invitation-reissued',
   'identity.onboarding-completed',
   'identity.sso-identity-linked',
+  'identity.role-created',
+  'identity.role-updated',
+  'identity.role-archived',
+  'identity.employee-role-assigned',
+  'identity.employee-role-removed',
 ] as const;
 
 const consumerName = 'identity.lifecycle-history';
@@ -29,7 +34,8 @@ class IdentityLifecycleHistoryConsumer implements OutboxConsumer {
 
   handle(_event: OutboxEventEnvelope, _transaction: DatabaseTransaction): Promise<void> {
     // The idempotency receipt is the current durable local side effect. Future
-    // notification/integration owners can add subscribers without changing T02.
+    // notification/integration owners can add subscribers without changing the
+    // T02 invitation or T05 role command contracts.
     return Promise.resolve();
   }
 }

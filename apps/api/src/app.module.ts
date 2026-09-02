@@ -19,6 +19,7 @@ import {
   InvitationModule,
   type InvitationTestAdapters,
 } from './invitations/invitation.module.js';
+import { RoleModule, type RoleTestAdapters } from './roles/role.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
@@ -27,6 +28,7 @@ export interface AppModuleRegistrationOptions {
   readonly eventHistoryTestAdapters?: EventHistoryTestAdapters;
   readonly identityTestAdapters?: IdentityTestAdapters;
   readonly invitationTestAdapters?: InvitationTestAdapters;
+  readonly roleTestAdapters?: RoleTestAdapters;
 }
 
 @Module({})
@@ -62,6 +64,7 @@ export class AppModule {
           options.invitationTestAdapters,
         ),
         IdentityModule.register(config.appEnvironment, options.identityTestAdapters),
+        RoleModule.register(config.appEnvironment, options.roleTestAdapters),
         ApiFallbackModule,
       ],
       controllers: [AppController],

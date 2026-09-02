@@ -8,8 +8,9 @@ export default function FoundationPage() {
           Employee access begins with an authorized invitation and a verified provider identity.
           Application sessions remain deferred to the next separately authorized security ticket.
         </p>
-        <nav className="hero-actions" aria-label="Invitation routes">
+        <nav className="hero-actions" aria-label="Identity administration routes">
           <a className="button primary" href="/admin/invitations">Manage invitations</a>
+          <a className="button secondary" href="/admin/roles">Manage roles</a>
           <a className="button secondary" href="/onboarding">Open onboarding</a>
         </nav>
       </section>

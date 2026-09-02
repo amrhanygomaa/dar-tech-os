@@ -13,6 +13,11 @@ export const AUDIT_ACTION_KEYS = {
   invitationExpired: 'system.invitation.expire',
   invitationSuperseded: 'admin.invitation.supersede',
   invitationReissued: 'admin.invitation.resend',
+  roleCreated: 'admin.role.create',
+  roleUpdated: 'admin.role.update',
+  roleArchived: 'admin.role.archive',
+  employeeRoleAssigned: 'admin.role.assign',
+  employeeRoleRemoved: 'admin.role.assign',
 } as const;
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
