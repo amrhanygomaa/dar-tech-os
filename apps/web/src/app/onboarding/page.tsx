@@ -9,14 +9,7 @@ interface Provider {
   readonly iconKey: string | null;
 }
 type OnboardingState =
-  | 'reading'
-  | 'invalid'
-  | 'expired'
-  | 'revoked'
-  | 'used'
-  | 'ready'
-  | 'redirecting'
-  | 'auth-failed';
+  'reading' | 'invalid' | 'expired' | 'revoked' | 'superseded' | 'used' | 'ready' | 'redirecting' | 'auth-failed';
 
 export default function OnboardingPage() {
   const [state, setState] = useState<OnboardingState>('reading');
@@ -40,7 +33,9 @@ export default function OnboardingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ invitationToken: secret }),
       }).then((response) =>
-        apiData<{ status: 'VALID' | 'EXPIRED' | 'REVOKED' | 'ALREADY_USED' }>(response),
+        apiData<{
+          status: 'VALID' | 'EXPIRED' | 'REVOKED' | 'SUPERSEDED' | 'ALREADY_USED';
+        }>(response),
       ),
       fetch(`${API_BASE_URL}/auth/providers`, {
         cache: 'no-store',
@@ -59,7 +54,9 @@ export default function OnboardingPage() {
             ? 'expired'
             : inspection.status === 'REVOKED'
               ? 'revoked'
-              : 'used',
+              : inspection.status === 'SUPERSEDED'
+                ? 'superseded'
+                : 'used',
         );
       })
       .catch(() => {
@@ -92,11 +89,11 @@ export default function OnboardingPage() {
     }
   }
 
-  const stateCopy: Record<
-    Exclude<OnboardingState, 'ready' | 'redirecting'>,
-    { title: string; text: string }
-  > = {
-    reading: { title: 'Validating your invitation', text: 'This should only take a moment.' },
+  const stateCopy: Record<Exclude<OnboardingState, 'ready' | 'redirecting'>, { title: string; text: string }> = {
+    reading: {
+      title: 'Validating your invitation',
+      text: 'This should only take a moment.',
+    },
     invalid: {
       title: 'This invitation is not available',
       text: 'Check the secure link you received or ask the invitation issuer for help.',
@@ -108,6 +105,10 @@ export default function OnboardingPage() {
     revoked: {
       title: 'This invitation was revoked',
       text: 'Contact the invitation issuer if you believe this was unexpected.',
+    },
+    superseded: {
+      title: 'A newer invitation has been issued',
+      text: 'Use the most recent invitation link you received.',
     },
     used: {
       title: 'Onboarding is already complete',
@@ -130,19 +131,13 @@ export default function OnboardingPage() {
           <>
             <p className="eyebrow">Invitation verified</p>
             <h1>Verify your work identity</h1>
-            <p className="lede">
-              Choose an approved provider. Its verified email must match your invitation.
-            </p>
+            <p className="lede">Choose an approved provider. Its verified email must match your invitation.</p>
             <div className="provider-list">
               {providers.length === 0 ? (
                 <p className="empty-state">No authentication provider is currently available.</p>
               ) : (
                 providers.map((provider) => (
-                  <button
-                    className="provider-button"
-                    key={provider.key}
-                    onClick={() => void start(provider)}
-                  >
+                  <button className="provider-button" key={provider.key} onClick={() => void start(provider)}>
                     <span className="provider-icon" aria-hidden="true">
                       {provider.displayName.slice(0, 1)}
                     </span>
@@ -167,8 +162,7 @@ export default function OnboardingPage() {
           </>
         )}
         <footer className="security-note">
-          Invitation secrets are removed from this browser URL immediately and are never stored in
-          browser storage.
+          Invitation secrets are removed from this browser URL immediately and are never stored in browser storage.
         </footer>
       </section>
     </main>

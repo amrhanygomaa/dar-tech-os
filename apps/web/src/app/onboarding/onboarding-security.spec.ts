@@ -2,10 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const onboardingSource = readFileSync(
-  fileURLToPath(new URL('./page.tsx', import.meta.url)),
-  'utf8',
-);
+const onboardingSource = readFileSync(fileURLToPath(new URL('./page.tsx', import.meta.url)), 'utf8');
 const callbackSource = readFileSync(
   fileURLToPath(new URL('./callback/[providerKey]/page.tsx', import.meta.url)),
   'utf8',
@@ -17,14 +14,14 @@ const administrationSource = readFileSync(
 
 describe('S02-T02 browser secret handling', () => {
   it('reads the invitation from the fragment, scrubs the URL before calling the API, and posts it in a body', () => {
-    const readIndex = onboardingSource.indexOf("window.location.hash.slice(1)");
+    const readIndex = onboardingSource.indexOf('window.location.hash.slice(1)');
     const scrubIndex = onboardingSource.indexOf('window.history.replaceState');
     const requestIndex = onboardingSource.indexOf('/onboarding/invitation/inspect');
     expect(readIndex).toBeGreaterThan(-1);
     expect(scrubIndex).toBeGreaterThan(readIndex);
     expect(requestIndex).toBeGreaterThan(scrubIndex);
     expect(onboardingSource).toContain('body: JSON.stringify({ invitationToken: secret })');
-    expect(onboardingSource).toContain("referrerPolicy: 'no-referrer'");
+    expect(onboardingSource).toMatch(/referrerPolicy:\s*["']no-referrer["']/u);
   });
 
   it('never persists or logs the invitation and clears component state before provider redirect', () => {
@@ -47,12 +44,21 @@ describe('S02-T02 browser secret handling', () => {
   });
 
   it('renders every required public and administrative state without a password or signup flow', () => {
-    expect(onboardingSource).toMatch(/invalid|expired|revoked|used|redirecting|auth-failed/u);
+    expect(onboardingSource).toMatch(/invalid|expired|revoked|superseded|used|redirecting|auth-failed/u);
     expect(callbackSource).toMatch(/working.*complete.*failed/su);
     expect(administrationSource).toMatch(/loading.*ready.*unauthorized.*forbidden.*error/su);
     expect(administrationSource).toContain('No invitations have been issued.');
     expect(`${onboardingSource}\n${callbackSource}\n${administrationSource}`).not.toMatch(
       /password|sign[ -]?up|customer/iu,
     );
+  });
+
+  it('renders resend, re-invite, copy, one-time delivery, and superseded guidance', () => {
+    expect(administrationSource).toContain('Resend invitation');
+    expect(administrationSource).toContain('Re-invite');
+    expect(administrationSource).toContain('navigator.clipboard.writeText');
+    expect(administrationSource).toMatch(/No email was\s+sent/u);
+    expect(onboardingSource).toContain('A newer invitation has been issued');
+    expect(onboardingSource).toContain('Use the most recent invitation link you received.');
   });
 });

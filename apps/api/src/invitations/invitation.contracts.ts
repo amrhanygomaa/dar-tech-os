@@ -1,16 +1,16 @@
 import type { DatabaseTransaction } from '@dar-tech/database';
 import type { NormalizedProviderIdentity } from '../auth/auth.contracts.js';
 
-export const INVITATION_STATUSES = ['PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED'] as const;
+export const INVITATION_STATUSES = ['PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED', 'SUPERSEDED'] as const;
 export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
 
 export const INVITATION_ACTIONS = {
   inviteEmployee: 'admin.employee.invite',
   readInvitation: 'admin.invitation.read',
   revokeInvitation: 'admin.invitation.revoke',
+  resendInvitation: 'admin.invitation.resend',
 } as const;
-export type InvitationAction =
-  (typeof INVITATION_ACTIONS)[keyof typeof INVITATION_ACTIONS];
+export type InvitationAction = (typeof INVITATION_ACTIONS)[keyof typeof INVITATION_ACTIONS];
 
 export interface InvitationActor {
   readonly actorType: 'employee';
@@ -71,6 +71,8 @@ export interface InvitationView {
   readonly revokedAt: Date | null;
   readonly revokedByEmployeeId: string | null;
   readonly safeRevocationReason: string | null;
+  readonly supersededAt: Date | null;
+  readonly supersededByInvitationId: string | null;
   readonly onboardingCompletedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -92,6 +94,7 @@ export type InvitationInspection =
   | { readonly status: 'VALID'; readonly expiresAt: Date }
   | { readonly status: 'EXPIRED'; readonly expiresAt: Date }
   | { readonly status: 'REVOKED'; readonly expiresAt: Date }
+  | { readonly status: 'SUPERSEDED'; readonly expiresAt: Date }
   | { readonly status: 'ALREADY_USED'; readonly expiresAt: Date };
 
 export interface InvitationAcceptanceResult {
@@ -107,15 +110,24 @@ export type RevocationResult =
   | { readonly status: 'not_found' }
   | { readonly status: 'conflict' };
 
+export type InvitationReissueOperation = 'RESEND' | 'REINVITE';
+
+export type ReissueResult =
+  | {
+      readonly status: 'reissued';
+      readonly operation: InvitationReissueOperation;
+      readonly previousInvitation: InvitationView;
+      readonly invitation: InvitationView;
+    }
+  | { readonly status: 'not_found' }
+  | { readonly status: 'conflict' };
+
 export type AcceptancePersistenceResult =
   | { readonly status: 'accepted'; readonly providerKey: string }
   | {
       readonly status: 'denied';
       readonly failureCategory:
-        | 'invitation_ineligible'
-        | 'identity_mismatch'
-        | 'identity_linked'
-        | 'organization_mismatch';
+        'invitation_ineligible' | 'identity_mismatch' | 'identity_linked' | 'organization_mismatch';
       readonly organizationId?: string;
     };
 
@@ -127,11 +139,7 @@ export interface InvitationRepositoryPort {
     readonly issuedAt: Date;
     readonly expiresAt: Date;
   }): Promise<InvitationView>;
-  list(
-    organizationId: string,
-    page: number,
-    pageSize: number,
-  ): Promise<InvitationPage>;
+  list(organizationId: string, page: number, pageSize: number): Promise<InvitationPage>;
   findByTokenHash(tokenHash: string): Promise<InvitationView | null>;
   revoke(input: {
     readonly actor: InvitationActor;
@@ -139,10 +147,21 @@ export interface InvitationRepositoryPort {
     readonly safeReason?: string;
     readonly now: Date;
   }): Promise<RevocationResult>;
-  materializeExpired(input: {
+  resend(input: {
+    readonly actor: InvitationActor;
     readonly invitationId: string;
-    readonly now: Date;
-  }): Promise<boolean>;
+    readonly tokenHash: string;
+    readonly issuedAt: Date;
+    readonly expiresAt: Date;
+  }): Promise<ReissueResult>;
+  reinvite(input: {
+    readonly actor: InvitationActor;
+    readonly employeeId: string;
+    readonly tokenHash: string;
+    readonly issuedAt: Date;
+    readonly expiresAt: Date;
+  }): Promise<ReissueResult>;
+  materializeExpired(input: { readonly invitationId: string; readonly now: Date }): Promise<boolean>;
   materializeExpiredForOrganization(input: {
     readonly organizationId: string;
     readonly now: Date;

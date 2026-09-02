@@ -1,15 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { InvitationConfig } from '@dar-tech/config';
-import {
-  ApplicationError,
-  STRUCTURED_LOGGER,
-  type StructuredLogger,
-} from '@dar-tech/observability';
+import { ApplicationError, STRUCTURED_LOGGER, type StructuredLogger } from '@dar-tech/observability';
 import { AuthenticationService } from '../auth/auth.service.js';
-import {
-  authenticationRequired,
-  authorizationDenied,
-} from '../identity/identity.errors.js';
+import { authenticationRequired, authorizationDenied } from '../identity/identity.errors.js';
 import {
   INVITATION_ACTIONS,
   INVITATION_ACTOR_PORT,
@@ -56,11 +49,13 @@ export class InvitationService {
     @Inject(INVITATION_ACTOR_PORT) private readonly actors: InvitationActorPort,
     @Inject(INVITATION_AUTHORIZATION_PORT)
     private readonly authorization: InvitationAuthorizationPort,
-    @Inject(INVITATION_REPOSITORY_PORT) private readonly repository: InvitationRepositoryPort,
+    @Inject(INVITATION_REPOSITORY_PORT)
+    private readonly repository: InvitationRepositoryPort,
     @Inject(INVITATION_SECRET_GENERATOR)
     private readonly secrets: InvitationSecretGenerator,
     @Inject(INVITATION_CLOCK) private readonly clock: InvitationClock,
-    @Inject(AuthenticationService) private readonly authentication: AuthenticationService,
+    @Inject(AuthenticationService)
+    private readonly authentication: AuthenticationService,
     @Inject(STRUCTURED_LOGGER) private readonly logger: StructuredLogger,
   ) {}
 
@@ -128,6 +123,62 @@ export class InvitationService {
     return result.invitation;
   }
 
+  async resend(invitationIdInput: string): Promise<IssuedInvitation> {
+    const actor = await this.requireActor();
+    const invitationId = parseInvitationId(invitationIdInput);
+    await this.requireAuthorization(actor, INVITATION_ACTIONS.resendInvitation, invitationId);
+    const secret = this.secrets.generate();
+    const issuedAt = this.clock.now();
+    const result = await this.repository.resend({
+      actor,
+      invitationId,
+      tokenHash: secret.hash,
+      issuedAt,
+      expiresAt: this.expiresAt(issuedAt),
+    });
+    if (result.status === 'not_found') throw invitationNotFound();
+    if (result.status === 'conflict') throw invitationStateConflict();
+    this.logger.info('identity.invitation.reissued', {
+      operation: result.operation,
+      outcome: 'succeeded',
+      organizationId: actor.organizationId,
+      previousInvitationId: result.previousInvitation.id,
+      invitationId: result.invitation.id,
+    });
+    return {
+      invitation: result.invitation,
+      acceptanceUrl: `/onboarding#invite=${secret.secret}`,
+    };
+  }
+
+  async reinvite(employeeIdInput: string): Promise<IssuedInvitation> {
+    const actor = await this.requireActor();
+    const employeeId = parseInvitationId(employeeIdInput);
+    await this.requireAuthorization(actor, INVITATION_ACTIONS.resendInvitation, employeeId);
+    const secret = this.secrets.generate();
+    const issuedAt = this.clock.now();
+    const result = await this.repository.reinvite({
+      actor,
+      employeeId,
+      tokenHash: secret.hash,
+      issuedAt,
+      expiresAt: this.expiresAt(issuedAt),
+    });
+    if (result.status === 'not_found') throw invitationNotFound();
+    if (result.status === 'conflict') throw invitationStateConflict();
+    this.logger.info('identity.invitation.reissued', {
+      operation: result.operation,
+      outcome: 'succeeded',
+      organizationId: actor.organizationId,
+      previousInvitationId: result.previousInvitation.id,
+      invitationId: result.invitation.id,
+    });
+    return {
+      invitation: result.invitation,
+      acceptanceUrl: `/onboarding#invite=${secret.secret}`,
+    };
+  }
+
   async inspect(input: unknown): Promise<InvitationInspection> {
     const token = parseInvitationSecretBody(input);
     let hash: string;
@@ -149,6 +200,9 @@ export class InvitationService {
       throw invalidInvitationSecret();
     }
     const now = this.clock.now();
+    if (invitation.status === 'SUPERSEDED') {
+      return { status: 'SUPERSEDED', expiresAt: invitation.expiresAt };
+    }
     if (now.getTime() >= invitation.expiresAt.getTime()) {
       await this.materializeExpiredSafely(invitation.id, now);
       return { status: 'EXPIRED', expiresAt: invitation.expiresAt };
@@ -168,17 +222,10 @@ export class InvitationService {
   async startAuthentication(providerKey: string, input: unknown) {
     const parsed = parseOnboardingStart(input);
     const invitation = await this.requirePendingInvitation(parsed.invitationToken);
-    return this.authentication.startForInvitation(
-      providerKey,
-      parsed.authenticationInput,
-      invitation.id,
-    );
+    return this.authentication.startForInvitation(providerKey, parsed.authenticationInput, invitation.id);
   }
 
-  async completeAuthentication(
-    providerKey: string,
-    input: unknown,
-  ): Promise<InvitationAcceptanceResult> {
+  async completeAuthentication(providerKey: string, input: unknown): Promise<InvitationAcceptanceResult> {
     let outcome;
     try {
       outcome = await this.authentication.verify(providerKey, input);
@@ -202,9 +249,7 @@ export class InvitationService {
       });
       if (accepted.status === 'denied') {
         await this.repository.recordAcceptanceFailure({
-          ...(accepted.organizationId
-            ? { organizationId: accepted.organizationId }
-            : {}),
+          ...(accepted.organizationId ? { organizationId: accepted.organizationId } : {}),
           failureCategory: accepted.failureCategory,
           occurredAt: this.clock.now(),
         });
@@ -225,9 +270,7 @@ export class InvitationService {
       if (error instanceof ApplicationError) throw error;
       await this.repository.recordAcceptanceFailure({
         organizationId: outcome.principal.organizationId,
-        failureCategory: hasErrorCode(error, 'P2002')
-          ? 'identity_linked'
-          : 'transaction_failed',
+        failureCategory: hasErrorCode(error, 'P2002') ? 'identity_linked' : 'transaction_failed',
         occurredAt: this.clock.now(),
       });
       this.logFailure('accept', outcome.principal.organizationId, error);
@@ -283,6 +326,10 @@ export class InvitationService {
         outcome: 'failed',
       });
     }
+  }
+
+  private expiresAt(issuedAt: Date): Date {
+    return new Date(issuedAt.getTime() + this.config.ttlSeconds * 1_000);
   }
 
   private async requireActor(): Promise<InvitationActor> {

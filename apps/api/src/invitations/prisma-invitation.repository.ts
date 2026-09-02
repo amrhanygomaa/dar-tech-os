@@ -49,14 +49,33 @@ const invitationSelect = {
   revokedAt: true,
   revokedByEmployeeId: true,
   safeRevocationReason: true,
+  supersededAt: true,
+  supersededByInvitationId: true,
   onboardingCompletedAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.InvitationSelect;
 
-type RawInvitation = Prisma.InvitationGetPayload<{ select: typeof invitationSelect }>;
+type RawInvitation = Prisma.InvitationGetPayload<{
+  select: typeof invitationSelect;
+}>;
 
 type LockedInvitation = RawInvitation;
+
+interface LockedInvitationTarget {
+  readonly organizationId: string;
+  readonly employeeId: string;
+  readonly employeeCode: string;
+  readonly displayName: string;
+  readonly workEmail: string;
+  readonly lifecycleStatus: string;
+  readonly employeeActivatedAt: Date | null;
+  readonly userAccountId: string;
+  readonly accountEmployeeId: string;
+  readonly authenticationEligible: boolean;
+  readonly accountActivatedAt: Date | null;
+  readonly disabledAt: Date | null;
+}
 
 function view(invitation: RawInvitation): InvitationView {
   return { ...invitation, status: invitation.status as InvitationStatus };
@@ -80,9 +99,12 @@ function targetSnapshot(employee: {
 export class PrismaInvitationRepository implements InvitationRepositoryPort {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly client: DatabaseClient,
-    @Inject(AUDIT_EVENT_APPEND_PORT) private readonly audit: AuditEventAppendPort,
-    @Inject(SECURITY_EVENT_APPEND_PORT) private readonly security: SecurityEventAppendPort,
-    @Inject(REQUEST_CONTEXT_STORE) private readonly contextStore: RequestContextStore,
+    @Inject(AUDIT_EVENT_APPEND_PORT)
+    private readonly audit: AuditEventAppendPort,
+    @Inject(SECURITY_EVENT_APPEND_PORT)
+    private readonly security: SecurityEventAppendPort,
+    @Inject(REQUEST_CONTEXT_STORE)
+    private readonly contextStore: RequestContextStore,
     @Inject(STRUCTURED_LOGGER) private readonly logger: StructuredLogger,
   ) {}
 
@@ -181,11 +203,7 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
     });
   }
 
-  async list(
-    organizationId: string,
-    page: number,
-    pageSize: number,
-  ): Promise<InvitationPage> {
+  async list(organizationId: string, page: number, pageSize: number): Promise<InvitationPage> {
     const [total, invitations] = await this.client.$transaction([
       this.client.invitation.count({ where: { organizationId } }),
       this.client.invitation.findMany({
@@ -222,11 +240,17 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
 
       const [revoker, target] = await Promise.all([
         transaction.employee.findFirstOrThrow({
-          where: { id: input.actor.employeeId, organizationId: input.actor.organizationId },
+          where: {
+            id: input.actor.employeeId,
+            organizationId: input.actor.organizationId,
+          },
           select: { displayName: true, employeeCode: true },
         }),
         transaction.employee.findFirstOrThrow({
-          where: { id: locked.employeeId, organizationId: locked.organizationId },
+          where: {
+            id: locked.employeeId,
+            organizationId: locked.organizationId,
+          },
           select: { displayName: true, employeeCode: true },
         }),
       ]);
@@ -282,16 +306,100 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
     });
   }
 
-  materializeExpired(
-    input: Parameters<InvitationRepositoryPort['materializeExpired']>[0],
-  ): Promise<boolean> {
+  resend(input: Parameters<InvitationRepositoryPort['resend']>[0]): ReturnType<InvitationRepositoryPort['resend']> {
+    return runInTransaction(this.client, async (transaction) => {
+      const locked = await this.lockInvitation(transaction, input.invitationId, input.actor.organizationId);
+      if (!locked) return { status: 'not_found' };
+      if (locked.status === 'PENDING' && input.issuedAt.getTime() >= locked.expiresAt.getTime()) {
+        await this.expireLocked(transaction, locked, input.issuedAt);
+        return { status: 'conflict' };
+      }
+      if (locked.status !== 'PENDING') return { status: 'conflict' };
+
+      const target = await this.lockInvitationTarget(transaction, locked.organizationId, locked.employeeId);
+      if (!target || target.userAccountId !== locked.userAccountId || !this.isReissueEligible(target)) {
+        return { status: 'conflict' };
+      }
+
+      const history = await this.lockInvitationsForTarget(transaction, target);
+      for (const invitation of history) {
+        if (invitation.id === locked.id || invitation.status !== 'PENDING') continue;
+        if (input.issuedAt.getTime() < invitation.expiresAt.getTime()) {
+          return { status: 'conflict' };
+        }
+        await this.expireLocked(transaction, invitation, input.issuedAt);
+      }
+
+      const invitation = await this.createReissuedInvitation(transaction, target, input);
+      const superseded = await transaction.invitation.updateMany({
+        where: {
+          id: locked.id,
+          organizationId: locked.organizationId,
+          status: 'PENDING',
+          expiresAt: { gt: input.issuedAt },
+        },
+        data: {
+          status: 'SUPERSEDED',
+          supersededAt: input.issuedAt,
+          supersededByInvitationId: invitation.id,
+        },
+      });
+      if (superseded.count !== 1) {
+        throw new Error('Invitation supersession invariant failed');
+      }
+      const previousInvitation = await transaction.invitation.findUniqueOrThrow({
+        where: { id: locked.id },
+        select: invitationSelect,
+      });
+      await this.appendReissueHistory(transaction, input.actor, target, previousInvitation, invitation, 'RESEND');
+      return {
+        status: 'reissued',
+        operation: 'RESEND',
+        previousInvitation: view(previousInvitation),
+        invitation: view(invitation),
+      };
+    });
+  }
+
+  reinvite(
+    input: Parameters<InvitationRepositoryPort['reinvite']>[0],
+  ): ReturnType<InvitationRepositoryPort['reinvite']> {
+    return runInTransaction(this.client, async (transaction) => {
+      const target = await this.lockInvitationTarget(transaction, input.actor.organizationId, input.employeeId);
+      if (!target) return { status: 'not_found' };
+      if (!this.isReissueEligible(target)) return { status: 'conflict' };
+
+      const history = await this.lockInvitationsForTarget(transaction, target);
+      if (history.length === 0 || history.some(({ status }) => status === 'ACCEPTED')) {
+        return { status: 'conflict' };
+      }
+      for (const invitation of history) {
+        if (invitation.status !== 'PENDING') continue;
+        if (input.issuedAt.getTime() < invitation.expiresAt.getTime()) {
+          return { status: 'conflict' };
+        }
+        await this.expireLocked(transaction, invitation, input.issuedAt);
+      }
+
+      const previousInvitation = await transaction.invitation.findUniqueOrThrow({
+        where: { id: history[0]!.id },
+        select: invitationSelect,
+      });
+      const invitation = await this.createReissuedInvitation(transaction, target, input);
+      await this.appendReissueHistory(transaction, input.actor, target, previousInvitation, invitation, 'REINVITE');
+      return {
+        status: 'reissued',
+        operation: 'REINVITE',
+        previousInvitation: view(previousInvitation),
+        invitation: view(invitation),
+      };
+    });
+  }
+
+  materializeExpired(input: Parameters<InvitationRepositoryPort['materializeExpired']>[0]): Promise<boolean> {
     return runInTransaction(this.client, async (transaction) => {
       const locked = await this.lockInvitation(transaction, input.invitationId);
-      if (
-        !locked ||
-        locked.status !== 'PENDING' ||
-        input.now.getTime() < locked.expiresAt.getTime()
-      ) {
+      if (!locked || locked.status !== 'PENDING' || input.now.getTime() < locked.expiresAt.getTime()) {
         return false;
       }
       await this.expireLocked(transaction, locked, input.now);
@@ -314,7 +422,12 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
     });
     let materialized = 0;
     for (const candidate of candidates) {
-      if (await this.materializeExpired({ invitationId: candidate.id, now: input.now })) {
+      if (
+        await this.materializeExpired({
+          invitationId: candidate.id,
+          now: input.now,
+        })
+      ) {
         materialized += 1;
       }
     }
@@ -356,7 +469,10 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
 
       const [employee, account, existingIdentity] = await Promise.all([
         transaction.employee.findFirst({
-          where: { id: locked.employeeId, organizationId: locked.organizationId },
+          where: {
+            id: locked.employeeId,
+            organizationId: locked.organizationId,
+          },
           select: {
             id: true,
             organizationId: true,
@@ -367,7 +483,10 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
           },
         }),
         transaction.userAccount.findFirst({
-          where: { id: locked.userAccountId, organizationId: locked.organizationId },
+          where: {
+            id: locked.userAccountId,
+            organizationId: locked.organizationId,
+          },
           select: {
             id: true,
             organizationId: true,
@@ -414,7 +533,11 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
       }
 
       const consumed = await transaction.invitation.updateMany({
-        where: { id: locked.id, status: 'PENDING', expiresAt: { gt: input.now } },
+        where: {
+          id: locked.id,
+          status: 'PENDING',
+          expiresAt: { gt: input.now },
+        },
         data: {
           status: 'ACCEPTED',
           acceptedAt: input.now,
@@ -576,11 +699,18 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
     materializedAt: Date,
   ): Promise<void> {
     const target = await transaction.employee.findFirstOrThrow({
-      where: { id: invitation.employeeId, organizationId: invitation.organizationId },
+      where: {
+        id: invitation.employeeId,
+        organizationId: invitation.organizationId,
+      },
       select: { displayName: true, employeeCode: true },
     });
     const updated = await transaction.invitation.updateMany({
-      where: { id: invitation.id, status: 'PENDING', expiresAt: { lte: materializedAt } },
+      where: {
+        id: invitation.id,
+        status: 'PENDING',
+        expiresAt: { lte: materializedAt },
+      },
       data: { status: 'EXPIRED' },
     });
     if (updated.count !== 1) return;
@@ -628,41 +758,250 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
     invitationId: string,
     organizationId?: string,
   ): Promise<LockedInvitation | null> {
-    const rows = organizationId
-      ? await transaction.$queryRaw<LockedInvitation[]>(Prisma.sql`
-          SELECT
-            "id", "organization_id" AS "organizationId", "employee_id" AS "employeeId",
-            "user_account_id" AS "userAccountId",
-            "invited_email_normalized" AS "invitedEmailNormalized", "status",
-            "issuer_employee_id" AS "issuerEmployeeId", "issued_at" AS "issuedAt",
-            "expires_at" AS "expiresAt", "accepted_at" AS "acceptedAt",
-            "revoked_at" AS "revokedAt", "revoked_by_employee_id" AS "revokedByEmployeeId",
-            "safe_revocation_reason" AS "safeRevocationReason",
-            "onboarding_completed_at" AS "onboardingCompletedAt",
-            "created_at" AS "createdAt", "updated_at" AS "updatedAt"
-          FROM "invitations"
-          WHERE "id" = ${invitationId}::uuid AND "organization_id" = ${organizationId}::uuid
-          FOR UPDATE
-        `)
-      : await transaction.$queryRaw<LockedInvitation[]>(Prisma.sql`
-          SELECT
-            "id", "organization_id" AS "organizationId", "employee_id" AS "employeeId",
-            "user_account_id" AS "userAccountId",
-            "invited_email_normalized" AS "invitedEmailNormalized", "status",
-            "issuer_employee_id" AS "issuerEmployeeId", "issued_at" AS "issuedAt",
-            "expires_at" AS "expiresAt", "accepted_at" AS "acceptedAt",
-            "revoked_at" AS "revokedAt", "revoked_by_employee_id" AS "revokedByEmployeeId",
-            "safe_revocation_reason" AS "safeRevocationReason",
-            "onboarding_completed_at" AS "onboardingCompletedAt",
-            "created_at" AS "createdAt", "updated_at" AS "updatedAt"
-          FROM "invitations"
-          WHERE "id" = ${invitationId}::uuid
-          FOR UPDATE
-        `);
+    const reference = await transaction.invitation.findFirst({
+      where: {
+        id: invitationId,
+        ...(organizationId ? { organizationId } : {}),
+      },
+      select: { organizationId: true, employeeId: true, userAccountId: true },
+    });
+    if (!reference) return null;
+    const target = await this.lockInvitationTarget(transaction, reference.organizationId, reference.employeeId);
+    if (!target || target.userAccountId !== reference.userAccountId) return null;
+    const rows = await transaction.$queryRaw<LockedInvitation[]>(Prisma.sql`
+      SELECT
+        "id", "organization_id" AS "organizationId", "employee_id" AS "employeeId",
+        "user_account_id" AS "userAccountId",
+        "invited_email_normalized" AS "invitedEmailNormalized", "status",
+        "issuer_employee_id" AS "issuerEmployeeId", "issued_at" AS "issuedAt",
+        "expires_at" AS "expiresAt", "accepted_at" AS "acceptedAt",
+        "revoked_at" AS "revokedAt", "revoked_by_employee_id" AS "revokedByEmployeeId",
+        "safe_revocation_reason" AS "safeRevocationReason",
+        "superseded_at" AS "supersededAt",
+        "superseded_by_invitation_id" AS "supersededByInvitationId",
+        "onboarding_completed_at" AS "onboardingCompletedAt",
+        "created_at" AS "createdAt", "updated_at" AS "updatedAt"
+      FROM "invitations"
+      WHERE "id" = ${invitationId}::uuid
+        AND "organization_id" = ${reference.organizationId}::uuid
+      FOR UPDATE
+    `);
     return rows[0] ?? null;
   }
 
-  private historyContext(): { readonly requestId?: string; readonly correlationId: string } {
+  private async lockInvitationTarget(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    employeeId: string,
+  ): Promise<LockedInvitationTarget | null> {
+    const rows = await transaction.$queryRaw<LockedInvitationTarget[]>(Prisma.sql`
+      SELECT
+        employee."organization_id" AS "organizationId",
+        employee."id" AS "employeeId",
+        employee."employee_code" AS "employeeCode",
+        employee."display_name" AS "displayName",
+        employee."work_email" AS "workEmail",
+        employee."lifecycle_status" AS "lifecycleStatus",
+        employee."activated_at" AS "employeeActivatedAt",
+        account."id" AS "userAccountId",
+        account."employee_id" AS "accountEmployeeId",
+        account."authentication_eligible" AS "authenticationEligible",
+        account."activated_at" AS "accountActivatedAt",
+        account."disabled_at" AS "disabledAt"
+      FROM "employees" AS employee
+      INNER JOIN "user_accounts" AS account
+        ON account."organization_id" = employee."organization_id"
+        AND account."employee_id" = employee."id"
+      WHERE employee."organization_id" = ${organizationId}::uuid
+        AND employee."id" = ${employeeId}::uuid
+      FOR UPDATE OF employee, account
+    `);
+    return rows[0] ?? null;
+  }
+
+  private lockInvitationsForTarget(
+    transaction: DatabaseTransaction,
+    target: LockedInvitationTarget,
+  ): Promise<LockedInvitation[]> {
+    return transaction.$queryRaw<LockedInvitation[]>(Prisma.sql`
+      SELECT
+        "id", "organization_id" AS "organizationId", "employee_id" AS "employeeId",
+        "user_account_id" AS "userAccountId",
+        "invited_email_normalized" AS "invitedEmailNormalized", "status",
+        "issuer_employee_id" AS "issuerEmployeeId", "issued_at" AS "issuedAt",
+        "expires_at" AS "expiresAt", "accepted_at" AS "acceptedAt",
+        "revoked_at" AS "revokedAt", "revoked_by_employee_id" AS "revokedByEmployeeId",
+        "safe_revocation_reason" AS "safeRevocationReason",
+        "superseded_at" AS "supersededAt",
+        "superseded_by_invitation_id" AS "supersededByInvitationId",
+        "onboarding_completed_at" AS "onboardingCompletedAt",
+        "created_at" AS "createdAt", "updated_at" AS "updatedAt"
+      FROM "invitations"
+      WHERE "organization_id" = ${target.organizationId}::uuid
+        AND "employee_id" = ${target.employeeId}::uuid
+        AND "user_account_id" = ${target.userAccountId}::uuid
+      ORDER BY "issued_at" DESC, "created_at" DESC, "id" DESC
+      FOR UPDATE
+    `);
+  }
+
+  private isReissueEligible(target: LockedInvitationTarget): boolean {
+    return (
+      target.accountEmployeeId === target.employeeId &&
+      target.lifecycleStatus === 'INVITED' &&
+      target.employeeActivatedAt === null &&
+      !target.authenticationEligible &&
+      target.accountActivatedAt === null &&
+      target.disabledAt === null
+    );
+  }
+
+  private createReissuedInvitation(
+    transaction: DatabaseTransaction,
+    target: LockedInvitationTarget,
+    input: Parameters<InvitationRepositoryPort['resend']>[0] | Parameters<InvitationRepositoryPort['reinvite']>[0],
+  ): Promise<RawInvitation> {
+    return transaction.invitation.create({
+      data: {
+        organizationId: target.organizationId,
+        employeeId: target.employeeId,
+        userAccountId: target.userAccountId,
+        invitedEmailNormalized: target.workEmail,
+        tokenHash: input.tokenHash,
+        status: 'PENDING',
+        issuerEmployeeId: input.actor.employeeId,
+        issuedAt: input.issuedAt,
+        expiresAt: input.expiresAt,
+      },
+      select: invitationSelect,
+    });
+  }
+
+  private async appendReissueHistory(
+    transaction: DatabaseTransaction,
+    actor: Parameters<InvitationRepositoryPort['resend']>[0]['actor'],
+    target: LockedInvitationTarget,
+    previousInvitation: RawInvitation,
+    invitation: RawInvitation,
+    operation: 'RESEND' | 'REINVITE',
+  ): Promise<void> {
+    const issuer = await transaction.employee.findFirstOrThrow({
+      where: { id: actor.employeeId, organizationId: actor.organizationId },
+      select: { displayName: true, employeeCode: true },
+    });
+    const safeLink = `${operation} outcome succeeded previous ${previousInvitation.id} replacement ${invitation.id}`;
+    if (operation === 'RESEND') {
+      await this.audit.append(
+        {
+          organizationId: target.organizationId,
+          actionKey: AUDIT_ACTION_KEYS.invitationSuperseded,
+          actorEmployeeId: actor.employeeId,
+          actorSnapshot: actorSnapshot(issuer),
+          targetType: 'invitation',
+          targetId: previousInvitation.id,
+          targetSnapshot: targetSnapshot(target),
+          safeReason: safeLink,
+          ...this.historyContext(),
+          occurredAt: invitation.issuedAt,
+        },
+        transaction,
+      );
+      await this.security.append(
+        {
+          organizationId: target.organizationId,
+          eventType: SECURITY_EVENT_TYPES.invitationSuperseded,
+          category: 'invitation',
+          risk: 'MEDIUM',
+          outcome: 'succeeded',
+          actorEmployeeId: actor.employeeId,
+          actorAccountId: actor.userAccountId,
+          actorSnapshot: actorSnapshot(issuer),
+          safeContext: {
+            operation,
+            previousInvitationId: previousInvitation.id,
+            newInvitationId: invitation.id,
+            previousStatus: 'PENDING',
+            status: 'SUPERSEDED',
+          },
+          ...this.historyContext(),
+          occurredAt: invitation.issuedAt,
+        },
+        transaction,
+      );
+      await this.outbox(
+        transaction,
+        INVITATION_EVENT_CONTRACTS.invitationSuperseded,
+        target.organizationId,
+        {
+          ...this.terminalPayload(previousInvitation, invitation.issuedAt),
+          supersededByInvitationId: invitation.id,
+          fromStatus: 'PENDING',
+          toStatus: 'SUPERSEDED',
+        },
+        invitation.issuedAt,
+      );
+    }
+
+    await this.audit.append(
+      {
+        organizationId: target.organizationId,
+        actionKey: AUDIT_ACTION_KEYS.invitationReissued,
+        actorEmployeeId: actor.employeeId,
+        actorSnapshot: actorSnapshot(issuer),
+        targetType: 'invitation',
+        targetId: invitation.id,
+        targetSnapshot: targetSnapshot(target),
+        safeReason: safeLink,
+        ...this.historyContext(),
+        occurredAt: invitation.issuedAt,
+      },
+      transaction,
+    );
+    await this.security.append(
+      {
+        organizationId: target.organizationId,
+        eventType: SECURITY_EVENT_TYPES.invitationReissued,
+        category: 'invitation',
+        risk: 'MEDIUM',
+        outcome: 'succeeded',
+        actorEmployeeId: actor.employeeId,
+        actorAccountId: actor.userAccountId,
+        actorSnapshot: actorSnapshot(issuer),
+        safeContext: {
+          operation,
+          previousInvitationId: previousInvitation.id,
+          newInvitationId: invitation.id,
+          previousStatus: previousInvitation.status,
+          status: 'PENDING',
+        },
+        ...this.historyContext(),
+        occurredAt: invitation.issuedAt,
+      },
+      transaction,
+    );
+    await this.outbox(
+      transaction,
+      INVITATION_EVENT_CONTRACTS.invitationReissued,
+      target.organizationId,
+      {
+        organizationId: target.organizationId,
+        employeeId: target.employeeId,
+        userAccountId: target.userAccountId,
+        previousInvitationId: previousInvitation.id,
+        invitationId: invitation.id,
+        operation,
+        status: 'PENDING',
+        issuedAt: invitation.issuedAt.toISOString(),
+        expiresAt: invitation.expiresAt.toISOString(),
+      },
+      invitation.issuedAt,
+    );
+  }
+
+  private historyContext(): {
+    readonly requestId?: string;
+    readonly correlationId: string;
+  } {
     const context = this.contextStore.get();
     return {
       ...(context?.requestId ? { requestId: context.requestId } : {}),

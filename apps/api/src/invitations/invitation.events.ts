@@ -21,6 +21,16 @@ export const INVITATION_EVENT_CONTRACTS = {
     eventType: 'identity.invitation-expired',
     eventVersion: 1,
   },
+  invitationSuperseded: {
+    name: 'InvitationSuperseded.v1',
+    eventType: 'identity.invitation-superseded',
+    eventVersion: 1,
+  },
+  invitationReissued: {
+    name: 'InvitationReissued.v1',
+    eventType: 'identity.invitation-reissued',
+    eventVersion: 1,
+  },
   onboardingCompleted: {
     name: 'OnboardingCompleted.v1',
     eventType: 'identity.onboarding-completed',
@@ -52,4 +62,22 @@ export interface InvitationExpiredV1Payload extends InvitationTerminalV1Payload 
 export interface OnboardingCompletedV1Payload extends InvitationTerminalV1Payload {
   readonly ssoIdentityId: string;
   readonly providerKey: string;
+}
+
+export interface InvitationSupersededV1Payload extends InvitationTerminalV1Payload {
+  readonly supersededByInvitationId: string;
+  readonly fromStatus: 'PENDING';
+  readonly toStatus: 'SUPERSEDED';
+}
+
+export interface InvitationReissuedV1Payload {
+  readonly organizationId: string;
+  readonly employeeId: string;
+  readonly userAccountId: string;
+  readonly previousInvitationId: string;
+  readonly invitationId: string;
+  readonly operation: 'RESEND' | 'REINVITE';
+  readonly status: 'PENDING';
+  readonly issuedAt: string;
+  readonly expiresAt: string;
 }

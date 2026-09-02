@@ -5,10 +5,13 @@ import { API_BASE_URL, apiData, requestError } from '../../../lib/api';
 
 interface Invitation {
   readonly id: string;
+  readonly employeeId: string;
   readonly invitedEmailNormalized: string;
-  readonly status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+  readonly status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED';
   readonly issuedAt: string;
   readonly expiresAt: string;
+  readonly supersededAt: string | null;
+  readonly supersededByInvitationId: string | null;
 }
 interface InvitationPage {
   readonly items: readonly Invitation[];
@@ -22,6 +25,7 @@ export default function InvitationAdministrationPage() {
   const [state, setState] = useState<PageState>('loading');
   const [message, setMessage] = useState('');
   const [oneTimeUrl, setOneTimeUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -37,18 +41,8 @@ export default function InvitationAdministrationPage() {
       setState('ready');
     } catch (error) {
       const failure = requestError(error);
-      setMessage(
-        failure.requestId
-          ? `${failure.message} · Request ${failure.requestId}`
-          : failure.message,
-      );
-      setState(
-        failure.status === 401
-          ? 'unauthorized'
-          : failure.status === 403
-            ? 'forbidden'
-            : 'error',
-      );
+      setMessage(failure.requestId ? `${failure.message} · Request ${failure.requestId}` : failure.message);
+      setState(failure.status === 401 ? 'unauthorized' : failure.status === 403 ? 'forbidden' : 'error');
     }
   }, []);
 
@@ -60,9 +54,13 @@ export default function InvitationAdministrationPage() {
     event.preventDefault();
     setSubmitting(true);
     setOneTimeUrl(null);
+    setCopied(false);
     const form = new FormData(event.currentTarget);
     try {
-      const result = await apiData<{ invitation: Invitation; acceptanceUrl: string }>(
+      const result = await apiData<{
+        invitation: Invitation;
+        acceptanceUrl: string;
+      }>(
         await fetch(`${API_BASE_URL}/employees/invite`, {
           method: 'POST',
           credentials: 'include',
@@ -84,13 +82,7 @@ export default function InvitationAdministrationPage() {
     } catch (error) {
       const failure = requestError(error);
       setMessage(failure.message);
-      setState(
-        failure.status === 401
-          ? 'unauthorized'
-          : failure.status === 403
-            ? 'forbidden'
-            : 'error',
-      );
+      setState(failure.status === 401 ? 'unauthorized' : failure.status === 403 ? 'forbidden' : 'error');
     } finally {
       setSubmitting(false);
     }
@@ -116,16 +108,86 @@ export default function InvitationAdministrationPage() {
     }
   }
 
+  async function resend(id: string) {
+    setSubmitting(true);
+    setOneTimeUrl(null);
+    setCopied(false);
+    try {
+      const result = await apiData<{
+        invitation: Invitation;
+        acceptanceUrl: string;
+      }>(
+        await fetch(`${API_BASE_URL}/invitations/${id}/resend`, {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+        }),
+      );
+      setOneTimeUrl(result.acceptanceUrl);
+      setItems((current) => [
+        result.invitation,
+        ...current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: 'SUPERSEDED' as const,
+                supersededAt: result.invitation.issuedAt,
+                supersededByInvitationId: result.invitation.id,
+              }
+            : item,
+        ),
+      ]);
+      setState('ready');
+    } catch (error) {
+      setMessage(requestError(error).message);
+      setState('error');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function reinvite(employeeId: string) {
+    setSubmitting(true);
+    setOneTimeUrl(null);
+    setCopied(false);
+    try {
+      const result = await apiData<{
+        invitation: Invitation;
+        acceptanceUrl: string;
+      }>(
+        await fetch(`${API_BASE_URL}/employees/${employeeId}/reinvite`, {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+        }),
+      );
+      setOneTimeUrl(result.acceptanceUrl);
+      setItems((current) => [result.invitation, ...current]);
+      setState('ready');
+    } catch (error) {
+      setMessage(requestError(error).message);
+      setState('error');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function copyOneTimeUrl() {
+    if (!oneTimeUrl) return;
+    try {
+      await navigator.clipboard.writeText(oneTimeUrl);
+      setCopied(true);
+    } catch {
+      setMessage('Copy was not available. Select and copy the link directly.');
+    }
+  }
+
   if (state === 'unauthorized' || state === 'forbidden') {
     return (
       <main className="workspace-main">
         <section className="state-card" role="alert">
           <span className="status-mark">Access controlled</span>
-          <h1>
-            {state === 'unauthorized'
-              ? 'Trusted authentication is required'
-              : 'You do not have this permission'}
-          </h1>
+          <h1>{state === 'unauthorized' ? 'Trusted authentication is required' : 'You do not have this permission'}</h1>
           <p>{message}</p>
           <button className="button secondary" onClick={() => void load()}>
             Retry
@@ -135,15 +197,29 @@ export default function InvitationAdministrationPage() {
     );
   }
 
+  const blockedReinviteEmployees = new Set(
+    items.filter(({ status }) => status === 'PENDING' || status === 'ACCEPTED').map(({ employeeId }) => employeeId),
+  );
+  const reInvitationCandidateIds = new Set<string>();
+  const seenTerminalEmployees = new Set<string>();
+  for (const invitation of items) {
+    if (
+      !blockedReinviteEmployees.has(invitation.employeeId) &&
+      !seenTerminalEmployees.has(invitation.employeeId) &&
+      ['EXPIRED', 'REVOKED', 'SUPERSEDED'].includes(invitation.status)
+    ) {
+      reInvitationCandidateIds.add(invitation.id);
+      seenTerminalEmployees.add(invitation.employeeId);
+    }
+  }
+
   return (
     <main className="workspace-main">
       <header className="workspace-header">
         <div>
           <p className="eyebrow">Identity administration</p>
           <h1>Employee invitations</h1>
-          <p className="lede">
-            Issue, monitor, and revoke invitation-only access within your organization.
-          </p>
+          <p className="lede">Issue, monitor, and revoke invitation-only access within your organization.</p>
         </div>
         <a className="text-link" href="/">
           Portal home
@@ -186,11 +262,20 @@ export default function InvitationAdministrationPage() {
           {oneTimeUrl ? (
             <div className="secret-delivery" role="status">
               <strong>One-time delivery</strong>
-              <p>Share this URL securely now. It cannot be retrieved later.</p>
+              <p>
+                Copy and share this newly generated URL securely. No email was sent, and this link cannot be retrieved
+                later.
+              </p>
               <code>{oneTimeUrl}</code>
+              <button className="text-link button-link" onClick={() => void copyOneTimeUrl()}>
+                {copied ? 'Copied' : 'Copy invitation link'}
+              </button>
               <button
                 className="text-link button-link"
-                onClick={() => setOneTimeUrl(null)}
+                onClick={() => {
+                  setOneTimeUrl(null);
+                  setCopied(false);
+                }}
               >
                 Clear from view
               </button>
@@ -198,11 +283,7 @@ export default function InvitationAdministrationPage() {
           ) : null}
         </section>
 
-        <section
-          className="panel list-panel"
-          aria-labelledby="invitation-list-title"
-          aria-busy={state === 'loading'}
-        >
+        <section className="panel list-panel" aria-labelledby="invitation-list-title" aria-busy={state === 'loading'}>
           <div className="panel-heading row-heading">
             <div>
               <p className="eyebrow">Organization scope</p>
@@ -233,16 +314,32 @@ export default function InvitationAdministrationPage() {
                   <p>Expires {new Date(invitation.expiresAt).toLocaleString()}</p>
                 </div>
                 <div className="row-actions">
-                  <span className={`pill ${invitation.status.toLowerCase()}`}>
-                    {invitation.status}
-                  </span>
+                  <span className={`pill ${invitation.status.toLowerCase()}`}>{invitation.status}</span>
                   {invitation.status === 'PENDING' ? (
+                    <>
+                      <button
+                        className="text-link button-link"
+                        disabled={submitting}
+                        onClick={() => void resend(invitation.id)}
+                      >
+                        Resend invitation
+                      </button>
+                      <small>This invalidates the previous invitation link and generates a new one.</small>
+                      <button
+                        className="text-link danger button-link"
+                        disabled={submitting}
+                        onClick={() => void revoke(invitation.id)}
+                      >
+                        Revoke
+                      </button>
+                    </>
+                  ) : reInvitationCandidateIds.has(invitation.id) ? (
                     <button
-                      className="text-link danger button-link"
+                      className="text-link button-link"
                       disabled={submitting}
-                      onClick={() => void revoke(invitation.id)}
+                      onClick={() => void reinvite(invitation.employeeId)}
                     >
-                      Revoke
+                      Re-invite
                     </button>
                   ) : null}
                 </div>

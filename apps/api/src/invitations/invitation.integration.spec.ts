@@ -235,6 +235,40 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     };
   }
 
+  async function resend(invitationId: string) {
+    const response = await request(app.getHttpServer())
+      .post(`/api/v1/invitations/${invitationId}/resend`)
+      .send({})
+      .expect(201);
+    const acceptanceUrl = response.body.data.acceptanceUrl as string;
+    return {
+      response,
+      invitation: response.body.data.invitation as {
+        id: string;
+        employeeId: string;
+        userAccountId: string;
+      },
+      secret: new URL(`https://portal.invalid${acceptanceUrl}`).hash.slice('#invite='.length),
+    };
+  }
+
+  async function reinvite(employeeId: string) {
+    const response = await request(app.getHttpServer())
+      .post(`/api/v1/employees/${employeeId}/reinvite`)
+      .send({})
+      .expect(201);
+    const acceptanceUrl = response.body.data.acceptanceUrl as string;
+    return {
+      response,
+      invitation: response.body.data.invitation as {
+        id: string;
+        employeeId: string;
+        userAccountId: string;
+      },
+      secret: new URL(`https://portal.invalid${acceptanceUrl}`).hash.slice('#invite='.length),
+    };
+  }
+
   it('installs the additive invitation enum, constrained schema, indexes, and restrictive ownership links', async () => {
     const enumValues = await client.$queryRaw<Array<{ enumlabel: string }>>`
       SELECT enum_value.enumlabel
@@ -248,6 +282,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       'ACCEPTED',
       'REVOKED',
       'EXPIRED',
+      'SUPERSEDED',
     ]);
 
     const columns = await client.$queryRaw<Array<{ column_name: string }>>`
@@ -257,9 +292,8 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     `;
     const columnNames = columns.map(({ column_name }) => column_name);
     expect(columnNames).toContain('token_hash');
-    expect(columnNames).not.toEqual(
-      expect.arrayContaining(['token', 'secret', 'acceptance_url', 'invitation_url']),
-    );
+    expect(columnNames).toEqual(expect.arrayContaining(['superseded_at', 'superseded_by_invitation_id']));
+    expect(columnNames).not.toEqual(expect.arrayContaining(['token', 'secret', 'acceptance_url', 'invitation_url']));
 
     const checks = await client.$queryRaw<Array<{ definition: string }>>`
       SELECT pg_get_constraintdef(constraint_row.oid) AS definition
@@ -272,9 +306,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       /expires_at.*issued_at.*invited_email_normalized.*token_hash.*status/isu,
     );
 
-    const foreignKeys = await client.$queryRaw<
-      Array<{ delete_action: string; referenced_table: string }>
-    >`
+    const foreignKeys = await client.$queryRaw<Array<{ delete_action: string; referenced_table: string }>>`
       SELECT
         constraint_row.confdeltype::text AS delete_action,
         constraint_row.confrelid::regclass::text AS referenced_table
@@ -282,12 +314,13 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       WHERE constraint_row.conrelid = 'invitations'::regclass
         AND constraint_row.contype = 'f'
     `;
-    expect(foreignKeys).toHaveLength(5);
+    expect(foreignKeys).toHaveLength(6);
     expect(foreignKeys.every(({ delete_action }) => delete_action === 'r')).toBe(true);
     expect(foreignKeys.map(({ referenced_table }) => referenced_table).sort()).toEqual([
       'employees',
       'employees',
       'employees',
+      'invitations',
       'organizations',
       'user_accounts',
     ]);
@@ -303,7 +336,13 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
         'invitations_organization_status_created_at_idx',
         'invitations_status_expires_at_idx',
         'invitations_organization_expires_at_idx',
+        'invitations_organization_employee_issued_at_idx',
+        'invitations_organization_account_issued_at_idx',
+        'invitations_organization_superseded_by_idx',
       ]),
+    );
+    expect(indexNames).not.toEqual(
+      expect.arrayContaining(['invitations_organization_employee_id_key', 'invitations_organization_account_id_key']),
     );
   });
 
@@ -314,9 +353,15 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     expect(issued.response.body.data.invitation).not.toHaveProperty('tokenHash');
     expect(issued.response.body.data.invitation).not.toHaveProperty('acceptanceUrl');
 
-    const invitation = await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } });
-    const employee = await client.employee.findUniqueOrThrow({ where: { id: issued.invitation.employeeId } });
-    const account = await client.userAccount.findUniqueOrThrow({ where: { id: issued.invitation.userAccountId } });
+    const invitation = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
+    const employee = await client.employee.findUniqueOrThrow({
+      where: { id: issued.invitation.employeeId },
+    });
+    const account = await client.userAccount.findUniqueOrThrow({
+      where: { id: issued.invitation.userAccountId },
+    });
     expect(invitation.organizationId).toBe(actorA.organizationId);
     expect(invitation.invitedEmailNormalized).toBe('new.employee@example.com');
     expect(invitation.tokenHash).toMatch(/^[0-9a-f]{64}$/u);
@@ -372,9 +417,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
   it('lists only the actor organization and never serializes a secret', async () => {
     const issued = await issue();
     currentActor = actorB;
-    const otherOrganization = await request(app.getHttpServer())
-      .get('/api/v1/invitations')
-      .expect(200);
+    const otherOrganization = await request(app.getHttpServer()).get('/api/v1/invitations').expect(200);
     expect(otherOrganization.body.data.items).toEqual([]);
     currentActor = actorA;
     const own = await request(app.getHttpServer()).get('/api/v1/invitations').expect(200);
@@ -386,33 +429,391 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
   it('revokes only within organization scope and repeated revocation emits no duplicate event', async () => {
     const issued = await issue();
     currentActor = actorB;
-    await request(app.getHttpServer())
-      .post(`/api/v1/invitations/${issued.invitation.id}/revoke`)
-      .send({})
-      .expect(404);
+    await request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/revoke`).send({}).expect(404);
     currentActor = actorA;
     await request(app.getHttpServer())
       .post(`/api/v1/invitations/${issued.invitation.id}/revoke`)
       .send({ reason: 'Recipient no longer requires access' })
       .expect(200);
-    await request(app.getHttpServer())
-      .post(`/api/v1/invitations/${issued.invitation.id}/revoke`)
-      .send({})
-      .expect(200);
-    const invitation = await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } });
+    await request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/revoke`).send({}).expect(200);
+    const invitation = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
     expect(invitation).toMatchObject({
       status: 'REVOKED',
       revokedByEmployeeId: actorA.employeeId,
       safeRevocationReason: 'Recipient no longer requires access',
     });
     expect(
-      await client.outboxEvent.count({ where: { eventType: 'identity.invitation-revoked' } }),
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-revoked' },
+      }),
     ).toBe(1);
+  });
+
+  it('resends by rotating the secret, superseding history, and writing complete secret-free events exactly once', async () => {
+    const issued = await issue('RESEND-SUCCESS');
+    const reissued = await resend(issued.invitation.id);
+    expect(reissued.response.headers['cache-control']).toBe('no-store');
+    expect(reissued.invitation.id).not.toBe(issued.invitation.id);
+    expect(reissued.secret).not.toBe(issued.secret);
+    expect(JSON.stringify(reissued.response.body).split(reissued.secret)).toHaveLength(2);
+
+    const original = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
+    const replacement = await client.invitation.findUniqueOrThrow({
+      where: { id: reissued.invitation.id },
+    });
+    expect(
+      await client.invitation.count({
+        where: { employeeId: issued.invitation.employeeId },
+      }),
+    ).toBe(2);
+    expect(original).toMatchObject({
+      id: issued.invitation.id,
+      status: 'SUPERSEDED',
+      supersededAt: now,
+      supersededByInvitationId: reissued.invitation.id,
+    });
+    expect(replacement).toMatchObject({
+      id: reissued.invitation.id,
+      status: 'PENDING',
+      supersededAt: null,
+      supersededByInvitationId: null,
+    });
+    expect(replacement.tokenHash).not.toBe(original.tokenHash);
+
+    const oldInspection = await request(app.getHttpServer())
+      .post('/api/v1/onboarding/invitation/inspect')
+      .send({ invitationToken: issued.secret })
+      .expect(200);
+    const newInspection = await request(app.getHttpServer())
+      .post('/api/v1/onboarding/invitation/inspect')
+      .send({ invitationToken: reissued.secret })
+      .expect(200);
+    expect(oldInspection.body.data.status).toBe('SUPERSEDED');
+    expect(newInspection.body.data.status).toBe('VALID');
+    await request(app.getHttpServer())
+      .post('/api/v1/onboarding/auth/local/start')
+      .send({
+        invitationToken: issued.secret,
+        redirectUri,
+        loginHint: 'invited',
+      })
+      .expect(401);
+
+    expect(
+      await client.auditEvent.count({
+        where: {
+          actionKey: {
+            in: ['admin.invitation.supersede', 'admin.invitation.resend'],
+          },
+        },
+      }),
+    ).toBe(2);
+    expect(
+      await client.securityEvent.count({
+        where: {
+          eventType: {
+            in: ['InvitationSuperseded.v1', 'InvitationReissued.v1'],
+          },
+        },
+      }),
+    ).toBe(2);
+    expect(
+      await client.outboxEvent.count({
+        where: {
+          eventType: {
+            in: ['identity.invitation-superseded', 'identity.invitation-reissued'],
+          },
+        },
+      }),
+    ).toBe(2);
+    const supersededOutbox = await client.outboxEvent.findFirstOrThrow({
+      where: { eventType: 'identity.invitation-superseded' },
+    });
+    const reissuedOutbox = await client.outboxEvent.findFirstOrThrow({
+      where: { eventType: 'identity.invitation-reissued' },
+    });
+    expect(supersededOutbox.payload).toMatchObject({
+      organizationId: organizationAId,
+      invitationId: issued.invitation.id,
+      supersededByInvitationId: reissued.invitation.id,
+      fromStatus: 'PENDING',
+      toStatus: 'SUPERSEDED',
+    });
+    expect(reissuedOutbox.payload).toMatchObject({
+      organizationId: organizationAId,
+      previousInvitationId: issued.invitation.id,
+      invitationId: reissued.invitation.id,
+      operation: 'RESEND',
+      status: 'PENDING',
+    });
+    const reissueSecurity = await client.securityEvent.findMany({
+      where: {
+        eventType: { in: ['InvitationSuperseded.v1', 'InvitationReissued.v1'] },
+      },
+    });
+    expect(reissueSecurity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          organizationId: organizationAId,
+          actorEmployeeId: actorA.employeeId,
+          outcome: 'succeeded',
+          safeContext: expect.objectContaining({
+            operation: 'RESEND',
+            previousInvitationId: issued.invitation.id,
+            newInvitationId: reissued.invitation.id,
+          }),
+        }),
+      ]),
+    );
+    const reissueAudits = await client.auditEvent.findMany({
+      where: {
+        actionKey: { in: ['admin.invitation.supersede', 'admin.invitation.resend'] },
+      },
+    });
+    expect(reissueAudits).toHaveLength(2);
+    expect(
+      reissueAudits.every(
+        ({ organizationId, actorEmployeeId, safeReason, occurredAt }) =>
+          organizationId === organizationAId &&
+          actorEmployeeId === actorA.employeeId &&
+          safeReason?.includes('RESEND outcome succeeded') &&
+          safeReason.includes(issued.invitation.id) &&
+          safeReason.includes(reissued.invitation.id) &&
+          occurredAt.getTime() === now.getTime(),
+      ),
+    ).toBe(true);
+    const listResponse = await request(app.getHttpServer()).get('/api/v1/invitations').expect(200);
+    expect(JSON.stringify(listResponse.body)).not.toContain(issued.secret);
+    expect(JSON.stringify(listResponse.body)).not.toContain(reissued.secret);
+    expect(JSON.stringify(listResponse.body)).not.toMatch(/tokenHash|acceptanceUrl/iu);
+    const history = JSON.stringify({
+      audits: await client.auditEvent.findMany(),
+      security: await client.securityEvent.findMany(),
+      outbox: await client.outboxEvent.findMany(),
+    });
+    expect(history).toContain(issued.invitation.id);
+    expect(history).toContain(reissued.invitation.id);
+    expect(history).not.toContain(issued.secret);
+    expect(history).not.toContain(reissued.secret);
+    expect(history).not.toContain('new.employee@example.com');
+    expect(logOutput).not.toContain(issued.secret);
+    expect(logOutput).not.toContain(reissued.secret);
+    expect(logOutput).not.toContain('new.employee@example.com');
+  });
+
+  it.each(['EXPIRED', 'REVOKED'] as const)(
+    're-invites from %s while preserving the terminal invitation',
+    async (terminalStatus) => {
+      const issued = await issue(`REINVITE-${terminalStatus}`);
+      if (terminalStatus === 'REVOKED') {
+        await repository.revoke({
+          actor: actorA,
+          invitationId: issued.invitation.id,
+          now,
+        });
+      } else {
+        const stored = await client.invitation.findUniqueOrThrow({
+          where: { id: issued.invitation.id },
+        });
+        now = stored.expiresAt;
+        await repository.materializeExpired({
+          invitationId: issued.invitation.id,
+          now,
+        });
+      }
+      now = new Date(now.getTime() + 1);
+      const reissued = await reinvite(issued.invitation.employeeId);
+      expect(reissued.invitation.id).not.toBe(issued.invitation.id);
+      expect(reissued.secret).not.toBe(issued.secret);
+      expect(
+        await client.invitation.findUniqueOrThrow({
+          where: { id: issued.invitation.id },
+        }),
+      ).toMatchObject({ status: terminalStatus });
+      expect(
+        await client.invitation.findUniqueOrThrow({
+          where: { id: reissued.invitation.id },
+        }),
+      ).toMatchObject({ status: 'PENDING' });
+      expect(
+        await client.outboxEvent.count({
+          where: { eventType: 'identity.invitation-reissued' },
+        }),
+      ).toBe(1);
+      expect(
+        await client.outboxEvent.count({
+          where: { eventType: 'identity.invitation-superseded' },
+        }),
+      ).toBe(0);
+    },
+  );
+
+  it('rejects resend at expiry, materializes the terminal state, and requires re-invite semantics', async () => {
+    const issued = await issue('RESEND-EXPIRED');
+    const stored = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
+    now = stored.expiresAt;
+    await request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/resend`).send({}).expect(409);
+    expect(
+      await client.invitation.findUniqueOrThrow({
+        where: { id: issued.invitation.id },
+      }),
+    ).toMatchObject({ status: 'EXPIRED' });
+    expect(
+      await client.invitation.count({
+        where: { employeeId: issued.invitation.employeeId },
+      }),
+    ).toBe(1);
+    now = new Date(now.getTime() + 1);
+    await reinvite(issued.invitation.employeeId);
+    expect(
+      await client.invitation.count({
+        where: {
+          employeeId: issued.invitation.employeeId,
+          status: 'PENDING',
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('retains superseded history across a later terminal re-invite', async () => {
+    const issued = await issue('REINVITE-SUPERSEDED');
+    const resent = await resend(issued.invitation.id);
+    await repository.revoke({
+      actor: actorA,
+      invitationId: resent.invitation.id,
+      now,
+    });
+    now = new Date(now.getTime() + 1);
+    const reissued = await reinvite(issued.invitation.employeeId);
+    const history = await client.invitation.findMany({
+      where: { employeeId: issued.invitation.employeeId },
+      select: { id: true, status: true, supersededByInvitationId: true },
+    });
+    expect(history).toEqual(
+      expect.arrayContaining([
+        {
+          id: issued.invitation.id,
+          status: 'SUPERSEDED',
+          supersededByInvitationId: resent.invitation.id,
+        },
+        {
+          id: resent.invitation.id,
+          status: 'REVOKED',
+          supersededByInvitationId: null,
+        },
+        {
+          id: reissued.invitation.id,
+          status: 'PENDING',
+          supersededByInvitationId: null,
+        },
+      ]),
+    );
+  });
+
+  it('denies resend or re-invite across scope, from accepted state, or while a valid pending invitation exists', async () => {
+    const accepted = await issue('REISSUE-ACCEPTED');
+    await repository.accept({
+      authorizationReference: accepted.invitation.id,
+      organizationId: organizationAId,
+      identity: verifiedIdentity,
+      now,
+    });
+    await request(app.getHttpServer())
+      .post(`/api/v1/invitations/${accepted.invitation.id}/resend`)
+      .send({})
+      .expect(409);
+    await request(app.getHttpServer())
+      .post(`/api/v1/employees/${accepted.invitation.employeeId}/reinvite`)
+      .send({})
+      .expect(409);
+
+    const pending = await issue('REISSUE-PENDING');
+    await request(app.getHttpServer())
+      .post(`/api/v1/employees/${pending.invitation.employeeId}/reinvite`)
+      .send({})
+      .expect(409);
+    currentActor = actorB;
+    await request(app.getHttpServer()).post(`/api/v1/invitations/${pending.invitation.id}/resend`).send({}).expect(404);
+    await request(app.getHttpServer())
+      .post(`/api/v1/employees/${pending.invitation.employeeId}/reinvite`)
+      .send({})
+      .expect(404);
+    expect(
+      await client.invitation.count({
+        where: { employeeId: pending.invitation.employeeId },
+      }),
+    ).toBe(1);
+  });
+
+  it.each(['ACTIVE', 'SUSPENDED', 'OFFBOARDING', 'ARCHIVED'] as const)(
+    'denies re-invite for an employee in %s lifecycle state',
+    async (lifecycleStatus) => {
+      const issued = await issue(`DENY-${lifecycleStatus}`);
+      await repository.revoke({
+        actor: actorA,
+        invitationId: issued.invitation.id,
+        now,
+      });
+      await client.employee.update({
+        where: { id: issued.invitation.employeeId },
+        data: { lifecycleStatus },
+      });
+      await request(app.getHttpServer())
+        .post(`/api/v1/employees/${issued.invitation.employeeId}/reinvite`)
+        .send({})
+        .expect(409);
+      expect(
+        await client.invitation.count({
+          where: { employeeId: issued.invitation.employeeId },
+        }),
+      ).toBe(1);
+    },
+  );
+
+  it('denies re-invite when the account is enabled or disabled', async () => {
+    const enabled = await issue('DENY-ENABLED');
+    await repository.revoke({
+      actor: actorA,
+      invitationId: enabled.invitation.id,
+      now,
+    });
+    await client.userAccount.update({
+      where: { id: enabled.invitation.userAccountId },
+      data: { authenticationEligible: true },
+    });
+    await request(app.getHttpServer())
+      .post(`/api/v1/employees/${enabled.invitation.employeeId}/reinvite`)
+      .send({})
+      .expect(409);
+
+    const disabled = await issue('DENY-DISABLED');
+    await repository.revoke({
+      actor: actorA,
+      invitationId: disabled.invitation.id,
+      now,
+    });
+    await client.userAccount.update({
+      where: { id: disabled.invitation.userAccountId },
+      data: { disabledAt: now },
+    });
+    await request(app.getHttpServer())
+      .post(`/api/v1/employees/${disabled.invitation.employeeId}/reinvite`)
+      .send({})
+      .expect(409);
+    expect(await client.invitation.count()).toBe(2);
   });
 
   it('denies directly at the exact expiry boundary and materializes expiry once', async () => {
     const issued = await issue();
-    const stored = await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } });
+    const stored = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
     now = stored.expiresAt;
     const inspected = await request(app.getHttpServer())
       .post('/api/v1/onboarding/invitation/inspect')
@@ -424,16 +825,28 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       .post('/api/v1/onboarding/invitation/inspect')
       .send({ invitationToken: issued.secret })
       .expect(200);
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).status).toBe('EXPIRED');
     expect(
-      await client.outboxEvent.count({ where: { eventType: 'identity.invitation-expired' } }),
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: issued.invitation.id },
+        })
+      ).status,
+    ).toBe('EXPIRED');
+    expect(
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-expired' },
+      }),
     ).toBe(1);
   });
 
   it('uses a generic unknown-token error while safely reporting matched terminal states', async () => {
     const revoked = await issue('STATE-REVOKED');
     const accepted = await issue('STATE-ACCEPTED');
-    await repository.revoke({ actor: actorA, invitationId: revoked.invitation.id, now });
+    await repository.revoke({
+      actor: actorA,
+      invitationId: revoked.invitation.id,
+      now,
+    });
     await repository.accept({
       authorizationReference: accepted.invitation.id,
       organizationId: organizationAId,
@@ -483,8 +896,17 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       status: 'denied',
       failureCategory: 'organization_mismatch',
     });
-    expect(unverified).toMatchObject({ status: 'denied', failureCategory: 'identity_mismatch' });
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).status).toBe('PENDING');
+    expect(unverified).toMatchObject({
+      status: 'denied',
+      failureCategory: 'identity_mismatch',
+    });
+    expect(
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: issued.invitation.id },
+        })
+      ).status,
+    ).toBe('PENDING');
     expect(await client.sSOIdentity.count()).toBe(0);
   });
 
@@ -492,7 +914,11 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     const issued = await issue();
     const started = await request(app.getHttpServer())
       .post('/api/v1/onboarding/auth/local/start')
-      .send({ invitationToken: issued.secret, redirectUri, loginHint: 'invited' })
+      .send({
+        invitationToken: issued.secret,
+        redirectUri,
+        loginHint: 'invited',
+      })
       .expect(200);
     const providerRedirect = new URL(started.body.data.authorizationUrl as string);
     expect(providerRedirect.href).not.toContain(issued.secret);
@@ -513,16 +939,28 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     });
     expect(callback.headers['set-cookie']).toBeUndefined();
     expect(callback.headers.authorization).toBeUndefined();
-    expect(await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).toMatchObject({
+    expect(
+      await client.invitation.findUniqueOrThrow({
+        where: { id: issued.invitation.id },
+      }),
+    ).toMatchObject({
       status: 'ACCEPTED',
       acceptedAt: now,
       onboardingCompletedAt: now,
     });
-    expect(await client.employee.findUniqueOrThrow({ where: { id: issued.invitation.employeeId } })).toMatchObject({
+    expect(
+      await client.employee.findUniqueOrThrow({
+        where: { id: issued.invitation.employeeId },
+      }),
+    ).toMatchObject({
       lifecycleStatus: 'ACTIVE',
       activatedAt: now,
     });
-    expect(await client.userAccount.findUniqueOrThrow({ where: { id: issued.invitation.userAccountId } })).toMatchObject({
+    expect(
+      await client.userAccount.findUniqueOrThrow({
+        where: { id: issued.invitation.userAccountId },
+      }),
+    ).toMatchObject({
       authenticationEligible: true,
       activatedAt: now,
     });
@@ -555,8 +993,20 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
           code: providerRedirect.searchParams.get('code'),
         })
         .expect(401);
-      expect((await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).status).toBe('PENDING');
-      expect((await client.employee.findUniqueOrThrow({ where: { id: issued.invitation.employeeId } })).lifecycleStatus).toBe('INVITED');
+      expect(
+        (
+          await client.invitation.findUniqueOrThrow({
+            where: { id: issued.invitation.id },
+          })
+        ).status,
+      ).toBe('PENDING');
+      expect(
+        (
+          await client.employee.findUniqueOrThrow({
+            where: { id: issued.invitation.employeeId },
+          })
+        ).lifecycleStatus,
+      ).toBe('INVITED');
       expect(await client.sSOIdentity.count()).toBe(0);
     },
   );
@@ -581,7 +1031,206 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     expect(results.filter(({ status }) => status === 'denied')).toHaveLength(1);
     expect(await client.sSOIdentity.count()).toBe(1);
     expect(
-      await client.outboxEvent.count({ where: { eventType: 'identity.invitation-accepted' } }),
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-accepted' },
+      }),
+    ).toBe(1);
+  });
+
+  it('allows exactly one concurrent resend and leaves one usable pending invitation', async () => {
+    const issued = await issue('CONCURRENT-RESEND');
+    const responses = await Promise.all([
+      request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/resend`).send({}),
+      request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/resend`).send({}),
+    ]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+    expect(
+      await client.invitation.count({
+        where: {
+          employeeId: issued.invitation.employeeId,
+          status: 'PENDING',
+          expiresAt: { gt: now },
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await client.invitation.count({
+        where: {
+          employeeId: issued.invitation.employeeId,
+          status: 'SUPERSEDED',
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-reissued' },
+      }),
+    ).toBe(1);
+  });
+
+  it('allows exactly one concurrent re-invite and leaves one usable pending invitation', async () => {
+    const issued = await issue('CONCURRENT-REINVITE');
+    await repository.revoke({
+      actor: actorA,
+      invitationId: issued.invitation.id,
+      now,
+    });
+    now = new Date(now.getTime() + 1);
+    const responses = await Promise.all([
+      request(app.getHttpServer()).post(`/api/v1/employees/${issued.invitation.employeeId}/reinvite`).send({}),
+      request(app.getHttpServer()).post(`/api/v1/employees/${issued.invitation.employeeId}/reinvite`).send({}),
+    ]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+    expect(
+      await client.invitation.count({
+        where: {
+          employeeId: issued.invitation.employeeId,
+          status: 'PENDING',
+          expiresAt: { gt: now },
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-reissued' },
+      }),
+    ).toBe(1);
+  });
+
+  it('serializes re-invite versus another initial invite through employee identity uniqueness', async () => {
+    const issued = await issue('REINVITE-VERSUS-INVITE');
+    await repository.revoke({
+      actor: actorA,
+      invitationId: issued.invitation.id,
+      now,
+    });
+    now = new Date(now.getTime() + 1);
+    const responses = await Promise.all([
+      request(app.getHttpServer()).post(`/api/v1/employees/${issued.invitation.employeeId}/reinvite`).send({}),
+      request(app.getHttpServer()).post('/api/v1/employees/invite').send({
+        employeeCode: 'REINVITE-VERSUS-INVITE',
+        firstName: 'Duplicate',
+        lastName: 'Employee',
+        displayName: 'Duplicate Employee',
+        workEmail: 'duplicate.employee@example.com',
+      }),
+    ]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+    expect(
+      await client.employee.count({
+        where: {
+          organizationId: organizationAId,
+          employeeCode: 'REINVITE-VERSUS-INVITE',
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await client.invitation.count({
+        where: {
+          employeeId: issued.invitation.employeeId,
+          status: 'PENDING',
+          expiresAt: { gt: now },
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('serializes resend versus accept without leaving a second usable invitation', async () => {
+    const issued = await issue('RESEND-VERSUS-ACCEPT');
+    const [resendResponse, acceptance] = await Promise.all([
+      request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/resend`).send({}),
+      repository.accept({
+        authorizationReference: issued.invitation.id,
+        organizationId: organizationAId,
+        identity: verifiedIdentity,
+        now,
+      }),
+    ]);
+    const original = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
+    if (original.status === 'ACCEPTED') {
+      expect(resendResponse.status).toBe(409);
+      expect(acceptance.status).toBe('accepted');
+    } else {
+      expect(original.status).toBe('SUPERSEDED');
+      expect(resendResponse.status).toBe(201);
+      expect(acceptance.status).toBe('denied');
+    }
+    const usable = await client.invitation.count({
+      where: {
+        employeeId: issued.invitation.employeeId,
+        status: 'PENDING',
+        expiresAt: { gt: now },
+      },
+    });
+    expect(usable).toBe(original.status === 'SUPERSEDED' ? 1 : 0);
+    expect(await client.sSOIdentity.count()).toBe(original.status === 'ACCEPTED' ? 1 : 0);
+  });
+
+  it('serializes resend versus revoke to one terminal result and a consistent pending count', async () => {
+    const issued = await issue('RESEND-VERSUS-REVOKE');
+    const [resendResponse] = await Promise.all([
+      request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/resend`).send({}),
+      repository.revoke({
+        actor: actorA,
+        invitationId: issued.invitation.id,
+        now,
+      }),
+    ]);
+    const original = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
+    expect(['REVOKED', 'SUPERSEDED']).toContain(original.status);
+    expect(resendResponse.status).toBe(original.status === 'SUPERSEDED' ? 201 : 409);
+    expect(
+      await client.invitation.count({
+        where: {
+          employeeId: issued.invitation.employeeId,
+          status: 'PENDING',
+          expiresAt: { gt: now },
+        },
+      }),
+    ).toBe(original.status === 'SUPERSEDED' ? 1 : 0);
+    expect(
+      await client.outboxEvent.count({
+        where: {
+          eventType: {
+            in: ['identity.invitation-revoked', 'identity.invitation-superseded'],
+          },
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('serializes resend versus expiry at the exact boundary without a replacement', async () => {
+    const issued = await issue('RESEND-VERSUS-EXPIRY');
+    const invitation = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
+    now = invitation.expiresAt;
+    const [resendResponse] = await Promise.all([
+      request(app.getHttpServer()).post(`/api/v1/invitations/${issued.invitation.id}/resend`).send({}),
+      repository.materializeExpired({
+        invitationId: issued.invitation.id,
+        now,
+      }),
+    ]);
+    expect(resendResponse.status).toBe(409);
+    expect(
+      await client.invitation.findUniqueOrThrow({
+        where: { id: issued.invitation.id },
+      }),
+    ).toMatchObject({ status: 'EXPIRED' });
+    expect(
+      await client.invitation.count({
+        where: { employeeId: issued.invitation.employeeId },
+      }),
+    ).toBe(1);
+    expect(
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-expired' },
+      }),
     ).toBe(1);
   });
 
@@ -600,13 +1249,21 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
         now,
       }),
     ]);
-    const invitation = await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } });
+    const invitation = await client.invitation.findUniqueOrThrow({
+      where: { id: issued.invitation.id },
+    });
     expect(['ACCEPTED', 'REVOKED']).toContain(invitation.status);
     const terminalEvents = await client.outboxEvent.count({
-      where: { eventType: { in: ['identity.invitation-accepted', 'identity.invitation-revoked'] } },
+      where: {
+        eventType: {
+          in: ['identity.invitation-accepted', 'identity.invitation-revoked'],
+        },
+      },
     });
     expect(terminalEvents).toBe(1);
-    const employee = await client.employee.findUniqueOrThrow({ where: { id: issued.invitation.employeeId } });
+    const employee = await client.employee.findUniqueOrThrow({
+      where: { id: issued.invitation.employeeId },
+    });
     expect(employee.lifecycleStatus).toBe(invitation.status === 'ACCEPTED' ? 'ACTIVE' : 'INVITED');
   });
 
@@ -623,13 +1280,24 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
         identity: verifiedIdentity,
         now: boundary,
       }),
-      repository.materializeExpired({ invitationId: issued.invitation.id, now: boundary }),
+      repository.materializeExpired({
+        invitationId: issued.invitation.id,
+        now: boundary,
+      }),
     ]);
     expect(acceptance.status).toBe('denied');
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).status).toBe('EXPIRED');
+    expect(
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: issued.invitation.id },
+        })
+      ).status,
+    ).toBe('EXPIRED');
     expect(await client.sSOIdentity.count()).toBe(0);
     expect(
-      await client.outboxEvent.count({ where: { eventType: 'identity.invitation-expired' } }),
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-expired' },
+      }),
     ).toBe(1);
   });
 
@@ -638,7 +1306,11 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     const second = await issue('BOUND-B');
     const started = await request(app.getHttpServer())
       .post('/api/v1/onboarding/auth/local/start')
-      .send({ invitationToken: first.secret, redirectUri, loginHint: 'invited' })
+      .send({
+        invitationToken: first.secret,
+        redirectUri,
+        loginHint: 'invited',
+      })
       .expect(200);
     const providerRedirect = new URL(started.body.data.authorizationUrl as string);
     const callbackBody = {
@@ -651,14 +1323,35 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       .post('/api/v1/onboarding/auth/local/callback')
       .send({ ...callbackBody, invitationToken: second.secret })
       .expect(401);
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: first.invitation.id } })).status).toBe('PENDING');
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: second.invitation.id } })).status).toBe('PENDING');
-    await request(app.getHttpServer())
-      .post('/api/v1/onboarding/auth/local/callback')
-      .send(callbackBody)
-      .expect(200);
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: first.invitation.id } })).status).toBe('ACCEPTED');
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: second.invitation.id } })).status).toBe('PENDING');
+    expect(
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: first.invitation.id },
+        })
+      ).status,
+    ).toBe('PENDING');
+    expect(
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: second.invitation.id },
+        })
+      ).status,
+    ).toBe('PENDING');
+    await request(app.getHttpServer()).post('/api/v1/onboarding/auth/local/callback').send(callbackBody).expect(200);
+    expect(
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: first.invitation.id },
+        })
+      ).status,
+    ).toBe('ACCEPTED');
+    expect(
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: second.invitation.id },
+        })
+      ).status,
+    ).toBe('PENDING');
   });
 
   it('rolls back invitation, identity, account, employee, audit, and outbox state on required audit failure', async () => {
@@ -667,13 +1360,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     const failingAudit: AuditEventAppendPort = {
       append: () => Promise.reject(new Error('forced audit failure')),
     };
-    const failingRepository = new PrismaInvitationRepository(
-      client,
-      failingAudit,
-      security,
-      contextStore,
-      logger,
-    );
+    const failingRepository = new PrismaInvitationRepository(client, failingAudit, security, contextStore, logger);
     await expect(
       failingRepository.accept({
         authorizationReference: issued.invitation.id,
@@ -682,12 +1369,82 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
         now,
       }),
     ).rejects.toThrow('forced audit failure');
-    expect((await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).status).toBe('PENDING');
-    expect((await client.employee.findUniqueOrThrow({ where: { id: issued.invitation.employeeId } })).lifecycleStatus).toBe('INVITED');
-    expect((await client.userAccount.findUniqueOrThrow({ where: { id: issued.invitation.userAccountId } })).authenticationEligible).toBe(false);
+    expect(
+      (
+        await client.invitation.findUniqueOrThrow({
+          where: { id: issued.invitation.id },
+        })
+      ).status,
+    ).toBe('PENDING');
+    expect(
+      (
+        await client.employee.findUniqueOrThrow({
+          where: { id: issued.invitation.employeeId },
+        })
+      ).lifecycleStatus,
+    ).toBe('INVITED');
+    expect(
+      (
+        await client.userAccount.findUniqueOrThrow({
+          where: { id: issued.invitation.userAccountId },
+        })
+      ).authenticationEligible,
+    ).toBe(false);
     expect(await client.sSOIdentity.count()).toBe(0);
     expect(
-      await client.outboxEvent.count({ where: { eventType: 'identity.invitation-accepted' } }),
+      await client.outboxEvent.count({
+        where: { eventType: 'identity.invitation-accepted' },
+      }),
+    ).toBe(0);
+  });
+
+  it('rolls back supersession, replacement, audit, security, and outbox on required history failure', async () => {
+    const issued = await issue('RESEND-ROLLBACK');
+    const security = app.get<SecurityEventAppendPort>(SECURITY_EVENT_APPEND_PORT);
+    const failingAudit: AuditEventAppendPort = {
+      append: () => Promise.reject(new Error('forced reissue audit failure')),
+    };
+    const failingRepository = new PrismaInvitationRepository(client, failingAudit, security, contextStore, logger);
+    await expect(
+      failingRepository.resend({
+        actor: actorA,
+        invitationId: issued.invitation.id,
+        tokenHash: 'b'.repeat(64),
+        issuedAt: new Date(now.getTime() + 1),
+        expiresAt: new Date(now.getTime() + 300_001),
+      }),
+    ).rejects.toThrow('forced reissue audit failure');
+    expect(
+      await client.invitation.findUniqueOrThrow({
+        where: { id: issued.invitation.id },
+      }),
+    ).toMatchObject({
+      status: 'PENDING',
+      supersededAt: null,
+      supersededByInvitationId: null,
+    });
+    expect(
+      await client.invitation.count({
+        where: { employeeId: issued.invitation.employeeId },
+      }),
+    ).toBe(1);
+    expect(
+      await client.securityEvent.count({
+        where: {
+          eventType: {
+            in: ['InvitationSuperseded.v1', 'InvitationReissued.v1'],
+          },
+        },
+      }),
+    ).toBe(0);
+    expect(
+      await client.outboxEvent.count({
+        where: {
+          eventType: {
+            in: ['identity.invitation-superseded', 'identity.invitation-reissued'],
+          },
+        },
+      }),
     ).toBe(0);
   });
 
@@ -745,12 +1502,32 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
         await client.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${triggerName}" ON "${stage.table}"`);
         await client.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${functionName}"()`);
       }
-      expect((await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).status).toBe('PENDING');
-      expect((await client.employee.findUniqueOrThrow({ where: { id: issued.invitation.employeeId } })).lifecycleStatus).toBe('INVITED');
-      expect((await client.userAccount.findUniqueOrThrow({ where: { id: issued.invitation.userAccountId } })).authenticationEligible).toBe(false);
+      expect(
+        (
+          await client.invitation.findUniqueOrThrow({
+            where: { id: issued.invitation.id },
+          })
+        ).status,
+      ).toBe('PENDING');
+      expect(
+        (
+          await client.employee.findUniqueOrThrow({
+            where: { id: issued.invitation.employeeId },
+          })
+        ).lifecycleStatus,
+      ).toBe('INVITED');
+      expect(
+        (
+          await client.userAccount.findUniqueOrThrow({
+            where: { id: issued.invitation.userAccountId },
+          })
+        ).authenticationEligible,
+      ).toBe(false);
       expect(await client.sSOIdentity.count()).toBe(0);
       expect(
-        await client.outboxEvent.count({ where: { eventType: 'identity.invitation-accepted' } }),
+        await client.outboxEvent.count({
+          where: { eventType: 'identity.invitation-accepted' },
+        }),
       ).toBe(0);
     }
   });
@@ -760,11 +1537,14 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     const document = openApiResponse.body.data ?? openApiResponse.body;
     const paths = Object.keys(document.paths);
     expect(paths).toContain('/api/v1/employees/invite');
+    expect(paths).toContain('/api/v1/employees/{id}/reinvite');
+    expect(paths).toContain('/api/v1/invitations/{id}/resend');
     expect(paths).toContain('/api/v1/onboarding/invitation/inspect');
     expect(paths.some((path) => /(?:token|invite).*[{:]/iu.test(path))).toBe(false);
     expect(JSON.stringify(document)).not.toMatch(/"example"\s*:\s*"[^"]*(?:invite|token)/i);
     const issueOperation = document.paths['/api/v1/employees/invite'].post;
     expect(JSON.stringify(issueOperation)).toMatch(/one-time/iu);
+    expect(JSON.stringify(document.paths['/api/v1/invitations/{id}/resend'].post)).toMatch(/supersede.*one-time/isu);
     for (const path of ['/api/v1/register', '/api/v1/signup', '/api/v1/customers/onboarding']) {
       await request(app.getHttpServer()).post(path).send({ password: 'irrelevant' }).expect(404);
     }

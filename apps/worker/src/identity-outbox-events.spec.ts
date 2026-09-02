@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OutboxConsumerRegistry, OutboxRouteRegistry } from '@dar-tech/outbox';
-import {
-  IDENTITY_OUTBOX_CONSUMERS,
-  IDENTITY_OUTBOX_ROUTES,
-} from './identity-outbox-events.js';
+import { IDENTITY_OUTBOX_CONSUMERS, IDENTITY_OUTBOX_ROUTES } from './identity-outbox-events.js';
 
 describe('S02-T02 identity outbox routing', () => {
   it('routes every invitation/onboarding contract to an idempotent local consumer', () => {
@@ -14,14 +11,14 @@ describe('S02-T02 identity outbox routing', () => {
       'identity.invitation-accepted',
       'identity.invitation-revoked',
       'identity.invitation-expired',
+      'identity.invitation-superseded',
+      'identity.invitation-reissued',
       'identity.onboarding-completed',
       'identity.sso-identity-linked',
     ]);
     for (const route of IDENTITY_OUTBOX_ROUTES) {
       expect(routes.resolve(route.eventType, route.eventVersion)).toEqual(route);
-      expect(
-        consumers.resolve(route.consumerName, route.eventType, route.eventVersion),
-      ).toBeDefined();
+      expect(consumers.resolve(route.consumerName, route.eventType, route.eventVersion)).toBeDefined();
     }
   });
 });

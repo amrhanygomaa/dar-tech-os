@@ -1,12 +1,6 @@
 import type { SchemaObject } from '@nestjs/swagger';
-import {
-  authenticationCallbackBodySchema,
-  authenticationStartResponseSchema,
-} from '../auth/auth.openapi.js';
-import {
-  errorEnvelopeSchema,
-  successEnvelope,
-} from '../identity/identity.openapi.js';
+import { authenticationCallbackBodySchema, authenticationStartResponseSchema } from '../auth/auth.openapi.js';
+import { errorEnvelopeSchema, successEnvelope } from '../identity/identity.openapi.js';
 
 export { errorEnvelopeSchema, successEnvelope };
 
@@ -32,6 +26,8 @@ export const invitationSchema: SchemaObject = {
     'revokedAt',
     'revokedByEmployeeId',
     'safeRevocationReason',
+    'supersededAt',
+    'supersededByInvitationId',
     'onboardingCompletedAt',
     'createdAt',
     'updatedAt',
@@ -42,7 +38,10 @@ export const invitationSchema: SchemaObject = {
     employeeId: { type: 'string', format: 'uuid' },
     userAccountId: { type: 'string', format: 'uuid' },
     invitedEmailNormalized: { type: 'string', format: 'email', maxLength: 320 },
-    status: { type: 'string', enum: ['PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED'] },
+    status: {
+      type: 'string',
+      enum: ['PENDING', 'ACCEPTED', 'REVOKED', 'EXPIRED', 'SUPERSEDED'],
+    },
     issuerEmployeeId: { type: 'string', format: 'uuid' },
     issuedAt: { type: 'string', format: 'date-time' },
     expiresAt: { type: 'string', format: 'date-time' },
@@ -50,6 +49,12 @@ export const invitationSchema: SchemaObject = {
     revokedAt: nullableDateTime,
     revokedByEmployeeId: { type: 'string', format: 'uuid', nullable: true },
     safeRevocationReason: { type: 'string', maxLength: 500, nullable: true },
+    supersededAt: nullableDateTime,
+    supersededByInvitationId: {
+      type: 'string',
+      format: 'uuid',
+      nullable: true,
+    },
     onboardingCompletedAt: nullableDateTime,
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
@@ -76,8 +81,7 @@ export const invitationIssueResponseSchema = successEnvelope({
     invitation: invitationSchema,
     acceptanceUrl: {
       type: 'string',
-      description:
-        'One-time, no-store, fragment-based delivery. This value is never available from later APIs.',
+      description: 'One-time, no-store, fragment-based delivery. This value is never available from later APIs.',
     },
   },
 });
@@ -114,8 +118,7 @@ export const invitationInspectBodySchema: SchemaObject = {
     invitationToken: {
       type: 'string',
       writeOnly: true,
-      description:
-        'The one-time invitation secret. Supply only in this HTTPS request body; never in a query or path.',
+      description: 'The one-time invitation secret. Supply only in this HTTPS request body; never in a query or path.',
     },
   },
 };
@@ -124,7 +127,10 @@ export const invitationInspectionSchema: SchemaObject = {
   type: 'object',
   required: ['status', 'expiresAt'],
   properties: {
-    status: { type: 'string', enum: ['VALID', 'EXPIRED', 'REVOKED', 'ALREADY_USED'] },
+    status: {
+      type: 'string',
+      enum: ['VALID', 'EXPIRED', 'REVOKED', 'SUPERSEDED', 'ALREADY_USED'],
+    },
     expiresAt: { type: 'string', format: 'date-time' },
   },
 };

@@ -6,6 +6,8 @@ const eventTypes = [
   'identity.invitation-accepted',
   'identity.invitation-revoked',
   'identity.invitation-expired',
+  'identity.invitation-superseded',
+  'identity.invitation-reissued',
   'identity.onboarding-completed',
   'identity.sso-identity-linked',
 ] as const;
@@ -25,10 +27,7 @@ class IdentityLifecycleHistoryConsumer implements OutboxConsumer {
 
   constructor(readonly eventType: (typeof eventTypes)[number]) {}
 
-  handle(
-    _event: OutboxEventEnvelope,
-    _transaction: DatabaseTransaction,
-  ): Promise<void> {
+  handle(_event: OutboxEventEnvelope, _transaction: DatabaseTransaction): Promise<void> {
     // The idempotency receipt is the current durable local side effect. Future
     // notification/integration owners can add subscribers without changing T02.
     return Promise.resolve();
