@@ -118,6 +118,8 @@ export interface AuthenticationTransactionStart {
   readonly nonce: string;
   readonly pkceChallenge: string;
   readonly expiresAt: Date;
+  /** Opaque server-created context. Never contains a raw invitation secret. */
+  readonly authorizationReference?: string;
 }
 
 export interface ConsumedAuthenticationTransaction extends AuthenticationTransactionStart {
@@ -139,6 +141,7 @@ export interface AuthenticationTransactionPort {
     readonly providerKey: string;
     readonly redirectUri: string;
     readonly ttlSeconds: number;
+    readonly authorizationReference?: string;
   }): Promise<AuthenticationTransactionStart>;
   consume(input: {
     readonly transactionId: string;
@@ -179,6 +182,7 @@ export interface InvitationAuthenticationAuthorization {
 export interface InvitationAuthenticationEligibilityPort {
   authorize(
     identity: NormalizedProviderIdentity,
+    authorizationReference?: string,
   ): Promise<InvitationAuthenticationAuthorization | null>;
 }
 

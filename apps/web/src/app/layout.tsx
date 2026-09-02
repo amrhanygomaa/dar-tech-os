@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Dar Tech OS',
-  description: 'Dar Tech OS engineering foundation',
+  description: 'Dar Tech OS internal employee portal',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

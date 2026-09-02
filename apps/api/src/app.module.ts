@@ -15,6 +15,10 @@ import {
   EventHistoryModule,
   type EventHistoryTestAdapters,
 } from './event-history/event-history.module.js';
+import {
+  InvitationModule,
+  type InvitationTestAdapters,
+} from './invitations/invitation.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
@@ -22,6 +26,7 @@ export interface AppModuleRegistrationOptions {
   readonly authenticationTestAdapters?: AuthenticationTestAdapters;
   readonly eventHistoryTestAdapters?: EventHistoryTestAdapters;
   readonly identityTestAdapters?: IdentityTestAdapters;
+  readonly invitationTestAdapters?: InvitationTestAdapters;
 }
 
 @Module({})
@@ -49,6 +54,12 @@ export class AppModule {
           config.appEnvironment,
           config.authentication,
           options.authenticationTestAdapters,
+          options.invitationTestAdapters?.clock,
+        ),
+        InvitationModule.register(
+          config.appEnvironment,
+          config.invitation,
+          options.invitationTestAdapters,
         ),
         IdentityModule.register(config.appEnvironment, options.identityTestAdapters),
         ApiFallbackModule,

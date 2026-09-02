@@ -28,4 +28,5 @@ docs
 **/*.crt
 **/*.p12
 **/*secret*
+!apps/api/src/invitations/invitation-secret.ts
 **/*credential*

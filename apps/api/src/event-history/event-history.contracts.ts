@@ -6,12 +6,23 @@ export type EventRisk = (typeof EVENT_RISKS)[number];
 export const AUDIT_ACTION_KEYS = {
   updateSelf: 'identity.account.update_self',
   updateEmployee: 'admin.employee.update',
+  invitationIssued: 'admin.employee.invite',
+  invitationRevoked: 'admin.invitation.revoke',
+  invitationAccepted: 'identity.invitation.accept',
+  onboardingCompleted: 'identity.onboarding.complete',
+  invitationExpired: 'system.invitation.expire',
 } as const;
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
 export const SECURITY_EVENT_TYPES = {
   authenticationSucceeded: 'AuthenticationSucceeded.v1',
   authenticationFailed: 'AuthenticationFailed.v1',
+  invitationIssued: 'InvitationIssued.v1',
+  invitationRevoked: 'InvitationRevoked.v1',
+  invitationAccepted: 'InvitationAccepted.v1',
+  invitationExpired: 'InvitationExpired.v1',
+  onboardingCompleted: 'OnboardingCompleted.v1',
+  invitationAcceptanceFailed: 'InvitationAcceptanceFailed.v1',
 } as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[keyof typeof SECURITY_EVENT_TYPES];
 

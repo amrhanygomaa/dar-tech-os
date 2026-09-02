@@ -33,6 +33,7 @@ export class InMemoryAuthenticationTransactionAdapter implements AuthenticationT
     readonly providerKey: string;
     readonly redirectUri: string;
     readonly ttlSeconds: number;
+    readonly authorizationReference?: string;
   }): Promise<AuthenticationTransactionStart> {
     this.prune();
     const state = randomProtocolValue();
@@ -48,6 +49,9 @@ export class InMemoryAuthenticationTransactionAdapter implements AuthenticationT
       pkceVerifier,
       pkceChallenge: createHash('sha256').update(pkceVerifier, 'utf8').digest('base64url'),
       expiresAt: new Date(this.now().getTime() + input.ttlSeconds * 1_000),
+      ...(input.authorizationReference
+        ? { authorizationReference: input.authorizationReference }
+        : {}),
     };
     this.active.set(transaction.id, transaction);
     return Promise.resolve(this.publicStart(transaction));
@@ -87,6 +91,9 @@ export class InMemoryAuthenticationTransactionAdapter implements AuthenticationT
       nonce: transaction.nonce,
       pkceChallenge: transaction.pkceChallenge,
       expiresAt: transaction.expiresAt,
+      ...(transaction.authorizationReference
+        ? { authorizationReference: transaction.authorizationReference }
+        : {}),
     };
   }
 

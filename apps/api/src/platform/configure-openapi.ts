@@ -5,7 +5,7 @@ export function configureOpenApi(app: INestApplication): void {
   const configuration = new DocumentBuilder()
     .setTitle('Dar Tech OS API')
     .setDescription(
-      'Internal Dar Tech OS API. Provider authentication verifies identity only; no Dar Tech application session, cookie, or token is created. Audit and security history is organization-scoped, append-only, and available through authorized GET endpoints only.',
+      'Internal Dar Tech OS API. Invitation-only onboarding binds a one-time fragment secret to provider-neutral verified identity without creating a Dar Tech application session, cookie, bearer token, or refresh token. Audit and security history is organization-scoped and append-only.',
     )
     .setVersion('1.0.0')
     .build();

@@ -8,6 +8,7 @@ export {
   type ApiConfig,
   type AppEnvironment,
   type AuthenticationConfig,
+  type InvitationConfig,
   type LocalAuthenticationIdentityConfig,
   type LogLevel,
   type WebConfig,

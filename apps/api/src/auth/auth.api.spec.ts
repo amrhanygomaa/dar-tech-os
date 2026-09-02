@@ -32,6 +32,7 @@ const config: ApiConfig = {
     ],
     transactionTtlSeconds: 300,
   },
+  invitation: { ttlSeconds: 300, rateLimitMaxRequests: 30, rateLimitWindowSeconds: 60 },
 };
 
 const linkedIdentity: LinkedAuthenticationIdentity = {

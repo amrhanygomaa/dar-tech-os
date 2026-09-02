@@ -7,6 +7,7 @@ const validEnvironment: NodeJS.ProcessEnv = {
   LOG_LEVEL: 'info',
   API_PORT: '3001',
   DATABASE_URL: 'postgresql://dartech:dartech@localhost:5432/dartech_os',
+  INVITATION_TTL_SECONDS: '86400',
 };
 
 describe('runtime configuration', () => {
@@ -27,6 +28,11 @@ describe('runtime configuration', () => {
         localIdentities: [],
         transactionTtlSeconds: 300,
       },
+      invitation: {
+        ttlSeconds: 86400,
+        rateLimitMaxRequests: 30,
+        rateLimitWindowSeconds: 60,
+      },
     });
   });
 
@@ -43,6 +49,16 @@ describe('runtime configuration', () => {
         'DATABASE_URL',
       ]);
     }
+  });
+
+  it('requires an explicit invitation lifetime and validates its bounds', () => {
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, INVITATION_TTL_SECONDS: undefined }),
+    ).toThrowError(/INVITATION_TTL_SECONDS/);
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, INVITATION_TTL_SECONDS: '59' }),
+    ).toThrowError(/INVITATION_TTL_SECONDS/);
+    expect(loadApiConfig(validEnvironment).invitation.ttlSeconds).toBe(86_400);
   });
 
   it('rejects documented local credentials in staging without echoing the URL', () => {

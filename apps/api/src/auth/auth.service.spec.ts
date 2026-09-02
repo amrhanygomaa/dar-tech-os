@@ -262,6 +262,27 @@ describe('provider-neutral authentication service', () => {
     });
   });
 
+  it('passes only the exact transaction-bound invitation reference to the eligibility port', async () => {
+    const exactReference = '018f53d4-2f68-7c52-a399-3df2364d8701';
+    const invitationHarness = harness({ linked: null, invitationAuthorized: true });
+    const started = await invitationHarness.service.startForInvitation(
+      'local',
+      { redirectUri, loginHint: 'employee' },
+      exactReference,
+    );
+    const callbackUrl = new URL(started.authorizationUrl);
+    await invitationHarness.service.verify('local', {
+      transactionId: callbackUrl.searchParams.get('transactionId'),
+      state: callbackUrl.searchParams.get('state'),
+      nonce: callbackUrl.searchParams.get('nonce'),
+      code: callbackUrl.searchParams.get('code'),
+    });
+    expect(invitationHarness.invitations.authorize).toHaveBeenCalledWith(
+      expect.objectContaining({ verifiedEmail: 'employee@example.com' }),
+      exactReference,
+    );
+  });
+
   it.each(['INVITED', 'SUSPENDED', 'OFFBOARDING', 'ARCHIVED'] as const)(
     'denies a linked employee in the %s lifecycle state',
     async (lifecycleStatus) => {
@@ -382,7 +403,7 @@ describe('provider-neutral authentication service', () => {
     expect(sources).not.toMatch(/rawClaims|vendorSdk|idToken|accessToken|refreshToken/iu);
   });
 
-  it('adds no database storage for provider credentials, tokens, sessions, or invitations', () => {
+  it('adds no database storage for provider credentials, tokens, or sessions', () => {
     const schema = readFileSync(
       new URL('../../../../prisma/schema.prisma', import.meta.url),
       'utf8',
@@ -390,7 +411,7 @@ describe('provider-neutral authentication service', () => {
     expect(schema).not.toMatch(
       /\b(?:clientSecret|providerSecret|accessToken|refreshToken|authorizationCode)\b/u,
     );
-    expect(schema).not.toMatch(/^model\s+(?:Session|Invitation)\b/mu);
+    expect(schema).not.toMatch(/^model\s+Session\b/mu);
   });
 
   it('requires production adapters to declare core protocol claim validation', () => {
