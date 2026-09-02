@@ -1,7 +1,7 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T02 ONLY AUTHORIZED
-> S02-T00, S02-T01, S02-T03, and S02-T12 are completed. S02-T12 merged through PR #6 at `81dc731123d95ecc8376867b27efe1c23e7b8119`. S02-T02 is authorized. S02-T04 through S02-T11 and S02-T13 through S02-T15 remain unauthorized.
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T05 ONLY AUTHORIZED
+> S02-T00, S02-T01, S02-T02, S02-T03, and S02-T12 are completed. S02-T02 merged through PR #7 at `9f27434a292c557d18254eea0b84355c1c1693a2`. S02-T05 is authorized. S02-T04, S02-T06 through S02-T11, and S02-T13 through S02-T15 remain unauthorized.
 
 ## Sprint objective
 
@@ -21,13 +21,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00, S02-T01, S02-T03, and S02-T12 are completed, and the supervisor has authorized S02-T02 only. S02-T04 through S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T02 must not be inferred as authorization to begin any other ticket.
+Sprint 01 is closed. S02-T00, S02-T01, S02-T02, S02-T03, and S02-T12 are completed, and the supervisor has authorized S02-T05 only. S02-T04, S02-T06 through S02-T11, and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T05 must not be inferred as authorization to begin any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside S02-T02;
-- add sessions, production provider adapters, roles, permission registry/engine, approvals, temporary/emergency access, offboarding, seeds, or bootstrap commands;
-- mark S02-T04 through S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside S02-T05;
+- add sessions, production provider adapters, permission registry/grants, a central authorization engine, approvals, temporary/emergency access, offboarding, seeds, or bootstrap commands;
+- mark S02-T04, S02-T06 through S02-T11, or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -96,8 +96,9 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T01 | COMPLETED | PR #4; merge commit `188dd268a3bfbace0d5341a069fc403d4ff111d4` |
 | S02-T03 | COMPLETED | PR #5; merge commit `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec` |
 | S02-T12 | COMPLETED | PR #6; merge commit `81dc731123d95ecc8376867b27efe1c23e7b8119` |
-| S02-T02 | AUTHORIZED | Controlled implementation authorization from the supervisor |
-| S02-T04 through S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T02 | COMPLETED | PR #7; merge commit `9f27434a292c557d18254eea0b84355c1c1693a2` |
+| S02-T05 | AUTHORIZED | Controlled implementation authorization from the supervisor |
+| S02-T04, S02-T06 through S02-T11, and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -762,16 +763,31 @@ Support customizable organization roles and multiple concurrent role assignments
 
 ### Security considerations
 
-- Role assignment is authorization-sensitive and must pass central authorization and policy hooks.
+- Role assignment is authorization-sensitive and passes the fail-closed typed T05 authorization port; S02-T07 will replace this seam with the central authorization decision.
+- S02-T09 owns approval policy. T05 does not turn the missing future policy implementation into an allow-all shortcut or invent approval rules.
 - Prevent an actor from bypassing permission-management controls by creating or editing a role.
 
 ### Acceptance criteria
 
-- [ ] Roles are organization-scoped and customizable.
-- [ ] Employees can hold multiple active roles and the authorization service evaluates all of them.
-- [ ] Role assignment/removal history records issuer and effective/revoked times.
-- [ ] No job title, employee name, email, or Founder flag grants authority.
-- [ ] Role APIs, OpenAPI, UI, audit/events, and allow/deny/multi-role tests are complete.
+- [x] Roles are organization-scoped and customizable.
+- [x] Employees can hold multiple effective roles and T05 exposes all of them through the stable effective-role query contract; S02-T06/T07 remain responsible for grants and final authorization evaluation.
+- [x] Role assignment/removal history records issuer and effective/removed times.
+- [x] No job title, employee name, email, or Founder flag grants authority.
+- [x] Role APIs, OpenAPI, UI, audit/events, and allow/deny/multi-role tests are complete.
+
+### Acceptance evidence — 2026-09-02
+
+- Added the organization-scoped `Role` and historical `EmployeeRole` entities in the single additive migration `20260902230000_sprint_02_t05_role_model`. A fresh five-migration database and a canonical-main-to-T05 upgrade with Organization, Employee, UserAccount, SSOIdentity, Invitation, AuditEvent, and SecurityEvent sentinels passed with zero drift and no destructive change.
+- Role keys are trimmed/lowercased and immutable after creation; names are trim/whitespace/lowercase normalized. Organization-local key and normalized-name uniqueness, cross-organization reuse, bounded inputs, control-character rejection, and explicit archive behavior are covered in API/PostgreSQL tests.
+- `EmployeeRole` preserves assigner/effective/expiry/removal/remover history. Direct injected-clock evaluation makes an assignment ineffective at exactly `now == expires_at`; expired and removed rows remain and permit a new historical assignment.
+- PostgreSQL locking uses Role → Employee → matching EmployeeRole order. Concurrent duplicate assignment creates at most one new effective row; different-role assignment preserves both roles; remove-versus-assign and archive-versus-assign end safely without an archived effective assignment.
+- Exact duplicate assignment and repeated removal/archive return idempotently without duplicate T12 audit or outbox history. Different expiry semantics return a stable conflict.
+- Role create/update/archive and employee-role assign/remove each commit mutation + required AuditEvent + versioned outbox event atomically. Forced audit and outbox failures prove rollback without false-success history.
+- All six authorized APIs and `/admin/roles` are documented/implemented. The UI covers create/edit/archive, multi-role assignment/removal results, expiry/removal state, and loading/empty/unauthorized/forbidden/conflict/validation/error states.
+- Default production role APIs fail closed without a trusted actor. Test adapters fail registration outside `APP_ENV=test`. Founder, Super Admin, Developer/job-title-like names, email/header/query assertions, and frontend state grant no authority.
+- `npm run quality:gate` passed with 140 unit/API/frontend tests and 83 PostgreSQL integration tests, plus lint, Prisma validation/status/zero-drift checks, typecheck, production build, and Docker Compose validation.
+- Fresh Docker rebuild/runtime validation passed: migration exited 0; PostgreSQL, API, web, and worker reported healthy; health, web, role UI, and OpenAPI returned HTTP 200; all six protected T05 routes returned HTTP 401 without a trusted actor.
+- No Session, Permission/RolePermission persistence, central authorization engine, approval/access/offboarding/bootstrap behavior, privileged role seed, customer account, or public signup was added. S02-T04, S02-T06+, and S02-T13+ remain unauthorized.
 
 ### Do Not Change
 

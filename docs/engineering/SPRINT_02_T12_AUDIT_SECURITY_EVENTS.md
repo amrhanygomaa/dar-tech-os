@@ -48,6 +48,10 @@ admin.invitation.revoke
 identity.invitation.accept
 identity.onboarding.complete
 system.invitation.expire
+admin.role.create
+admin.role.update
+admin.role.archive
+admin.role.assign
 
 SECURITY
 AuthenticationSucceeded.v1
@@ -108,6 +112,10 @@ Current technical default classifications are `LOW` for a successful authenticat
 ### T02 invitation and onboarding outcomes
 
 Invitation issue, revoke, accept, expiry materialization, and onboarding completion append minimal organization-scoped audit/security history. Successful state mutations and their required history share the same database transaction. Invalid, reused, expired, mismatched, or transaction-failed acceptance attempts use `InvitationAcceptanceFailed.v1` with only a bounded failure category and resolved organization when safe. Raw invitation token, acceptance URL, invited email, and provider subject are never event fields.
+
+### T05 role-management outcomes
+
+Role create, update, archive, employee-role assignment, and employee-role removal append minimal organization-scoped audit history in the owning Prisma transaction. The records use `admin.role.create`, `admin.role.update`, `admin.role.archive`, and `admin.role.assign`; assignment/removal target the stable EmployeeRole ID and retain only safe actor/employee snapshots plus changed field names. The matching outbox payloads exclude role name/description, employee PII, permission grants, and arbitrary request input. T05 adds no security alert/escalation policy.
 
 ## Observability
 

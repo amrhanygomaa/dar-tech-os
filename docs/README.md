@@ -5,32 +5,39 @@ This directory is the implementation documentation set for Dar Tech OS.
 ## Read order
 
 ### Permanent execution rules
+
 - `../CODEX_MASTER_EXECUTION_PROMPT.md`
 
 ### Sprint records
+
 - Sprint 01 specification: `../SPRINT_01_ENGINEERING_FOUNDATION.md`
 - Sprint 01 closure: `execution/SPRINT_01_CLOSURE.md`
-- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **S02-T02 ONLY AUTHORIZED; S02-T00/T01/T03/T12 COMPLETE**
+- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **S02-T05 ONLY AUTHORIZED; S02-T00/T01/T02/T03/T12 COMPLETE**
 
 ### Source-of-truth rules
+
 - `SOURCE_OF_TRUTH.md`
 
 ### Engineering foundation
+
 - `engineering/SPRINT_01_FOUNDATION_GUIDE.md`
 - `engineering/REPOSITORY_BASELINE.md`
 - `engineering/SPRINT_01_REVIEW_CHECKLIST.md`
 - `engineering/SPRINT_02_T01_IDENTITY_CORE.md`
 - `engineering/SPRINT_02_T02_INVITATION_ONBOARDING.md`
 - `engineering/SPRINT_02_T03_SSO_ABSTRACTION.md`
+- `engineering/SPRINT_02_T05_ROLE_MODEL.md`
 - `engineering/SPRINT_02_T12_AUDIT_SECURITY_EVENTS.md`
 - Accepted architecture decisions: `decisions/README.md`
 
 ### Primary source documents
+
 - `source/System-Requirements.md`
 - `source/Dar_Tech_AI_Agent_Company_Memory.md`
 - `brand/DarTech_Brand_Guidelines.pdf`
 
 ### Implementation specifications
+
 - Phase 16 — Entity Architecture: `architecture/PHASE_16_ENTITY_ARCHITECTURE.md`
 - Phase 17 — State Machines: `architecture/PHASE_17_STATE_MACHINES.md`
 - Phase 18 — ERD Relationships: `architecture/PHASE_18_ERD_RELATIONSHIPS.md`

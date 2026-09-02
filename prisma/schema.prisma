@@ -70,6 +70,8 @@ model Organization {
   auditEvents    AuditEvent[]
   securityEvents SecurityEvent[]
   invitations    Invitation[]
+  roles          Role[]
+  employeeRoles  EmployeeRole[]
 
   @@map("organizations")
 }
@@ -97,12 +99,64 @@ model Employee {
   invitations         Invitation[]            @relation("InvitationEmployee")
   issuedInvitations   Invitation[]            @relation("InvitationIssuer")
   revokedInvitations  Invitation[]            @relation("InvitationRevoker")
+  roleAssignments     EmployeeRole[]          @relation("EmployeeRoleEmployee")
+  assignedRoles       EmployeeRole[]          @relation("EmployeeRoleAssigner")
+  removedRoles        EmployeeRole[]          @relation("EmployeeRoleRemover")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
   @@index([organizationId, lifecycleStatus, createdAt], map: "employees_organization_lifecycle_created_at_idx")
   @@index([organizationId, workEmail], map: "employees_organization_work_email_idx")
   @@map("employees")
+}
+
+model Role {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  key            String         @map("role_key") @db.VarChar(64)
+  name           String         @db.VarChar(160)
+  normalizedName String         @map("normalized_name") @db.VarChar(160)
+  description    String?        @db.VarChar(500)
+  archivedAt     DateTime?      @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignments    EmployeeRole[]
+
+  @@unique([organizationId, id], map: "roles_organization_id_id_key")
+  @@unique([organizationId, key], map: "roles_organization_role_key_key")
+  @@unique([organizationId, normalizedName], map: "roles_organization_normalized_name_key")
+  @@index([organizationId, archivedAt, name], map: "roles_organization_archived_name_idx")
+  @@map("roles")
+}
+
+model EmployeeRole {
+  id                   String       @id @default(uuid()) @db.Uuid
+  organizationId       String       @map("organization_id") @db.Uuid
+  employeeId           String       @map("employee_id") @db.Uuid
+  roleId               String       @map("role_id") @db.Uuid
+  assignedByEmployeeId String       @map("assigned_by_employee_id") @db.Uuid
+  assignedAt           DateTime     @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  effectiveAt          DateTime     @map("effective_at") @db.Timestamptz(3)
+  expiresAt            DateTime?    @map("expires_at") @db.Timestamptz(3)
+  removedAt            DateTime?    @map("removed_at") @db.Timestamptz(3)
+  removedByEmployeeId  String?      @map("removed_by_employee_id") @db.Uuid
+  safeRemovalReason    String?      @map("safe_removal_reason") @db.VarChar(500)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee             Employee     @relation("EmployeeRoleEmployee", fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+  role                 Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Restrict)
+  assignedByEmployee   Employee     @relation("EmployeeRoleAssigner", fields: [organizationId, assignedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  removedByEmployee    Employee?    @relation("EmployeeRoleRemover", fields: [organizationId, removedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id], map: "employee_roles_organization_id_id_key")
+  @@index([organizationId, employeeId, effectiveAt], map: "employee_roles_organization_employee_effective_idx")
+  @@index([organizationId, roleId, effectiveAt], map: "employee_roles_organization_role_effective_idx")
+  @@index([organizationId, employeeId, roleId, removedAt, expiresAt], map: "employee_roles_effective_lookup_idx")
+  @@index([organizationId, assignedByEmployeeId], map: "employee_roles_organization_assigner_idx")
+  @@index([organizationId, removedByEmployeeId], map: "employee_roles_organization_remover_idx")
+  @@map("employee_roles")
 }
 
 model UserAccount {

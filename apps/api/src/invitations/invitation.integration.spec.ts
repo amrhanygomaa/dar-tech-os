@@ -302,9 +302,11 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
         AND constraint_row.contype = 'c'
     `;
     expect(checks).toHaveLength(4);
-    expect(checks.map(({ definition }) => definition).join(' ')).toMatch(
-      /expires_at.*issued_at.*invited_email_normalized.*token_hash.*status/isu,
-    );
+    const checkDefinitions = checks.map(({ definition }) => definition).join(' ');
+    expect(checkDefinitions).toMatch(/expires_at.*issued_at/isu);
+    expect(checkDefinitions).toMatch(/invited_email_normalized/iu);
+    expect(checkDefinitions).toMatch(/token_hash/iu);
+    expect(checkDefinitions).toMatch(/status/iu);
 
     const foreignKeys = await client.$queryRaw<Array<{ delete_action: string; referenced_table: string }>>`
       SELECT

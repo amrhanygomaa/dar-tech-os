@@ -13,7 +13,21 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const boundedKeyPattern = /^[A-Za-z][A-Za-z0-9._-]*$/u;
 const forbiddenContextKeyPattern =
   /(?:password|secret|token|nonce|state|authorization|email|subject|stack|raw|payload|login.?hint|code)/iu;
-const allowedChangedFields = new Set(['displayName', 'firstName', 'lastName', 'workEmail']);
+const allowedChangedFields = new Set([
+  'archivedAt',
+  'description',
+  'displayName',
+  'effectiveAt',
+  'expiresAt',
+  'firstName',
+  'key',
+  'lastName',
+  'name',
+  'removedAt',
+  'removedByEmployeeId',
+  'roleId',
+  'workEmail',
+]);
 
 function invalidRequest(): ApplicationError {
   return new ApplicationError(
