@@ -15,6 +15,9 @@ const eventTypes = [
   'identity.role-archived',
   'identity.employee-role-assigned',
   'identity.employee-role-removed',
+  'identity.permission-registered',
+  'identity.role-permission-granted',
+  'identity.role-permission-removed',
 ] as const;
 
 const consumerName = 'identity.lifecycle-history';

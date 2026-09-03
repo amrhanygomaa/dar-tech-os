@@ -5,7 +5,7 @@ export function configureOpenApi(app: INestApplication): void {
   const configuration = new DocumentBuilder()
     .setTitle('Dar Tech OS API')
     .setDescription(
-      'Internal Dar Tech OS API. Invitation-only onboarding binds a one-time fragment secret to provider-neutral verified identity without creating a Dar Tech application session, cookie, bearer token, or refresh token. Roles are organization-scoped data and grant no application authority until future permission and authorization tickets. Audit and security history is organization-scoped and append-only.',
+      'Internal Dar Tech OS API. Invitation-only onboarding binds a one-time fragment secret to provider-neutral verified identity without creating a Dar Tech application session, cookie, bearer token, or refresh token. Roles and historical permission grants are organization-scoped data. The code-owned permission registry is product-global; T06 stores effective grant descriptors but does not authorize application actions. Audit and security history is append-only.',
     )
     .setVersion('1.0.0')
     .build();

@@ -17,4 +17,5 @@ export {
   OutboxEventStatus,
   Prisma,
   QueueJobStatus,
+  ScopeType,
 } from './generated/prisma/client.js';

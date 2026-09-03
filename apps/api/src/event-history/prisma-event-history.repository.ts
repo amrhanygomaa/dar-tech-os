@@ -235,7 +235,7 @@ export class PrismaEventHistoryRepository {
     try {
       const event = await database.auditEvent.create({
         data: {
-          organizationId: input.organizationId,
+          ...(input.organizationId ? { organizationId: input.organizationId } : {}),
           actionKey: input.actionKey,
           ...(input.actorEmployeeId ? { actorEmployeeId: input.actorEmployeeId } : {}),
           actorSnapshot: input.actorSnapshot as unknown as Prisma.InputJsonValue,
