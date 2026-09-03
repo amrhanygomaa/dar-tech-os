@@ -13,23 +13,55 @@ import {
 import { AuthorizationActorContext } from './authorization-context.js';
 import {
   AUTHORIZATION_CLOCK,
+  AUTHORIZATION_EMERGENCY_ACCESS_PORT,
   AUTHORIZATION_GRANT_REPOSITORY,
   AUTHORIZATION_METRICS_PORT,
+  AUTHORIZATION_POLICY_EVALUATOR,
   AUTHORIZATION_SCOPE_RESOLVERS,
+  AUTHORIZATION_TEMPORARY_ACCESS_PORT,
   type AuthorizationClock,
+  type AuthorizationEmergencyAccessPort,
   type AuthorizationGrantRepository,
   type AuthorizationMetricsPort,
+  type AuthorizationPolicyEvaluator,
   type AuthorizationScopeResolver,
+  type AuthorizationTemporaryAccessPort,
 } from './authorization.contracts.js';
+import {
+  DefaultAuthorizationEmergencyAccessAdapter,
+  DefaultAuthorizationPolicyEvaluator,
+  DefaultAuthorizationTemporaryAccessAdapter,
+} from './authorization-extensions.js';
 import { StructuredAuthorizationMetricsAdapter } from './authorization-metrics.js';
 import { AuthorizationRequestMiddleware } from './authorization-request.middleware.js';
 import { AuthorizationService } from './authorization.service.js';
 
+export interface AuthorizationModuleExtensions {
+  readonly scopeResolvers?: readonly AuthorizationScopeResolver[] | undefined;
+  readonly temporaryAccess?: AuthorizationTemporaryAccessPort | undefined;
+  readonly emergencyAccess?: AuthorizationEmergencyAccessPort | undefined;
+  readonly policyEvaluator?: AuthorizationPolicyEvaluator | undefined;
+}
+
 export interface AuthorizationTestAdapters {
-  readonly clock?: AuthorizationClock;
-  readonly grants?: AuthorizationGrantRepository;
-  readonly metrics?: AuthorizationMetricsPort;
-  readonly scopeResolvers?: readonly AuthorizationScopeResolver[];
+  readonly clock?: AuthorizationClock | undefined;
+  readonly grants?: AuthorizationGrantRepository | undefined;
+  readonly metrics?: AuthorizationMetricsPort | undefined;
+  readonly scopeResolvers?: readonly AuthorizationScopeResolver[] | undefined;
+  readonly temporaryAccess?: AuthorizationTemporaryAccessPort | undefined;
+  readonly emergencyAccess?: AuthorizationEmergencyAccessPort | undefined;
+  readonly policyEvaluator?: AuthorizationPolicyEvaluator | undefined;
+}
+
+export interface AuthorizationModuleRegistrationOptions {
+  readonly extensions?: AuthorizationModuleExtensions | undefined;
+  readonly testAdapters?: AuthorizationTestAdapters | undefined;
+}
+
+function isRegistrationOptions(
+  options: AuthorizationModuleRegistrationOptions | AuthorizationTestAdapters,
+): options is AuthorizationModuleRegistrationOptions {
+  return 'extensions' in options || 'testAdapters' in options;
 }
 
 function selectedProvider(token: symbol, value: object | undefined, fallback: Provider): Provider {
@@ -39,10 +71,23 @@ function selectedProvider(token: symbol, value: object | undefined, fallback: Pr
 @Global()
 @Module({})
 export class AuthorizationModule {
-  static register(environment: AppEnvironment, testAdapters?: AuthorizationTestAdapters): DynamicModule {
+  static register(
+    environment: AppEnvironment,
+    options?: AuthorizationModuleRegistrationOptions | AuthorizationTestAdapters,
+  ): DynamicModule {
+    const registrationOptions: AuthorizationModuleRegistrationOptions = options
+      ? isRegistrationOptions(options)
+        ? options
+        : { testAdapters: options }
+      : {};
+
+    const testAdapters = registrationOptions.testAdapters;
+    const extensions = registrationOptions.extensions;
+
     if (testAdapters && environment !== 'test') {
       throw new Error('Authorization test adapters are available only in the test environment');
     }
+
     return {
       module: AuthorizationModule,
       global: true,
@@ -62,8 +107,32 @@ export class AuthorizationModule {
         }),
         {
           provide: AUTHORIZATION_SCOPE_RESOLVERS,
-          useValue: testAdapters?.scopeResolvers ?? [],
+          useValue: testAdapters?.scopeResolvers ?? extensions?.scopeResolvers ?? [],
         },
+        selectedProvider(
+          AUTHORIZATION_TEMPORARY_ACCESS_PORT,
+          testAdapters?.temporaryAccess ?? extensions?.temporaryAccess,
+          {
+            provide: AUTHORIZATION_TEMPORARY_ACCESS_PORT,
+            useClass: DefaultAuthorizationTemporaryAccessAdapter,
+          },
+        ),
+        selectedProvider(
+          AUTHORIZATION_EMERGENCY_ACCESS_PORT,
+          testAdapters?.emergencyAccess ?? extensions?.emergencyAccess,
+          {
+            provide: AUTHORIZATION_EMERGENCY_ACCESS_PORT,
+            useClass: DefaultAuthorizationEmergencyAccessAdapter,
+          },
+        ),
+        selectedProvider(
+          AUTHORIZATION_POLICY_EVALUATOR,
+          testAdapters?.policyEvaluator ?? extensions?.policyEvaluator,
+          {
+            provide: AUTHORIZATION_POLICY_EVALUATOR,
+            useClass: DefaultAuthorizationPolicyEvaluator,
+          },
+        ),
         AuthorizationService,
         AuthorizationRequestMiddleware,
         CentralAuthenticatedActorAdapter,
@@ -76,6 +145,10 @@ export class AuthorizationModule {
       ],
       exports: [
         AUTHORIZATION_CLOCK,
+        AUTHORIZATION_SCOPE_RESOLVERS,
+        AUTHORIZATION_TEMPORARY_ACCESS_PORT,
+        AUTHORIZATION_EMERGENCY_ACCESS_PORT,
+        AUTHORIZATION_POLICY_EVALUATOR,
         AuthorizationActorContext,
         AuthorizationService,
         AuthorizationRequestMiddleware,

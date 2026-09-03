@@ -1,23 +1,35 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { canonicalPermissionDefinition } from '../permissions/permission-manifest.js';
 import type { ScopeType } from '../permissions/permission.contracts.js';
 import {
+  AUTHORIZATION_EMERGENCY_ACCESS_PORT,
   AUTHORIZATION_GRANT_REPOSITORY,
   AUTHORIZATION_METRICS_PORT,
+  AUTHORIZATION_POLICY_EVALUATOR,
   AUTHORIZATION_RESOURCE_TYPES,
   AUTHORIZATION_SCOPE_RESOLVERS,
+  AUTHORIZATION_TEMPORARY_ACCESS_PORT,
   EXTENSION_SCOPE_TYPES,
   type AuthorizationActor,
   type AuthorizationContext,
   type AuthorizationDecision,
+  type AuthorizationEmergencyAccessPort,
   type AuthorizationGrant,
   type AuthorizationGrantRepository,
   type AuthorizationMetricsPort,
+  type AuthorizationPolicyEvaluator,
+  type AuthorizationPolicyResult,
   type AuthorizationReasonCode,
   type AuthorizationResource,
   type AuthorizationScopeResolver,
+  type AuthorizationTemporaryAccessPort,
   type ExtensionScopeType,
 } from './authorization.contracts.js';
+import {
+  DefaultAuthorizationEmergencyAccessAdapter,
+  DefaultAuthorizationPolicyEvaluator,
+  DefaultAuthorizationTemporaryAccessAdapter,
+} from './authorization-extensions.js';
 
 type ScopeEvaluation = 'MATCH' | 'NO_MATCH' | 'RESOLVER_UNAVAILABLE';
 
@@ -30,6 +42,15 @@ export class AuthorizationService {
     private readonly resolvers: readonly AuthorizationScopeResolver[],
     @Inject(AUTHORIZATION_METRICS_PORT)
     private readonly metrics: AuthorizationMetricsPort,
+    @Optional()
+    @Inject(AUTHORIZATION_TEMPORARY_ACCESS_PORT)
+    private readonly temporaryAccess: AuthorizationTemporaryAccessPort = new DefaultAuthorizationTemporaryAccessAdapter(),
+    @Optional()
+    @Inject(AUTHORIZATION_EMERGENCY_ACCESS_PORT)
+    private readonly emergencyAccess: AuthorizationEmergencyAccessPort = new DefaultAuthorizationEmergencyAccessAdapter(),
+    @Optional()
+    @Inject(AUTHORIZATION_POLICY_EVALUATOR)
+    private readonly policyEvaluator: AuthorizationPolicyEvaluator = new DefaultAuthorizationPolicyEvaluator(),
   ) {}
 
   async authorize(
@@ -64,6 +85,12 @@ export class AuthorizationService {
 
     const matching = currentGrants.filter((grant) => grant.permissionKey === action);
     if (matching.length === 0) {
+      try {
+        await this.temporaryAccess.evaluate({ actor, action, resource, context });
+        await this.emergencyAccess.evaluate({ actor, action, resource, context });
+      } catch {
+        return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
+      }
       return this.decision(false, 'PERMISSION_NOT_GRANTED', action);
     }
 
@@ -71,6 +98,25 @@ export class AuthorizationService {
     for (const grant of matching) {
       const scope = await this.evaluateScope(actor, grant, resource, context);
       if (scope === 'MATCH') {
+        let policyResult: AuthorizationPolicyResult;
+        try {
+          policyResult = await this.policyEvaluator.evaluatePolicy({
+            actor,
+            action,
+            resource,
+            context,
+            grant,
+          });
+        } catch {
+          return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
+        }
+        if (!policyResult.allowed) {
+          return this.decision(
+            false,
+            policyResult.reasonCode ?? 'SCOPE_NOT_SATISFIED',
+            action,
+          );
+        }
         return this.decision(true, 'AUTHORIZED', action, grant);
       }
       missingResolver ||= scope === 'RESOLVER_UNAVAILABLE';
@@ -192,7 +238,9 @@ export class AuthorizationService {
   }
 
   private actionFamily(permissionKey: string): string {
-    const parts = permissionKey.split('.');
-    return parts.length === 3 ? `${parts[0]}.${parts[1]}` : 'invalid';
+    const def = canonicalPermissionDefinition(permissionKey);
+    if (!def) return 'invalid';
+    const parts = def.key.split('.');
+    return parts.length >= 2 ? `${parts[0]}.${parts[1]}` : 'invalid';
   }
 }

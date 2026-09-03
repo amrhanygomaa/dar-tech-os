@@ -6,6 +6,9 @@ export const AUTHORIZATION_CLOCK = Symbol('AUTHORIZATION_CLOCK');
 export const AUTHORIZATION_GRANT_REPOSITORY = Symbol('AUTHORIZATION_GRANT_REPOSITORY');
 export const AUTHORIZATION_METRICS_PORT = Symbol('AUTHORIZATION_METRICS_PORT');
 export const AUTHORIZATION_SCOPE_RESOLVERS = Symbol('AUTHORIZATION_SCOPE_RESOLVERS');
+export const AUTHORIZATION_TEMPORARY_ACCESS_PORT = Symbol('AUTHORIZATION_TEMPORARY_ACCESS_PORT');
+export const AUTHORIZATION_EMERGENCY_ACCESS_PORT = Symbol('AUTHORIZATION_EMERGENCY_ACCESS_PORT');
+export const AUTHORIZATION_POLICY_EVALUATOR = Symbol('AUTHORIZATION_POLICY_EVALUATOR');
 
 export const AUTHORIZATION_RESOURCE_TYPES = [
   'employee',
@@ -110,3 +113,51 @@ export interface AuthorizationMetricsPort {
     readonly scopeType?: ScopeType;
   }): void;
 }
+
+export interface TemporaryAccessEvaluationInput {
+  readonly actor: AuthorizationActor;
+  readonly action: string;
+  readonly resource: AuthorizationResource;
+  readonly context: AuthorizationContext;
+}
+
+export interface TemporaryAccessEvaluationResult {
+  readonly granted: boolean;
+}
+
+export interface AuthorizationTemporaryAccessPort {
+  evaluate(input: TemporaryAccessEvaluationInput): Promise<TemporaryAccessEvaluationResult>;
+}
+
+export interface EmergencyAccessEvaluationInput {
+  readonly actor: AuthorizationActor;
+  readonly action: string;
+  readonly resource: AuthorizationResource;
+  readonly context: AuthorizationContext;
+}
+
+export interface EmergencyAccessEvaluationResult {
+  readonly granted: boolean;
+}
+
+export interface AuthorizationEmergencyAccessPort {
+  evaluate(input: EmergencyAccessEvaluationInput): Promise<EmergencyAccessEvaluationResult>;
+}
+
+export interface AuthorizationPolicyInput {
+  readonly actor: AuthorizationActor;
+  readonly action: string;
+  readonly resource: AuthorizationResource;
+  readonly context: AuthorizationContext;
+  readonly grant: AuthorizationGrant;
+}
+
+export interface AuthorizationPolicyResult {
+  readonly allowed: boolean;
+  readonly reasonCode?: AuthorizationReasonCode | undefined;
+}
+
+export interface AuthorizationPolicyEvaluator {
+  evaluatePolicy(input: AuthorizationPolicyInput): Promise<AuthorizationPolicyResult>;
+}
+

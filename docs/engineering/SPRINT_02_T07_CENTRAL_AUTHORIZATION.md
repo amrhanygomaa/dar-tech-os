@@ -71,6 +71,17 @@ Role name, role key, employee title/profile fields, Founder state, routes, HTTP 
 
 T08 owns real relationship resolution for extension scopes. No Project, Customer, Team, Department, or assignment business entity/query was added by T07.
 
+## Production extension seams and deferred contracts
+
+T07 establishes stable extension ports to support future tickets without modifying the core `authorize(actor, action, resource, context)` contract or engine:
+
+1. **Production extension registration seam**: `AuthorizationModule.register` distinguishes between production extension providers (`AuthorizationModuleExtensions`) and test adapters (`AuthorizationTestAdapters`). Production extensions can be configured in any environment (`production`, `development`, `test`), whereas test adapters remain strictly rejected outside `APP_ENV=test`.
+2. **Default fail-closed scope resolution**: Production ships with an empty scope resolver registry (`[]`). Extension scopes (`TEAM`, `ASSIGNED`, `DEPARTMENT`, `PROJECT`, `CUSTOMER`) evaluate to `SCOPE_RESOLVER_UNAVAILABLE` and deny. T08 will supply production scope relationship resolvers.
+3. **Temporary access extension port (deferred to T10)**: `AuthorizationTemporaryAccessPort` defines the typed contract for evaluating temporary access grants. T07 installs `DefaultAuthorizationTemporaryAccessAdapter`, which contributes NO authority (`granted: false`). No `TemporaryAccessGrant` entities, database queries, delegation policies, or allow behaviors are implemented in T07.
+4. **Emergency access extension port (deferred to T11)**: `AuthorizationEmergencyAccessPort` defines the typed contract for break-glass emergency evaluation. T07 installs `DefaultAuthorizationEmergencyAccessAdapter`, which contributes NO authority (`granted: false`). No emergency override, reason workflow, step-up, or superuser bypass is implemented.
+5. **Policy evaluator extension port (deferred to T09)**: `AuthorizationPolicyEvaluator` defines the typed evaluator contract for future policy rules. T07 installs `DefaultAuthorizationPolicyEvaluator`, which preserves standard role-permission authorization (`allowed: true` on matching grant) without inventing approval rules, freshness thresholds, two-person rules, or risk-based decisions. T06 `EventRisk` metadata does not alter decisions.
+6. **No authority granted by default**: None of these future extension ports grants authority in T07. T07 authority remains strictly: effective T05/T06 permission grant + current supported scope -> allow.
+
 ## Module integration
 
 Production/default actor and authorization providers for identity, invitation administration, roles, permission administration, audit/security event reads, and session administration now delegate to the shared T04-backed actor context and central engine. Existing test adapters remain restricted to `APP_ENV=test`.
@@ -99,6 +110,14 @@ OpenAPI declares only the `dartech_session` cookie scheme on protected controlle
 Authorization failures do not disclose role names, grant existence, binding existence, cross-organization resource existence, or account-state details. Organization-scoped repositories retain safe not-found behavior after an allowed organization-level decision.
 
 The authorization metrics port records only allow/deny, bounded reason code, fixed action family, and scope type on a match. It records no employee, session, role, resource, binding, email, or database permission identifiers. Metric/log failure is best-effort and cannot change the decision. T07 creates no authorization outbox event or durable decision table.
+
+`StructuredAuthorizationMetricsAdapter` implements deterministic bounded in-process rate control / sampling for routine authorization decision logs:
+- Logs are keyed strictly by bounded dimensions: `outcome:reasonCode:actionFamily:scopeType`.
+- Repeated routine decisions within a sliding window (default 60 seconds) are rate-controlled and suppressed after the initial emission.
+- Subsequent observation remains possible once the window advances.
+- In-memory cache is bounded to 256 entries with LRU/expiry pruning, preventing unbounded memory growth.
+- Action families are derived strictly from the canonical permission manifest, collapsing uncanonical permission keys into `'invalid'` to prevent attacker-controlled strings.
+- Metric recording is completely isolated from authorization logic; logger/adapter exceptions never affect decisions.
 
 Each decision uses the existing single T06 effective-grant query, which joins current assignments, roles, RolePermission rows, and Permission definitions without a per-role N+1 query. There is no Redis, OPA, Cedar, durable decision cache, or authorization schema migration.
 
