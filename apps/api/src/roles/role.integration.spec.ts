@@ -311,7 +311,7 @@ describe.skipIf(!databaseUrl)('S02-T05 role model PostgreSQL integration', () =>
     expect(logOutput).toContain('authorization_denied');
   });
 
-  it('uses the approved additive schema without permission persistence or destructive relations', async () => {
+  it('preserves the approved T05 schema after the additive T06 permission migration', async () => {
     const tables = await client.$queryRaw<Array<{ table_name: string }>>`
       SELECT table_name
       FROM information_schema.tables
@@ -321,8 +321,8 @@ describe.skipIf(!databaseUrl)('S02-T05 role model PostgreSQL integration', () =>
     const tableNames = tables.map(({ table_name }) => table_name);
     expect(tableNames).toContain('roles');
     expect(tableNames).toContain('employee_roles');
-    expect(tableNames).not.toContain('permissions');
-    expect(tableNames).not.toContain('role_permissions');
+    expect(tableNames).toContain('permissions');
+    expect(tableNames).toContain('role_permissions');
 
     const employeeRoleIdColumn = await client.$queryRaw<Array<{ count: bigint }>>`
       SELECT count(*)::bigint AS count
@@ -684,7 +684,7 @@ describe.skipIf(!databaseUrl)('S02-T05 role model PostgreSQL integration', () =>
     expect(await client.auditEvent.count()).toBe(5);
   });
 
-  it('documents exactly the T05 route surface and exposes no destructive or permission endpoints', async () => {
+  it('continues to document the complete T05 route surface without destructive role endpoints', async () => {
     const response = await request(app.getHttpServer()).get('/api/v1/openapi.json').expect(200);
     const document = response.body.data ?? response.body;
     expect(document.paths['/api/v1/roles'].get).toBeDefined();
@@ -694,6 +694,6 @@ describe.skipIf(!databaseUrl)('S02-T05 role model PostgreSQL integration', () =>
     expect(document.paths['/api/v1/roles/{id}/archive'].post).toBeDefined();
     expect(document.paths['/api/v1/employees/{id}/roles'].post).toBeDefined();
     expect(document.paths['/api/v1/employees/{employeeId}/roles/{roleId}/remove'].post).toBeDefined();
-    expect(JSON.stringify(document.paths)).not.toMatch(/role-permission|permissions\/|authorize-debug/iu);
+    expect(JSON.stringify(document.paths)).not.toMatch(/authorize-debug/iu);
   });
 });

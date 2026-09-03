@@ -105,7 +105,7 @@ export default function RoleAdministrationPage() {
       setRoles((current) => [...current, role]);
       event.currentTarget.reset();
       setState('ready');
-      setMessage('Role created. It has no permissions in Sprint 02 T05.');
+      setMessage('Role created. Permission grants are managed separately and do not authorize actions until T07.');
     } catch (error) {
       reportFailure(error);
     } finally {
@@ -239,9 +239,9 @@ export default function RoleAdministrationPage() {
           <p className="eyebrow">Identity administration</p>
           <h1>Roles and assignments</h1>
           <p className="lede">Create organization roles and preserve multi-role assignment history.</p>
-          <p className="security-note compact"><strong>A role has no permissions in T05.</strong> Role names such as Founder or Admin never authorize an action.</p>
+          <p className="security-note compact"><strong>Role names never authorize actions.</strong> T06 stores explicit grants; final application authorization remains deferred to T07.</p>
         </div>
-        <a className="text-link" href="/">Portal home</a>
+        <div className="header-links"><a className="text-link" href="/admin/permissions">Permission administration</a><a className="text-link" href="/">Portal home</a></div>
       </header>
 
       <div className="workspace-grid role-workspace">

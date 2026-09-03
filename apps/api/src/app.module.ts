@@ -20,6 +20,10 @@ import {
   type InvitationTestAdapters,
 } from './invitations/invitation.module.js';
 import { RoleModule, type RoleTestAdapters } from './roles/role.module.js';
+import {
+  PermissionModule,
+  type PermissionTestAdapters,
+} from './permissions/permission.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
@@ -29,6 +33,7 @@ export interface AppModuleRegistrationOptions {
   readonly identityTestAdapters?: IdentityTestAdapters;
   readonly invitationTestAdapters?: InvitationTestAdapters;
   readonly roleTestAdapters?: RoleTestAdapters;
+  readonly permissionTestAdapters?: PermissionTestAdapters;
 }
 
 @Module({})
@@ -65,6 +70,7 @@ export class AppModule {
         ),
         IdentityModule.register(config.appEnvironment, options.identityTestAdapters),
         RoleModule.register(config.appEnvironment, options.roleTestAdapters),
+        PermissionModule.register(config.appEnvironment, options.permissionTestAdapters),
         ApiFallbackModule,
       ],
       controllers: [AppController],

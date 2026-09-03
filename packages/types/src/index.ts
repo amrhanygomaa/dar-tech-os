@@ -25,6 +25,10 @@ export const API_ERROR_CODES = {
   roleConflict: 'ROLE_CONFLICT',
   roleArchived: 'ROLE_ARCHIVED',
   roleAssignmentConflict: 'EMPLOYEE_ROLE_ASSIGNMENT_CONFLICT',
+  permissionInputInvalid: 'PERMISSION_INPUT_INVALID',
+  permissionNotRegistered: 'PERMISSION_NOT_REGISTERED',
+  permissionUnavailable: 'PERMISSION_UNAVAILABLE',
+  rolePermissionConflict: 'ROLE_PERMISSION_CONFLICT',
   internalError: 'INTERNAL_ERROR',
 } as const;
 

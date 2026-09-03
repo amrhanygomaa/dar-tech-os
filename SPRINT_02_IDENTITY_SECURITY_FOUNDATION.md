@@ -1,7 +1,7 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T05 ONLY AUTHORIZED
-> S02-T00, S02-T01, S02-T02, S02-T03, and S02-T12 are completed. S02-T02 merged through PR #7 at `9f27434a292c557d18254eea0b84355c1c1693a2`. S02-T05 is authorized. S02-T04, S02-T06 through S02-T11, and S02-T13 through S02-T15 remain unauthorized.
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T06 IMPLEMENTED
+> S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, and S02-T12 are completed. S02-T06 was explicitly authorized and its bounded implementation is complete pending supervisor review. S02-T04, S02-T07 through S02-T11, and S02-T13 through S02-T15 remain unauthorized.
 
 ## Sprint objective
 
@@ -21,13 +21,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00, S02-T01, S02-T02, S02-T03, and S02-T12 are completed, and the supervisor has authorized S02-T05 only. S02-T04, S02-T06 through S02-T11, and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T05 must not be inferred as authorization to begin any other ticket.
+Sprint 01 is closed. S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, and S02-T12 are completed. The supervisor explicitly authorized S02-T06, whose bounded implementation is complete pending review. S02-T04, S02-T07 through S02-T11, and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T06 must not be inferred as authorization to begin any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside S02-T05;
-- add sessions, production provider adapters, permission registry/grants, a central authorization engine, approvals, temporary/emergency access, offboarding, seeds, or bootstrap commands;
-- mark S02-T04, S02-T06 through S02-T11, or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside the completed tickets and S02-T06;
+- add sessions, production provider adapters, a central authorization engine, approvals, temporary/emergency access behavior, offboarding, seeds, or bootstrap commands;
+- mark S02-T04, S02-T07 through S02-T11, or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -97,8 +97,9 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T03 | COMPLETED | PR #5; merge commit `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec` |
 | S02-T12 | COMPLETED | PR #6; merge commit `81dc731123d95ecc8376867b27efe1c23e7b8119` |
 | S02-T02 | COMPLETED | PR #7; merge commit `9f27434a292c557d18254eea0b84355c1c1693a2` |
-| S02-T05 | AUTHORIZED | Controlled implementation authorization from the supervisor |
-| S02-T04, S02-T06 through S02-T11, and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T05 | COMPLETED | Implemented before the explicit S02-T06 authorization; see `docs/engineering/SPRINT_02_T05_ROLE_MODEL.md` |
+| S02-T06 | IMPLEMENTED — REVIEW REQUIRED | Explicit controlled implementation authorization; implementation and verification evidence recorded in `docs/engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md` |
+| S02-T04, S02-T07 through S02-T11, and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -857,11 +858,11 @@ Create the stable permission-key registry and organization-scoped role-to-permis
 
 ### Acceptance criteria
 
-- [ ] Every Sprint 02 permission follows `<domain>.<resource>.<action>` and is registered once.
-- [ ] Role grants reference registry entries and are organization-scoped.
-- [ ] Unknown, malformed, inactive, or removed permission grants never authorize.
-- [ ] No future business-module permission catalog is prematurely added.
-- [ ] Permission APIs, OpenAPI, UI, registry documentation, audit/events, and allow/deny tests are complete.
+- [x] Every Sprint 02 permission follows `<domain>.<resource>.<action>` and is registered once.
+- [x] Role grants reference registry entries and are organization-scoped.
+- [x] Unknown, malformed, inactive, or removed permission grants never authorize.
+- [x] No future business-module permission catalog is prematurely added.
+- [x] Permission APIs, OpenAPI, UI, registry documentation, audit/events, and allow/deny tests are complete.
 
 ### Do Not Change
 

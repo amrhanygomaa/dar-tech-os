@@ -20,6 +20,9 @@ describe('Sprint 02 identity outbox routing', () => {
       'identity.role-archived',
       'identity.employee-role-assigned',
       'identity.employee-role-removed',
+      'identity.permission-registered',
+      'identity.role-permission-granted',
+      'identity.role-permission-removed',
     ]);
     for (const route of IDENTITY_OUTBOX_ROUTES) {
       expect(routes.resolve(route.eventType, route.eventVersion)).toEqual(route);

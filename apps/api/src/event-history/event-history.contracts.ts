@@ -18,6 +18,9 @@ export const AUDIT_ACTION_KEYS = {
   roleArchived: 'admin.role.archive',
   employeeRoleAssigned: 'admin.role.assign',
   employeeRoleRemoved: 'admin.role.assign',
+  permissionRegistered: 'system.permission.register',
+  rolePermissionGranted: 'admin.permission.manage',
+  rolePermissionRemoved: 'admin.permission.manage',
 } as const;
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
@@ -32,6 +35,8 @@ export const SECURITY_EVENT_TYPES = {
   invitationAcceptanceFailed: 'InvitationAcceptanceFailed.v1',
   invitationSuperseded: 'InvitationSuperseded.v1',
   invitationReissued: 'InvitationReissued.v1',
+  rolePermissionGranted: 'RolePermissionGranted.v1',
+  rolePermissionRemoved: 'RolePermissionRemoved.v1',
 } as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[keyof typeof SECURITY_EVENT_TYPES];
 
@@ -59,7 +64,7 @@ export interface SafeAuditDelta {
 export type SafeSecurityContext = Readonly<Record<string, string | number | boolean | null>>;
 
 export interface AuditEventAppendInput {
-  readonly organizationId: string;
+  readonly organizationId?: string;
   readonly actionKey: AuditActionKey;
   readonly actorEmployeeId?: string;
   readonly actorSnapshot: HistoricalActorSnapshot;
@@ -105,6 +110,7 @@ export interface SecurityEventAppendInput {
 
 export interface AuditEventView extends Omit<
   AuditEventAppendInput,
+  | 'organizationId'
   | 'actorEmployeeId'
   | 'requestId'
   | 'sessionReference'
@@ -115,6 +121,7 @@ export interface AuditEventView extends Omit<
   | 'integrityVersion'
 > {
   readonly id: string;
+  readonly organizationId: string | null;
   readonly actorEmployeeId: string | null;
   readonly targetSnapshot?: HistoricalTargetSnapshot;
   readonly requestId: string | null;

@@ -33,6 +33,8 @@
     "db:seed": "prisma db seed",
     "db:validate": "prisma validate",
     "lint": "eslint . --max-warnings=0",
+    "permissions:sync": "npm run build:core && npm run permissions:sync --workspace=@dar-tech/api",
+    "permissions:validate": "npm run build:core && npm run permissions:validate --workspace=@dar-tech/api",
     "start:api": "npm run start --workspace=@dar-tech/api",
     "start:web": "npm run start --workspace=@dar-tech/web",
     "start:worker": "npm run start --workspace=@dar-tech/worker",

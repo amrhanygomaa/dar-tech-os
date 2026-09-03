@@ -49,6 +49,19 @@ enum EventRisk {
   @@map("event_risk")
 }
 
+enum ScopeType {
+  SELF
+  ASSIGNED
+  TEAM
+  DEPARTMENT
+  PROJECT
+  CUSTOMER
+  ORGANIZATION
+  EXPLICIT
+
+  @@map("scope_type")
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -60,18 +73,19 @@ enum InvitationStatus {
 }
 
 model Organization {
-  id             String          @id @default(uuid()) @db.Uuid
-  displayName    String          @map("display_name") @db.VarChar(160)
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  employees      Employee[]
-  userAccounts   UserAccount[]
-  ssoIdentities  SSOIdentity[]
-  auditEvents    AuditEvent[]
-  securityEvents SecurityEvent[]
-  invitations    Invitation[]
-  roles          Role[]
-  employeeRoles  EmployeeRole[]
+  id              String           @id @default(uuid()) @db.Uuid
+  displayName     String           @map("display_name") @db.VarChar(160)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employees       Employee[]
+  userAccounts    UserAccount[]
+  ssoIdentities   SSOIdentity[]
+  auditEvents     AuditEvent[]
+  securityEvents  SecurityEvent[]
+  invitations     Invitation[]
+  roles           Role[]
+  employeeRoles   EmployeeRole[]
+  rolePermissions RolePermission[]
 
   @@map("organizations")
 }
@@ -102,6 +116,8 @@ model Employee {
   roleAssignments     EmployeeRole[]          @relation("EmployeeRoleEmployee")
   assignedRoles       EmployeeRole[]          @relation("EmployeeRoleAssigner")
   removedRoles        EmployeeRole[]          @relation("EmployeeRoleRemover")
+  grantedPermissions  RolePermission[]        @relation("RolePermissionGrantor")
+  removedPermissions  RolePermission[]        @relation("RolePermissionRemover")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
@@ -111,17 +127,18 @@ model Employee {
 }
 
 model Role {
-  id             String         @id @default(uuid()) @db.Uuid
-  organizationId String         @map("organization_id") @db.Uuid
-  key            String         @map("role_key") @db.VarChar(64)
-  name           String         @db.VarChar(160)
-  normalizedName String         @map("normalized_name") @db.VarChar(160)
-  description    String?        @db.VarChar(500)
-  archivedAt     DateTime?      @map("archived_at") @db.Timestamptz(3)
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  key            String           @map("role_key") @db.VarChar(64)
+  name           String           @db.VarChar(160)
+  normalizedName String           @map("normalized_name") @db.VarChar(160)
+  description    String?          @db.VarChar(500)
+  archivedAt     DateTime?        @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   assignments    EmployeeRole[]
+  permissions    RolePermission[]
 
   @@unique([organizationId, id], map: "roles_organization_id_id_key")
   @@unique([organizationId, key], map: "roles_organization_role_key_key")
@@ -157,6 +174,60 @@ model EmployeeRole {
   @@index([organizationId, assignedByEmployeeId], map: "employee_roles_organization_assigner_idx")
   @@index([organizationId, removedByEmployeeId], map: "employee_roles_organization_remover_idx")
   @@map("employee_roles")
+}
+
+model Permission {
+  id                       String           @id @default(uuid()) @db.Uuid
+  key                      String           @unique(map: "permissions_key_key") @db.VarChar(160)
+  domain                   String           @db.VarChar(64)
+  resource                 String           @db.VarChar(64)
+  action                   String           @db.VarChar(64)
+  description              String           @db.VarChar(500)
+  riskClassification       EventRisk        @map("risk_classification")
+  active                   Boolean          @default(true)
+  deprecatedAt             DateTime?        @map("deprecated_at") @db.Timestamptz(3)
+  replacementPermissionKey String?          @map("replacement_permission_key") @db.VarChar(160)
+  definitionVersion        Int              @map("definition_version")
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  replacementPermission    Permission?      @relation("PermissionReplacement", fields: [replacementPermissionKey], references: [key], onDelete: Restrict, onUpdate: Restrict)
+  replacedPermissions      Permission[]     @relation("PermissionReplacement")
+  rolePermissions          RolePermission[]
+
+  @@index([domain, resource, action], map: "permissions_domain_resource_action_idx")
+  @@index([active, deprecatedAt], map: "permissions_active_deprecated_idx")
+  @@map("permissions")
+}
+
+model RolePermission {
+  id                  String       @id @default(uuid()) @db.Uuid
+  organizationId      String       @map("organization_id") @db.Uuid
+  roleId              String       @map("role_id") @db.Uuid
+  permissionId        String       @map("permission_id") @db.Uuid
+  scopeType           ScopeType    @map("scope_type")
+  scopeBindingType    String?      @map("scope_binding_type") @db.VarChar(80)
+  scopeBindingId      String?      @map("scope_binding_id") @db.VarChar(128)
+  grantedByEmployeeId String       @map("granted_by_employee_id") @db.Uuid
+  grantedAt           DateTime     @default(now()) @map("granted_at") @db.Timestamptz(3)
+  effectiveAt         DateTime     @map("effective_at") @db.Timestamptz(3)
+  expiresAt           DateTime?    @map("expires_at") @db.Timestamptz(3)
+  removedAt           DateTime?    @map("removed_at") @db.Timestamptz(3)
+  removedByEmployeeId String?      @map("removed_by_employee_id") @db.Uuid
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  role                Role         @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Restrict)
+  permission          Permission   @relation(fields: [permissionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grantedByEmployee   Employee     @relation("RolePermissionGrantor", fields: [organizationId, grantedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  removedByEmployee   Employee?    @relation("RolePermissionRemover", fields: [organizationId, removedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id], map: "role_permissions_organization_id_id_key")
+  @@index([organizationId, roleId, permissionId, effectiveAt], map: "role_permissions_role_permission_effective_idx")
+  @@index([organizationId, roleId, removedAt, expiresAt], map: "role_permissions_role_effective_lookup_idx")
+  @@index([permissionId, removedAt, expiresAt], map: "role_permissions_permission_effective_idx")
+  @@index([organizationId, grantedByEmployeeId], map: "role_permissions_organization_grantor_idx")
+  @@index([organizationId, removedByEmployeeId], map: "role_permissions_organization_remover_idx")
+  @@map("role_permissions")
 }
 
 model UserAccount {
@@ -241,26 +312,26 @@ model SSOIdentity {
 }
 
 model AuditEvent {
-  id                String       @id @default(uuid()) @db.Uuid
-  organizationId    String       @map("organization_id") @db.Uuid
-  actionKey         String       @map("action_key") @db.VarChar(160)
-  actorEmployeeId   String?      @map("actor_employee_id") @db.Uuid
-  actorSnapshot     Json         @map("actor_snapshot") @db.JsonB
-  targetType        String       @map("target_type") @db.VarChar(80)
-  targetId          String       @map("target_id") @db.VarChar(128)
-  targetSnapshot    Json?        @map("target_snapshot") @db.JsonB
-  requestId         String?      @map("request_id") @db.VarChar(128)
-  correlationId     String       @map("correlation_id") @db.VarChar(128)
-  sessionReference  String?      @map("session_reference") @db.VarChar(128)
-  safeReason        String?      @map("safe_reason") @db.VarChar(1024)
-  changeDelta       Json?        @map("change_delta") @db.JsonB
-  approvalReference String?      @map("approval_reference") @db.VarChar(128)
-  occurredAt        DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(3)
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  eventVersion      Int          @default(1) @map("event_version")
-  integrityVersion  Int          @default(1) @map("integrity_version")
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  actorEmployee     Employee?    @relation("AuditEventActor", fields: [organizationId, actorEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  id                String        @id @default(uuid()) @db.Uuid
+  organizationId    String?       @map("organization_id") @db.Uuid
+  actionKey         String        @map("action_key") @db.VarChar(160)
+  actorEmployeeId   String?       @map("actor_employee_id") @db.Uuid
+  actorSnapshot     Json          @map("actor_snapshot") @db.JsonB
+  targetType        String        @map("target_type") @db.VarChar(80)
+  targetId          String        @map("target_id") @db.VarChar(128)
+  targetSnapshot    Json?         @map("target_snapshot") @db.JsonB
+  requestId         String?       @map("request_id") @db.VarChar(128)
+  correlationId     String        @map("correlation_id") @db.VarChar(128)
+  sessionReference  String?       @map("session_reference") @db.VarChar(128)
+  safeReason        String?       @map("safe_reason") @db.VarChar(1024)
+  changeDelta       Json?         @map("change_delta") @db.JsonB
+  approvalReference String?       @map("approval_reference") @db.VarChar(128)
+  occurredAt        DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  eventVersion      Int           @default(1) @map("event_version")
+  integrityVersion  Int           @default(1) @map("integrity_version")
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actorEmployee     Employee?     @relation("AuditEventActor", fields: [organizationId, actorEmployeeId], references: [organizationId, id], onDelete: Restrict)
 
   @@index([organizationId, occurredAt, id], map: "audit_events_organization_occurred_at_idx")
   @@index([organizationId, actionKey, occurredAt], map: "audit_events_organization_action_occurred_idx")

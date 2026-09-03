@@ -14,11 +14,12 @@ describe('S02-T05 role administration frontend boundary', () => {
     expect(source).not.toMatch(/method:\s*['"]DELETE['"]/u);
   });
 
-  it('shows multi-role history and the no-permission security boundary', () => {
+  it('shows multi-role history and the explicit T06/T07 security boundary', () => {
     expect(source).toContain('Multiple simultaneous roles are preserved.');
-    expect(source).toContain('A role has no permissions in T05.');
+    expect(source).toContain('Role names never authorize actions.');
+    expect(source).toContain('/admin/permissions');
     expect(source).toMatch(/assignedAt.*effectiveAt.*expiresAt.*removedAt.*effective/su);
-    expect(source).not.toMatch(/RolePermission|permission assignment|Founder override/iu);
+    expect(source).not.toMatch(/Founder override/iu);
   });
 
   it('contains loading, empty, unauthorized, forbidden, conflict, validation, and generic error states', () => {

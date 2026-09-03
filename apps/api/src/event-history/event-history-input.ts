@@ -14,9 +14,13 @@ const boundedKeyPattern = /^[A-Za-z][A-Za-z0-9._-]*$/u;
 const forbiddenContextKeyPattern =
   /(?:password|secret|token|nonce|state|authorization|email|subject|stack|raw|payload|login.?hint|code)/iu;
 const allowedChangedFields = new Set([
+  'action',
+  'active',
   'archivedAt',
+  'definitionVersion',
   'description',
   'displayName',
+  'domain',
   'effectiveAt',
   'expiresAt',
   'firstName',
@@ -25,7 +29,13 @@ const allowedChangedFields = new Set([
   'name',
   'removedAt',
   'removedByEmployeeId',
+  'resource',
   'roleId',
+  'permissionKey',
+  'riskClassification',
+  'scopeBindingId',
+  'scopeBindingType',
+  'scopeType',
   'workEmail',
 ]);
 
@@ -124,9 +134,18 @@ export function validateAuditEventAppend(input: AuditEventAppendInput): AuditEve
   }
   const eventVersion = validateVersion(input.eventVersion);
   const integrityVersion = validateVersion(input.integrityVersion);
+  if (
+    !input.organizationId &&
+    (input.actorEmployeeId !== undefined ||
+      input.actorSnapshot.type !== 'system' ||
+      input.actionKey !== 'system.permission.register' ||
+      input.targetType !== 'permission')
+  ) {
+    throw new Error('Unsafe event history input');
+  }
   return {
     ...input,
-    organizationId: requireUuid(input.organizationId),
+    ...(input.organizationId ? { organizationId: requireUuid(input.organizationId) } : {}),
     actionKey: requireBoundedString(input.actionKey, 160) as AuditEventAppendInput['actionKey'],
     ...(input.actorEmployeeId ? { actorEmployeeId: requireUuid(input.actorEmployeeId) } : {}),
     actorSnapshot: validateSnapshot(input.actorSnapshot),

@@ -7,6 +7,8 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "dev": "tsx watch src/main.ts",
+    "permissions:sync": "node dist/permissions/permission-registry.cli.js sync",
+    "permissions:validate": "node dist/permissions/permission-registry.cli.js validate",
     "start": "node dist/main.js",
     "typecheck": "tsc -b tsconfig.json --pretty false"
   },
