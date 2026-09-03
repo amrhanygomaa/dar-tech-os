@@ -39,6 +39,7 @@ export interface SessionPrincipal {
   readonly clientKind: 'browser';
   readonly assuranceLevel: string | null;
   readonly authenticatedAt: Date | null;
+  readonly lastStepUpAt?: Date | null;
   readonly issuedAt: Date;
   readonly lastSeenAt: Date;
   readonly idleExpiresAt: Date;
@@ -147,17 +148,27 @@ export const SESSION_ADMINISTRATION_ACTIONS = {
 export type SessionAdministrationAction =
   (typeof SESSION_ADMINISTRATION_ACTIONS)[keyof typeof SESSION_ADMINISTRATION_ACTIONS];
 
-export interface SessionAdministrationAuthorizationPort {
+export const SESSION_SELF_ACTIONS = {
+  read: 'identity.session.read_self',
+  revoke: 'identity.session.revoke_self',
+} as const;
+export type SessionSelfAction = (typeof SESSION_SELF_ACTIONS)[keyof typeof SESSION_SELF_ACTIONS];
+
+export interface SessionAuthorizationPort {
   allows(input: {
     readonly actor: SessionPrincipal;
-    readonly action: SessionAdministrationAction;
+    readonly action: SessionAdministrationAction | SessionSelfAction;
     readonly resource: {
       readonly type: 'session' | 'employee-sessions';
       readonly organizationId: string;
       readonly id?: string;
+      readonly ownerEmployeeId?: string;
+      readonly ownerUserAccountId?: string;
     };
   }): Promise<boolean>;
 }
+
+export type SessionAdministrationAuthorizationPort = SessionAuthorizationPort;
 
 export interface SessionMetricsPort {
   record(input: {

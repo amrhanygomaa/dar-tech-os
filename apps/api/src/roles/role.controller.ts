@@ -14,6 +14,7 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConflictResponse,
+  ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -37,8 +38,10 @@ import {
   updateRoleSchema,
 } from './role.openapi.js';
 import { RoleService } from './role.service.js';
+import { SESSION_COOKIE_NAME } from '../sessions/session.contracts.js';
 
 @ApiTags('Roles')
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller('roles')
 export class RolesController {
   constructor(@Inject(RoleService) private readonly roles: RoleService) {}
@@ -108,6 +111,7 @@ export class RolesController {
 }
 
 @ApiTags('Employee roles')
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller('employees')
 export class EmployeeRolesController {
   constructor(@Inject(RoleService) private readonly roles: RoleService) {}

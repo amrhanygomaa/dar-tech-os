@@ -7,6 +7,7 @@ import {
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import { ApiResponseInterceptor } from './api-response.interceptor.js';
 import { configureOpenApi } from './configure-openapi.js';
+import { AuthorizationRequestMiddleware } from '../authorization/authorization-request.middleware.js';
 
 export function configureApiFoundation(
   app: INestApplication,
@@ -24,6 +25,8 @@ export function configureApiFoundation(
   }
   const requestContextMiddleware = app.get(RequestContextMiddleware);
   app.use(requestContextMiddleware.use.bind(requestContextMiddleware));
+  const authorizationRequestMiddleware = app.get(AuthorizationRequestMiddleware);
+  app.use(authorizationRequestMiddleware.use.bind(authorizationRequestMiddleware));
   app.setGlobalPrefix('api/v1', {
     exclude: [
       { path: 'health', method: RequestMethod.GET },

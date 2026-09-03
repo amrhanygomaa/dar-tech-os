@@ -181,7 +181,7 @@ export default function PermissionAdministrationPage() {
       setRoleId(selectedRoleId);
       await loadHistory(selectedRoleId);
       setMessage(
-        "Permission grant recorded. T06 does not authorize application actions.",
+        "Permission grant recorded. Current effective grants are used by server-side authorization on the next decision.",
       );
     } catch (error) {
       reportFailure(error);
@@ -246,9 +246,9 @@ export default function PermissionAdministrationPage() {
             historical grants.
           </p>
           <p className="security-note compact">
-            <strong>T06 does not authorize application actions.</strong> Risk is
-            technical metadata, not an approval decision, and scope values are
-            stored without resource resolution.
+            <strong>Application actions are authorized server-side.</strong> Risk is
+            technical metadata, not an approval decision. Unsupported relationship
+            scopes remain fail-closed until their resolver is implemented.
           </p>
         </div>
         <div className="header-links">

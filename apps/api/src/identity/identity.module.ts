@@ -12,10 +12,12 @@ import {
 } from './identity.contracts.js';
 import { EmployeesController, MeController } from './identity.controller.js';
 import {
-  DenyAllAuthenticatedActorAdapter,
-  DenyAllIdentityAuthorizationAdapter,
   DurableIdentityAuditHook,
 } from './identity-security.adapters.js';
+import {
+  CentralAuthenticatedActorAdapter,
+  CentralIdentityAuthorizationAdapter,
+} from '../authorization/authorization.adapters.js';
 import { PrismaIdentityRepository } from './prisma-identity.repository.js';
 import { PrismaIdentityTransactionAdapter } from './prisma-identity-transaction.adapter.js';
 import { IdentityService } from './identity.service.js';
@@ -38,12 +40,12 @@ export class IdentityModule {
 
     const actorProvider: Provider = testAdapters?.actors
       ? { provide: AUTHENTICATED_ACTOR_PORT, useValue: testAdapters.actors }
-      : { provide: AUTHENTICATED_ACTOR_PORT, useClass: DenyAllAuthenticatedActorAdapter };
+      : { provide: AUTHENTICATED_ACTOR_PORT, useClass: CentralAuthenticatedActorAdapter };
     const authorizationProvider: Provider = testAdapters?.authorization
       ? { provide: IDENTITY_AUTHORIZATION_PORT, useValue: testAdapters.authorization }
       : {
           provide: IDENTITY_AUTHORIZATION_PORT,
-          useClass: DenyAllIdentityAuthorizationAdapter,
+          useClass: CentralIdentityAuthorizationAdapter,
         };
     const auditProvider: Provider = testAdapters?.audit
       ? { provide: IDENTITY_AUDIT_HOOK, useValue: testAdapters.audit }

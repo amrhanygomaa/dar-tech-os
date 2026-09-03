@@ -14,11 +14,11 @@ import {
 } from './role.contracts.js';
 import { EmployeeRolesController, RolesController } from './role.controller.js';
 import { PrismaRoleRepository } from './prisma-role.repository.js';
+import { StructuredRoleMetricsAdapter } from './role-security.adapters.js';
 import {
-  DenyAllRoleActorAdapter,
-  DenyAllRoleAuthorizationAdapter,
-  StructuredRoleMetricsAdapter,
-} from './role-security.adapters.js';
+  CentralAuthenticatedActorAdapter,
+  CentralRoleAuthorizationAdapter,
+} from '../authorization/authorization.adapters.js';
 import { RoleService } from './role.service.js';
 
 export interface RoleTestAdapters {
@@ -45,11 +45,11 @@ export class RoleModule {
       providers: [
         selectedProvider(ROLE_ACTOR_PORT, testAdapters?.actors, {
           provide: ROLE_ACTOR_PORT,
-          useClass: DenyAllRoleActorAdapter,
+          useClass: CentralAuthenticatedActorAdapter,
         }),
         selectedProvider(ROLE_AUTHORIZATION_PORT, testAdapters?.authorization, {
           provide: ROLE_AUTHORIZATION_PORT,
-          useClass: DenyAllRoleAuthorizationAdapter,
+          useClass: CentralRoleAuthorizationAdapter,
         }),
         selectedProvider(ROLE_CLOCK, testAdapters?.clock, {
           provide: ROLE_CLOCK,

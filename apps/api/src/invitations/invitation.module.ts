@@ -16,9 +16,9 @@ import {
 import { InvitationController, OnboardingController } from './invitation.controller.js';
 import { OnboardingRateLimitGuard } from './invitation-rate-limit.guard.js';
 import {
-  DenyAllInvitationActorAdapter,
-  DenyAllInvitationAuthorizationAdapter,
-} from './invitation-security.adapters.js';
+  CentralAuthenticatedActorAdapter,
+  CentralInvitationAuthorizationAdapter,
+} from '../authorization/authorization.adapters.js';
 import { CryptographicInvitationSecretGenerator } from './invitation-secret.js';
 import { InvitationService } from './invitation.service.js';
 import { PrismaInvitationRepository } from './prisma-invitation.repository.js';
@@ -57,14 +57,14 @@ export class InvitationModule {
         selectedProvider(
           INVITATION_ACTOR_PORT,
           testAdapters?.actors,
-          { provide: INVITATION_ACTOR_PORT, useClass: DenyAllInvitationActorAdapter },
+          { provide: INVITATION_ACTOR_PORT, useClass: CentralAuthenticatedActorAdapter },
         ),
         selectedProvider(
           INVITATION_AUTHORIZATION_PORT,
           testAdapters?.authorization,
           {
             provide: INVITATION_AUTHORIZATION_PORT,
-            useClass: DenyAllInvitationAuthorizationAdapter,
+            useClass: CentralInvitationAuthorizationAdapter,
           },
         ),
         selectedProvider(

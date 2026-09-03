@@ -25,6 +25,10 @@ import {
   type PermissionTestAdapters,
 } from './permissions/permission.module.js';
 import { SessionModule, type SessionTestAdapters } from './sessions/session.module.js';
+import {
+  AuthorizationModule,
+  type AuthorizationTestAdapters,
+} from './authorization/authorization.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
@@ -36,6 +40,7 @@ export interface AppModuleRegistrationOptions {
   readonly roleTestAdapters?: RoleTestAdapters;
   readonly permissionTestAdapters?: PermissionTestAdapters;
   readonly sessionTestAdapters?: SessionTestAdapters;
+  readonly authorizationTestAdapters?: AuthorizationTestAdapters;
 }
 
 @Module({})
@@ -78,6 +83,7 @@ export class AppModule {
         IdentityModule.register(config.appEnvironment, options.identityTestAdapters),
         RoleModule.register(config.appEnvironment, options.roleTestAdapters),
         PermissionModule.register(config.appEnvironment, options.permissionTestAdapters),
+        AuthorizationModule.register(config.appEnvironment, options.authorizationTestAdapters),
         ApiFallbackModule,
       ],
       controllers: [AppController],
