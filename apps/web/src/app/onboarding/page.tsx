@@ -28,6 +28,7 @@ export default function OnboardingPage() {
     void Promise.all([
       fetch(`${API_BASE_URL}/onboarding/invitation/inspect`, {
         method: 'POST',
+        credentials: 'include',
         cache: 'no-store',
         referrerPolicy: 'no-referrer',
         headers: { 'Content-Type': 'application/json' },
@@ -38,6 +39,7 @@ export default function OnboardingPage() {
         }>(response),
       ),
       fetch(`${API_BASE_URL}/auth/providers`, {
+        credentials: 'include',
         cache: 'no-store',
         referrerPolicy: 'no-referrer',
       }).then((response) => apiData<Provider[]>(response)),
@@ -72,6 +74,7 @@ export default function OnboardingPage() {
       const started = await apiData<{ authorizationUrl: string }>(
         await fetch(`${API_BASE_URL}/onboarding/auth/${encodeURIComponent(provider.key)}/start`, {
           method: 'POST',
+          credentials: 'include',
           cache: 'no-store',
           referrerPolicy: 'no-referrer',
           headers: { 'Content-Type': 'application/json' },

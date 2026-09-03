@@ -75,10 +75,10 @@ export const authenticationCallbackResponseSchema = successEnvelope({
     providerKey: { type: 'string' },
     sessionCreated: {
       type: 'boolean',
-      enum: [false],
-      description: 'No cookie, bearer token, refresh token, or Session record is issued by S02-T03.',
+      enum: [true],
+      description: 'A server-side opaque session is established through an HttpOnly cookie.',
     },
-    nextStep: { type: 'string', enum: ['SESSION_ISSUANCE_DEFERRED'] },
+    nextStep: { type: 'string', enum: ['SESSION_ESTABLISHED'] },
   },
 });
 

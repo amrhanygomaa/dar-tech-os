@@ -8,7 +8,7 @@ export default function OnboardingCallbackPage({
 }: {
   readonly params: Promise<{ providerKey: string }>;
 }) {
-  const [state, setState] = useState<'working' | 'complete' | 'failed'>('working');
+  const [state, setState] = useState<'working' | 'complete' | 'sign-in-required' | 'failed'>('working');
 
   useEffect(() => {
     void params.then(async ({ providerKey }) => {
@@ -22,11 +22,15 @@ export default function OnboardingCallbackPage({
       };
       window.history.replaceState(null, '', '/onboarding');
       try {
-        await apiData(
+        const completed = await apiData<{
+          sessionCreated: boolean;
+          nextStep: 'SESSION_ESTABLISHED' | 'SIGN_IN_REQUIRED';
+        }>(
           await fetch(
             `${API_BASE_URL}/onboarding/auth/${encodeURIComponent(providerKey)}/callback`,
             {
               method: 'POST',
+              credentials: 'include',
               cache: 'no-store',
               referrerPolicy: 'no-referrer',
               headers: { 'Content-Type': 'application/json' },
@@ -36,7 +40,12 @@ export default function OnboardingCallbackPage({
             },
           ),
         );
-        setState('complete');
+        if (completed.sessionCreated && completed.nextStep === 'SESSION_ESTABLISHED') {
+          setState('complete');
+          window.location.assign('/account/sessions');
+        } else {
+          setState('sign-in-required');
+        }
       } catch {
         setState('failed');
       }
@@ -56,13 +65,17 @@ export default function OnboardingCallbackPage({
             ? 'Completing onboarding'
             : state === 'complete'
               ? 'Your account is ready'
+              : state === 'sign-in-required'
+                ? 'Your account is ready — sign in required'
               : 'Authentication could not be completed'}
         </h1>
         <p className="lede">
           {state === 'working'
             ? 'We are atomically linking your verified identity and activating your account.'
             : state === 'complete'
-              ? 'Your verified identity is linked. Application sign-in will be available when secure session issuance is enabled.'
+              ? 'Your verified identity is linked and your secure application session is ready.'
+              : state === 'sign-in-required'
+                ? 'Onboarding is complete, but a session could not be created. Sign in normally; the invitation has already been used.'
               : 'No account changes were committed. Ask for help or restart with a valid invitation.'}
         </p>
         {state === 'failed' ? (
@@ -70,9 +83,14 @@ export default function OnboardingCallbackPage({
             Return to onboarding
           </a>
         ) : null}
+        {state === 'sign-in-required' ? (
+          <a className="button primary" href="/">
+            Continue to sign in
+          </a>
+        ) : null}
         <footer className="security-note">
-          No application session, bearer token, refresh token, or persistent login cookie was
-          created.
+          Dar Tech uses an opaque HttpOnly application-session cookie and never stores session
+          credentials in browser storage.
         </footer>
       </section>
     </main>

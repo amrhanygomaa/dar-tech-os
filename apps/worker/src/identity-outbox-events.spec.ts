@@ -23,6 +23,9 @@ describe('Sprint 02 identity outbox routing', () => {
       'identity.permission-registered',
       'identity.role-permission-granted',
       'identity.role-permission-removed',
+      'identity.session-created',
+      'identity.session-revoked',
+      'identity.all-sessions-revoked',
     ]);
     for (const route of IDENTITY_OUTBOX_ROUTES) {
       expect(routes.resolve(route.eventType, route.eventVersion)).toEqual(route);

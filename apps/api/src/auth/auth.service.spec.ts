@@ -403,7 +403,7 @@ describe('provider-neutral authentication service', () => {
     expect(sources).not.toMatch(/rawClaims|vendorSdk|idToken|accessToken|refreshToken/iu);
   });
 
-  it('adds no database storage for provider credentials, tokens, or sessions', () => {
+  it('adds no provider credential or token storage and keeps session credentials hashed', () => {
     const schema = readFileSync(
       new URL('../../../../prisma/schema.prisma', import.meta.url),
       'utf8',
@@ -411,7 +411,8 @@ describe('provider-neutral authentication service', () => {
     expect(schema).not.toMatch(
       /\b(?:clientSecret|providerSecret|accessToken|refreshToken|authorizationCode)\b/u,
     );
-    expect(schema).not.toMatch(/^model\s+Session\b/mu);
+    expect(schema).toMatch(/^model\s+Session\b/mu);
+    expect(schema).toMatch(/credentialHash\s+String\s+@unique/iu);
   });
 
   it('requires production adapters to declare core protocol claim validation', () => {

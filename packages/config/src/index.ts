@@ -9,6 +9,7 @@ export {
   type AppEnvironment,
   type AuthenticationConfig,
   type InvitationConfig,
+  type SessionConfig,
   type LocalAuthenticationIdentityConfig,
   type LogLevel,
   type WebConfig,

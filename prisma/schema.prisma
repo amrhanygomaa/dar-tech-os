@@ -72,6 +72,12 @@ enum InvitationStatus {
   @@map("invitation_status")
 }
 
+enum SessionClientKind {
+  BROWSER
+
+  @@map("session_client_kind")
+}
+
 model Organization {
   id              String           @id @default(uuid()) @db.Uuid
   displayName     String           @map("display_name") @db.VarChar(160)
@@ -86,6 +92,7 @@ model Organization {
   roles           Role[]
   employeeRoles   EmployeeRole[]
   rolePermissions RolePermission[]
+  sessions        Session[]
 
   @@map("organizations")
 }
@@ -118,6 +125,8 @@ model Employee {
   removedRoles        EmployeeRole[]          @relation("EmployeeRoleRemover")
   grantedPermissions  RolePermission[]        @relation("RolePermissionGrantor")
   removedPermissions  RolePermission[]        @relation("RolePermissionRemover")
+  sessions            Session[]               @relation("SessionEmployee")
+  revokedSessions     Session[]               @relation("SessionRevoker")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
@@ -244,11 +253,46 @@ model UserAccount {
   ssoIdentities          SSOIdentity[]
   securityEvents         SecurityEvent[] @relation("SecurityEventAccount")
   invitations            Invitation[]
+  sessions               Session[]
 
   @@unique([organizationId, id], map: "user_accounts_organization_id_id_key")
+  @@unique([organizationId, id, employeeId], map: "user_accounts_organization_id_employee_id_key")
   @@unique([organizationId, employeeId], map: "user_accounts_organization_employee_id_key")
   @@index([organizationId, authenticationEligible], map: "user_accounts_organization_authentication_eligible_idx")
   @@map("user_accounts")
+}
+
+model Session {
+  id                   String            @id @default(uuid()) @db.Uuid
+  organizationId       String            @map("organization_id") @db.Uuid
+  userAccountId        String            @map("user_account_id") @db.Uuid
+  employeeId           String            @map("employee_id") @db.Uuid
+  credentialHash       String            @unique(map: "sessions_credential_hash_key") @map("credential_hash") @db.Char(64)
+  clientKind           SessionClientKind @default(BROWSER) @map("client_kind")
+  issuedAt             DateTime          @map("issued_at") @db.Timestamptz(3)
+  authenticatedAt      DateTime?         @map("authenticated_at") @db.Timestamptz(3)
+  lastSeenAt           DateTime          @map("last_seen_at") @db.Timestamptz(3)
+  idleExpiresAt        DateTime          @map("idle_expires_at") @db.Timestamptz(3)
+  absoluteExpiresAt    DateTime          @map("absolute_expires_at") @db.Timestamptz(3)
+  revokedAt            DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  revokedByEmployeeId  String?           @map("revoked_by_employee_id") @db.Uuid
+  safeRevocationReason String?           @map("safe_revocation_reason") @db.VarChar(500)
+  assuranceLevel       String?           @map("assurance_level") @db.VarChar(80)
+  lastStepUpAt         DateTime?         @map("last_step_up_at") @db.Timestamptz(3)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization         Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee             Employee          @relation("SessionEmployee", fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict)
+  userAccount          UserAccount       @relation(fields: [organizationId, userAccountId, employeeId], references: [organizationId, id, employeeId], onDelete: Restrict)
+  revokedByEmployee    Employee?         @relation("SessionRevoker", fields: [organizationId, revokedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id], map: "sessions_organization_id_id_key")
+  @@index([organizationId, userAccountId, issuedAt], map: "sessions_organization_account_issued_at_idx")
+  @@index([organizationId, employeeId, issuedAt], map: "sessions_organization_employee_issued_at_idx")
+  @@index([organizationId, revokedAt, issuedAt], map: "sessions_organization_revoked_issued_at_idx")
+  @@index([idleExpiresAt], map: "sessions_idle_expires_at_idx")
+  @@index([absoluteExpiresAt], map: "sessions_absolute_expires_at_idx")
+  @@map("sessions")
 }
 
 model Invitation {

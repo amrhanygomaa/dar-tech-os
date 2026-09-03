@@ -279,6 +279,13 @@ export interface PublicAuthenticationStart {
 export interface PublicAuthenticationCallback {
   readonly status: 'VERIFIED';
   readonly providerKey: string;
+  readonly sessionCreated: true;
+  readonly nextStep: 'SESSION_ESTABLISHED';
+}
+
+export interface PublicAuthenticationVerification {
+  readonly status: 'VERIFIED';
+  readonly providerKey: string;
   readonly sessionCreated: false;
   readonly nextStep: 'SESSION_ISSUANCE_DEFERRED';
 }

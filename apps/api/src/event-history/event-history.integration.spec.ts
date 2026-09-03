@@ -48,6 +48,7 @@ const actor: TrustedActor = {
 
 async function clearFixtures(client: DatabaseClient): Promise<void> {
   await client.$executeRawUnsafe('TRUNCATE TABLE "audit_events", "security_events"');
+  await client.session.deleteMany();
   await client.sSOIdentity.deleteMany();
   await client.userAccount.deleteMany();
   await client.employee.deleteMany();
@@ -173,6 +174,7 @@ describe.skipIf(!databaseUrl)('S02-T12 audit and security event PostgreSQL integ
         transactionTtlSeconds: 300,
       },
       invitation: { ttlSeconds: 300, rateLimitMaxRequests: 30, rateLimitWindowSeconds: 60 },
+      session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
     };
     app = await NestFactory.create(
       AppModule.register(

@@ -29,4 +29,5 @@ docs
 **/*.p12
 **/*secret*
 !apps/api/src/invitations/invitation-secret.ts
+!apps/api/src/sessions/session-secret.ts
 **/*credential*

@@ -21,6 +21,11 @@ export const AUDIT_ACTION_KEYS = {
   permissionRegistered: 'system.permission.register',
   rolePermissionGranted: 'admin.permission.manage',
   rolePermissionRemoved: 'admin.permission.manage',
+  sessionCreated: 'identity.session.create',
+  sessionRevokedSelf: 'identity.session.revoke_self',
+  sessionsRevokedSelf: 'identity.session.revoke_all_self',
+  sessionRevokedAdmin: 'admin.session.revoke',
+  sessionsRevokedAdmin: 'admin.session.revoke_all',
 } as const;
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
@@ -37,6 +42,9 @@ export const SECURITY_EVENT_TYPES = {
   invitationReissued: 'InvitationReissued.v1',
   rolePermissionGranted: 'RolePermissionGranted.v1',
   rolePermissionRemoved: 'RolePermissionRemoved.v1',
+  sessionCreated: 'SessionCreated.v1',
+  sessionRevoked: 'SessionRevoked.v1',
+  allSessionsRevoked: 'AllSessionsRevoked.v1',
 } as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[keyof typeof SECURITY_EVENT_TYPES];
 

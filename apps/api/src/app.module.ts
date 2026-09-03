@@ -24,6 +24,7 @@ import {
   PermissionModule,
   type PermissionTestAdapters,
 } from './permissions/permission.module.js';
+import { SessionModule, type SessionTestAdapters } from './sessions/session.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
@@ -34,6 +35,7 @@ export interface AppModuleRegistrationOptions {
   readonly invitationTestAdapters?: InvitationTestAdapters;
   readonly roleTestAdapters?: RoleTestAdapters;
   readonly permissionTestAdapters?: PermissionTestAdapters;
+  readonly sessionTestAdapters?: SessionTestAdapters;
 }
 
 @Module({})
@@ -57,6 +59,11 @@ export class AppModule {
         DatabaseModule.register(databaseOptions),
         HealthModule,
         EventHistoryModule.register(config.appEnvironment, options.eventHistoryTestAdapters),
+        SessionModule.register(
+          config.appEnvironment,
+          config.session,
+          options.sessionTestAdapters,
+        ),
         AuthenticationModule.register(
           config.appEnvironment,
           config.authentication,

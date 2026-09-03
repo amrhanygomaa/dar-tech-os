@@ -1,7 +1,7 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T06 IMPLEMENTED
-> S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, and S02-T12 are completed. S02-T06 was explicitly authorized and its bounded implementation is complete pending supervisor review. S02-T04, S02-T07 through S02-T11, and S02-T13 through S02-T15 remain unauthorized.
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T04 UNDER REVIEW
+> S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, S02-T06, and S02-T12 are completed. S02-T06 was merged through PR #9 at `48f5327928cedd8cb1c7a531e9a3cb0c40f5599c`. S02-T04 is explicitly authorized and its bounded implementation is under review. S02-T07 through S02-T11 and S02-T13 through S02-T15 remain unauthorized.
 
 ## Sprint objective
 
@@ -21,13 +21,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, and S02-T12 are completed. The supervisor explicitly authorized S02-T06, whose bounded implementation is complete pending review. S02-T04, S02-T07 through S02-T11, and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T06 must not be inferred as authorization to begin any other ticket.
+Sprint 01 is closed. S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, S02-T06, and S02-T12 are completed. S02-T04 is explicitly authorized and its bounded implementation is under review. S02-T07 through S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T04 must not be inferred as authorization to begin any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside the completed tickets and S02-T06;
-- add sessions, production provider adapters, a central authorization engine, approvals, temporary/emergency access behavior, offboarding, seeds, or bootstrap commands;
-- mark S02-T04, S02-T07 through S02-T11, or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside the completed tickets and S02-T04;
+- add production provider adapters, a central authorization engine, approvals, temporary/emergency access behavior, offboarding, seeds, or bootstrap commands;
+- mark S02-T07 through S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -98,8 +98,9 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T12 | COMPLETED | PR #6; merge commit `81dc731123d95ecc8376867b27efe1c23e7b8119` |
 | S02-T02 | COMPLETED | PR #7; merge commit `9f27434a292c557d18254eea0b84355c1c1693a2` |
 | S02-T05 | COMPLETED | Implemented before the explicit S02-T06 authorization; see `docs/engineering/SPRINT_02_T05_ROLE_MODEL.md` |
-| S02-T06 | IMPLEMENTED — REVIEW REQUIRED | Explicit controlled implementation authorization; implementation and verification evidence recorded in `docs/engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md` |
-| S02-T04, S02-T07 through S02-T11, and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T06 | COMPLETED | PR #9; merge commit `48f5327928cedd8cb1c7a531e9a3cb0c40f5599c`; evidence in `docs/engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md` |
+| S02-T04 | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | Bounded session-management implementation and evidence in `docs/engineering/SPRINT_02_T04_SESSION_MANAGEMENT.md` |
+| S02-T07 through S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -628,6 +629,8 @@ Define and implement a provider-neutral authentication contract with replaceable
 
 ## S02-T04 — Session Management
 
+**Status: AUTHORIZED — IMPLEMENTATION EVIDENCE PASSED; PULL-REQUEST REVIEW REQUIRED.**
+
 ### Objective
 
 Provide secure active-session lifecycle management: metadata, idle/absolute expiration, self-service revocation, administrator revocation, revoke-all, and automatic invalidation for suspension/offboarding.
@@ -690,12 +693,12 @@ Provide secure active-session lifecycle management: metadata, idle/absolute expi
 
 ### Acceptance criteria
 
-- [ ] Expired or revoked sessions cannot authorize requests even if cleanup jobs have not run.
-- [ ] Users can inspect and revoke their own sessions without accessing other employees' metadata.
-- [ ] Authorized administrators can revoke one/all sessions within their organization only.
-- [ ] Suspension and offboarding prevent continued use of all existing sessions.
-- [ ] Raw session credentials never appear in persistence, logs, events, audit, or API payloads.
-- [ ] Session APIs, UI, OpenAPI, integration/security tests, audit, and events are complete.
+- [x] Expired or revoked sessions cannot authorize requests even if cleanup jobs have not run.
+- [x] Users can inspect and revoke their own sessions without accessing other employees' metadata.
+- [x] Authorized administrators can revoke one/all sessions within their organization only.
+- [x] Suspension and offboarding prevent continued use of all existing sessions.
+- [x] Raw session credentials never appear in persistence, logs, events, audit, or API payloads.
+- [x] Session APIs, UI, OpenAPI, integration/security tests, audit, and events are complete.
 
 ### Do Not Change
 

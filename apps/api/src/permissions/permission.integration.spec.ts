@@ -75,11 +75,12 @@ const config: ApiConfig = {
     rateLimitMaxRequests: 100,
     rateLimitWindowSeconds: 60,
   },
+  session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
   await client.$executeRawUnsafe(
-    'TRUNCATE TABLE "audit_events", "security_events", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
+    'TRUNCATE TABLE "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
   );
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
