@@ -326,13 +326,7 @@ describe.skipIf(!databaseUrl)('S02-T07 central authorization PostgreSQL integrat
     await expect(context.run(actor, () => identity.getMe()))
       .resolves.toMatchObject({ employee: { id: actorEmployeeId } });
     await expect(
-      app.get(SessionService).listSelf({
-        sessionId,
-        organizationId: organizationAId,
-        userAccountId: actorAccountId,
-        employeeId: actorEmployeeId,
-        lastStepUpAt: null,
-      }),
+      app.get(SessionService).listSelf(actor),
     ).rejects.toMatchObject({ statusCode: 403, code: 'AUTHORIZATION_DENIED' });
   });
 
