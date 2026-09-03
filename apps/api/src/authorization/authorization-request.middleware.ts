@@ -28,12 +28,12 @@ export class AuthorizationRequestMiddleware implements NestMiddleware {
   }
 
   private async bind(request: Request, response: Response, next: NextFunction): Promise<void> {
-    const resolution = await this.sessions.resolveCookie(parseSessionCookie(request));
-    if (resolution.cookie) {
-      applySessionCookie(response, resolution.cookie, this.sessions.config, new Date());
-    }
+    const cookie = parseSessionCookie(request);
+    // For unsafe methods with a present session cookie, enforce CSRF Origin
+    // BEFORE session resolution to prevent the session touch (lastSeenAt /
+    // idleExpiresAt update) from occurring on requests that will be denied.
     if (
-      resolution.principal &&
+      cookie.status === 'present' &&
       ['POST', 'PATCH', 'DELETE'].includes(request.method) &&
       !hasValidCsrfOrigin(request, this.sessions.config.allowedOrigins)
     ) {
@@ -41,6 +41,10 @@ export class AuthorizationRequestMiddleware implements NestMiddleware {
       this.sessions.recordCsrfDenied(typeof origin === 'string' ? 'foreign_origin' : 'missing_origin');
       next(sessionAuthorizationDenied());
       return;
+    }
+    const resolution = await this.sessions.resolveCookie(cookie);
+    if (resolution.cookie) {
+      applySessionCookie(response, resolution.cookie, this.sessions.config, new Date());
     }
     const actor: AuthorizationActor | null = resolution.principal
       ? { ...resolution.principal, actorType: 'employee' }

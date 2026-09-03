@@ -340,16 +340,43 @@ describe.skipIf(!databaseUrl)('S02-T07 central authorization PostgreSQL integrat
     await grant('identity.account.update_self', 'SELF');
     const auditCountBefore = await client.auditEvent.count({ where: { organizationId: organizationAId } });
     const outboxCountBefore = await client.outboxEvent.count();
-    await request(app.getHttpServer()).patch('/api/v1/me').set('Cookie', `dartech_session=${credential}`).send({ displayName: 'Blocked Missing' }).expect(403);
+    const securityCountBefore = await client.securityEvent.count({ where: { organizationId: organizationAId } });
+
+    // --- 1. VALID SESSION + FOREIGN ORIGIN ---
+    const sessionBeforeForeign = await client.session.findUniqueOrThrow({ where: { id: sessionId } });
     await request(app.getHttpServer()).patch('/api/v1/me').set('Cookie', `dartech_session=${credential}`).set('Origin', 'https://foreign.example').send({ displayName: 'Blocked Foreign' }).expect(403);
+    const sessionAfterForeign = await client.session.findUniqueOrThrow({ where: { id: sessionId } });
+    expect(sessionAfterForeign.lastSeenAt.getTime()).toBe(sessionBeforeForeign.lastSeenAt.getTime());
+    expect(sessionAfterForeign.idleExpiresAt.getTime()).toBe(sessionBeforeForeign.idleExpiresAt.getTime());
     expect((await client.employee.findUniqueOrThrow({ where: { id: actorEmployeeId } })).displayName).toBe('Actor Employee');
     await expect(client.auditEvent.count({ where: { organizationId: organizationAId } }))
       .resolves.toBe(auditCountBefore);
+    await expect(client.securityEvent.count({ where: { organizationId: organizationAId } }))
+      .resolves.toBe(securityCountBefore);
     await expect(client.outboxEvent.count()).resolves.toBe(outboxCountBefore);
 
+    // --- 2. VALID SESSION + MISSING ORIGIN ---
+    const sessionBeforeMissing = await client.session.findUniqueOrThrow({ where: { id: sessionId } });
+    await request(app.getHttpServer()).patch('/api/v1/me').set('Cookie', `dartech_session=${credential}`).send({ displayName: 'Blocked Missing' }).expect(403);
+    const sessionAfterMissing = await client.session.findUniqueOrThrow({ where: { id: sessionId } });
+    expect(sessionAfterMissing.lastSeenAt.getTime()).toBe(sessionBeforeMissing.lastSeenAt.getTime());
+    expect(sessionAfterMissing.idleExpiresAt.getTime()).toBe(sessionBeforeMissing.idleExpiresAt.getTime());
+    expect((await client.employee.findUniqueOrThrow({ where: { id: actorEmployeeId } })).displayName).toBe('Actor Employee');
+    await expect(client.auditEvent.count({ where: { organizationId: organizationAId } }))
+      .resolves.toBe(auditCountBefore);
+    await expect(client.securityEvent.count({ where: { organizationId: organizationAId } }))
+      .resolves.toBe(securityCountBefore);
+    await expect(client.outboxEvent.count()).resolves.toBe(outboxCountBefore);
+
+    // --- 3. VALID SESSION + ALLOWED ORIGIN ---
     await request(app.getHttpServer()).patch('/api/v1/me').set('Cookie', `dartech_session=${credential}`).set('Origin', 'http://localhost:3000').send({ displayName: 'Allowed Origin' }).expect(200);
     expect((await client.employee.findUniqueOrThrow({ where: { id: actorEmployeeId } })).displayName).toBe('Allowed Origin');
 
+    // --- 4. PROTECTED GET (no mutation CSRF required) ---
+    await grant('identity.account.read_self', 'SELF');
+    await request(app.getHttpServer()).get('/api/v1/me').set('Cookie', `dartech_session=${credential}`).expect(200);
+
+    // --- 5. PUBLIC ONBOARDING REGRESSION ---
     await request(app.getHttpServer()).post('/api/v1/onboarding/invitation/inspect').send({ invitation: 'invalid' }).expect(400);
   });
 
