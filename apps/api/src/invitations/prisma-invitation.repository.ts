@@ -667,7 +667,13 @@ export class PrismaInvitationRepository implements InvitationRepositoryPort {
         },
         input.now,
       );
-      return { status: 'accepted', providerKey: ssoIdentity.providerKey };
+      return {
+        status: 'accepted',
+        providerKey: ssoIdentity.providerKey,
+        organizationId: locked.organizationId,
+        employeeId: locked.employeeId,
+        userAccountId: locked.userAccountId,
+      };
     });
   }
 

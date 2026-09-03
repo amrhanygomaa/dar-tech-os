@@ -72,6 +72,34 @@ const redirectAllowlistSchema = z
     }
     return uniqueRedirects;
   });
+const originAllowlistSchema = z
+  .string()
+  .trim()
+  .transform((value, context) => {
+    const origins = value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    const uniqueOrigins = [...new Set(origins)];
+    for (const origin of uniqueOrigins) {
+      try {
+        const parsed = new URL(origin);
+        if (
+          !['http:', 'https:'].includes(parsed.protocol) ||
+          parsed.origin !== origin ||
+          parsed.username.length > 0 ||
+          parsed.password.length > 0 ||
+          origin.includes('*')
+        ) {
+          throw new Error('unsafe origin');
+        }
+      } catch {
+        context.addIssue({ code: 'custom', message: 'must contain exact HTTP(S) origins' });
+        return z.NEVER;
+      }
+    }
+    return uniqueOrigins;
+  });
 
 const databaseUrlSchema = z.string().min(1).superRefine((value, context) => {
   try {
@@ -143,6 +171,9 @@ const apiEnvironmentSchema = databaseRuntimeSchema
     INVITATION_TTL_SECONDS: positiveIntegerSchema.min(60).max(2_592_000),
     ONBOARDING_RATE_LIMIT_MAX_REQUESTS: positiveIntegerSchema.min(1).max(1_000).default(30),
     ONBOARDING_RATE_LIMIT_WINDOW_SECONDS: positiveIntegerSchema.min(1).max(3_600).default(60),
+    SESSION_IDLE_TTL_SECONDS: positiveIntegerSchema.min(60).max(86_400),
+    SESSION_ABSOLUTE_TTL_SECONDS: positiveIntegerSchema.min(300).max(2_678_400),
+    SESSION_ALLOWED_ORIGINS: originAllowlistSchema,
   })
   .superRefine((value, context) => {
     if (
@@ -192,6 +223,23 @@ const apiEnvironmentSchema = databaseRuntimeSchema
         code: 'custom',
         path: ['AUTH_LOCAL_IDENTITIES_JSON'],
         message: 'must not contain duplicate provider subjects',
+      });
+    }
+    if (value.SESSION_IDLE_TTL_SECONDS > value.SESSION_ABSOLUTE_TTL_SECONDS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SESSION_IDLE_TTL_SECONDS'],
+        message: 'must be less than or equal to SESSION_ABSOLUTE_TTL_SECONDS',
+      });
+    }
+    if (
+      (value.APP_ENV === 'staging' || value.APP_ENV === 'production') &&
+      value.SESSION_ALLOWED_ORIGINS.length === 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SESSION_ALLOWED_ORIGINS'],
+        message: 'must contain at least one exact origin in staging and production',
       });
     }
   });
@@ -249,6 +297,7 @@ export interface ApiConfig {
   readonly databaseIdleTimeoutMs: number;
   readonly authentication: AuthenticationConfig;
   readonly invitation: InvitationConfig;
+  readonly session: SessionConfig;
 }
 
 export interface LocalAuthenticationIdentityConfig {
@@ -268,6 +317,13 @@ export interface InvitationConfig {
   readonly ttlSeconds: number;
   readonly rateLimitMaxRequests: number;
   readonly rateLimitWindowSeconds: number;
+}
+
+export interface SessionConfig {
+  readonly idleTtlSeconds: number;
+  readonly absoluteTtlSeconds: number;
+  readonly allowedOrigins: readonly string[];
+  readonly secureCookie: boolean;
 }
 
 export interface WorkerConfig {
@@ -346,6 +402,12 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       ttlSeconds: parsed.INVITATION_TTL_SECONDS,
       rateLimitMaxRequests: parsed.ONBOARDING_RATE_LIMIT_MAX_REQUESTS,
       rateLimitWindowSeconds: parsed.ONBOARDING_RATE_LIMIT_WINDOW_SECONDS,
+    },
+    session: {
+      idleTtlSeconds: parsed.SESSION_IDLE_TTL_SECONDS,
+      absoluteTtlSeconds: parsed.SESSION_ABSOLUTE_TTL_SECONDS,
+      allowedOrigins: parsed.SESSION_ALLOWED_ORIGINS,
+      secureCookie: parsed.APP_ENV === 'staging' || parsed.APP_ENV === 'production',
     },
   };
 }

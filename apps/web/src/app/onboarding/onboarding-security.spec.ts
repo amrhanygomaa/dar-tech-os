@@ -40,7 +40,8 @@ describe('S02-T02 browser secret handling', () => {
     expect(readIndex).toBeGreaterThan(-1);
     expect(scrubIndex).toBeGreaterThan(readIndex);
     expect(requestIndex).toBeGreaterThan(scrubIndex);
-    expect(callbackSource).toContain('No application session, bearer token, refresh token');
+    expect(callbackSource).toContain('opaque HttpOnly application-session cookie');
+    expect(callbackSource).toContain("nextStep: 'SESSION_ESTABLISHED' | 'SIGN_IN_REQUIRED'");
   });
 
   it('renders every required public and administrative state without a password or signup flow', () => {

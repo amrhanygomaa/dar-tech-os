@@ -100,8 +100,8 @@ export type InvitationInspection =
 export interface InvitationAcceptanceResult {
   readonly status: 'ONBOARDING_COMPLETED';
   readonly providerKey: string;
-  readonly sessionCreated: false;
-  readonly nextStep: 'SESSION_ISSUANCE_DEFERRED';
+  readonly sessionCreated: boolean;
+  readonly nextStep: 'SESSION_ESTABLISHED' | 'SIGN_IN_REQUIRED';
 }
 
 export type RevocationResult =
@@ -123,7 +123,13 @@ export type ReissueResult =
   | { readonly status: 'conflict' };
 
 export type AcceptancePersistenceResult =
-  | { readonly status: 'accepted'; readonly providerKey: string }
+  | {
+      readonly status: 'accepted';
+      readonly providerKey: string;
+      readonly organizationId: string;
+      readonly employeeId: string;
+      readonly userAccountId: string;
+    }
   | {
       readonly status: 'denied';
       readonly failureCategory:

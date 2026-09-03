@@ -2,7 +2,7 @@ import { Writable } from 'node:stream';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiConfig } from '@dar-tech/config';
 import { createPrismaClient, type DatabaseClient } from '@dar-tech/database';
 import { RequestContextStore, StructuredLogger } from '@dar-tech/observability';
@@ -16,6 +16,7 @@ import {
 import { configureApiFoundation } from '../platform/configure-api-foundation.js';
 import type { InvitationActor } from './invitation.contracts.js';
 import { PrismaInvitationRepository } from './prisma-invitation.repository.js';
+import { SessionService } from '../sessions/session.service.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const organizationAId = '018f53d4-2f68-7c52-a399-3df2364d8801';
@@ -53,6 +54,7 @@ async function clearData(client: DatabaseClient): Promise<void> {
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
   await client.queueJob.deleteMany();
+  await client.session.deleteMany();
   await client.invitation.deleteMany();
   await client.sSOIdentity.deleteMany();
   await client.userAccount.deleteMany();
@@ -123,6 +125,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
   let logOutput = '';
   let contextStore: RequestContextStore;
   let logger: StructuredLogger;
+  let sessionService: SessionService;
 
   const config: ApiConfig = {
     runtime: 'api',
@@ -160,6 +163,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       rateLimitMaxRequests: 1_000,
       rateLimitWindowSeconds: 60,
     },
+    session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
   };
 
   beforeAll(async () => {
@@ -195,6 +199,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     configureApiFoundation(app, contextStore, logger);
     await app.init();
     repository = app.get(PrismaInvitationRepository);
+    sessionService = app.get(SessionService);
   });
 
   beforeEach(async () => {
@@ -912,7 +917,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     expect(await client.sSOIdentity.count()).toBe(0);
   });
 
-  it('completes verified-email onboarding atomically and creates no application session', async () => {
+  it('completes verified-email onboarding and establishes an opaque application session', async () => {
     const issued = await issue();
     const started = await request(app.getHttpServer())
       .post('/api/v1/onboarding/auth/local/start')
@@ -936,10 +941,10 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     expect(callback.body.data).toEqual({
       status: 'ONBOARDING_COMPLETED',
       providerKey: 'local',
-      sessionCreated: false,
-      nextStep: 'SESSION_ISSUANCE_DEFERRED',
+      sessionCreated: true,
+      nextStep: 'SESSION_ESTABLISHED',
     });
-    expect(callback.headers['set-cookie']).toBeUndefined();
+    expect(callback.headers['set-cookie']?.[0]).toMatch(/^dartech_session=[A-Za-z0-9_-]{43};/u);
     expect(callback.headers.authorization).toBeUndefined();
     expect(
       await client.invitation.findUniqueOrThrow({
@@ -974,7 +979,40 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
       'identity.invitation-accepted',
       'identity.sso-identity-linked',
       'identity.onboarding-completed',
+      'identity.session-created',
     ]);
+  });
+
+  it('keeps accepted onboarding committed when post-acceptance session issuance fails', async () => {
+    const issued = await issue();
+    const started = await request(app.getHttpServer())
+      .post('/api/v1/onboarding/auth/local/start')
+      .send({ invitationToken: issued.secret, redirectUri, loginHint: 'invited' })
+      .expect(200);
+    const providerRedirect = new URL(started.body.data.authorizationUrl as string);
+    const establish = vi.spyOn(sessionService, 'establish').mockRejectedValueOnce(new Error('session unavailable'));
+    const callback = await request(app.getHttpServer())
+      .post('/api/v1/onboarding/auth/local/callback')
+      .send({
+        transactionId: providerRedirect.searchParams.get('transactionId'),
+        state: providerRedirect.searchParams.get('state'),
+        nonce: providerRedirect.searchParams.get('nonce'),
+        code: providerRedirect.searchParams.get('code'),
+      })
+      .expect(200);
+    expect(callback.body.data).toEqual({
+      status: 'ONBOARDING_COMPLETED',
+      providerKey: 'local',
+      sessionCreated: false,
+      nextStep: 'SIGN_IN_REQUIRED',
+    });
+    expect(callback.headers['set-cookie']).toBeUndefined();
+    expect((await client.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } })).status).toBe('ACCEPTED');
+    await request(app.getHttpServer())
+      .post('/api/v1/onboarding/auth/local/start')
+      .send({ invitationToken: issued.secret, redirectUri, loginHint: 'invited' })
+      .expect(401);
+    establish.mockRestore();
   });
 
   it.each(['mismatched', 'missing-email'])(

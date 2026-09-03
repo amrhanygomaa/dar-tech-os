@@ -56,6 +56,7 @@ const config: ApiConfig = {
     transactionTtlSeconds: 300,
   },
   invitation: { ttlSeconds: 300, rateLimitMaxRequests: 100, rateLimitWindowSeconds: 60 },
+  session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
@@ -63,6 +64,7 @@ async function clearData(client: DatabaseClient): Promise<void> {
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
   await client.queueJob.deleteMany();
+  await client.session.deleteMany();
   await client.employeeRole.deleteMany();
   await client.role.deleteMany();
   await client.invitation.deleteMany();

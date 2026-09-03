@@ -31,6 +31,7 @@ const config: ApiConfig = {
     rateLimitMaxRequests: 30,
     rateLimitWindowSeconds: 60,
   },
+  session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
 };
 
 describe("S02-T06 API and production fail-closed boundary", () => {

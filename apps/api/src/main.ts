@@ -27,7 +27,10 @@ async function bootstrap(): Promise<void> {
     app,
     contextStore,
     logger,
-    config.authentication.allowedRedirectUris.map((uri) => new URL(uri).origin),
+    [
+      ...config.authentication.allowedRedirectUris.map((uri) => new URL(uri).origin),
+      ...config.session.allowedOrigins,
+    ],
   );
   logger.info('application.configuration.validated', {
     configuration: toSafeConfigSummary(config),

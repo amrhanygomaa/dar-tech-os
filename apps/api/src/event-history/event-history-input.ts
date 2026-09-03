@@ -29,6 +29,7 @@ const allowedChangedFields = new Set([
   'name',
   'removedAt',
   'removedByEmployeeId',
+  'revokedAt',
   'resource',
   'roleId',
   'permissionKey',

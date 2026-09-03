@@ -9,6 +9,8 @@ import {
   Param,
   Post,
   Query,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -26,6 +28,7 @@ import {
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import type {
   InvitationAcceptanceResult,
   InvitationInspection,
@@ -49,6 +52,8 @@ import {
 } from './invitation.openapi.js';
 import { InvitationService } from './invitation.service.js';
 import { OnboardingRateLimitGuard } from './invitation-rate-limit.guard.js';
+import { applySessionCookie, parseSessionCookie } from '../sessions/session-cookie.js';
+import { SessionService } from '../sessions/session.service.js';
 
 const protectedErrors = {
   schema: errorEnvelopeSchema,
@@ -158,7 +163,10 @@ export class InvitationController {
 @Controller('onboarding')
 @UseGuards(OnboardingRateLimitGuard)
 export class OnboardingController {
-  constructor(@Inject(InvitationService) private readonly invitations: InvitationService) {}
+  constructor(
+    @Inject(InvitationService) private readonly invitations: InvitationService,
+    @Inject(SessionService) private readonly sessions: SessionService,
+  ) {}
 
   @Post('invitation/inspect')
   @HttpCode(HttpStatus.OK)
@@ -201,7 +209,7 @@ export class OnboardingController {
   @Header('Cache-Control', 'no-store')
   @Header('Referrer-Policy', 'no-referrer')
   @ApiOperation({
-    summary: 'Complete invitation onboarding atomically without creating an application session',
+    summary: 'Complete invitation onboarding, then establish an opaque application session',
   })
   @ApiParam({ name: 'providerKey', type: 'string' })
   @ApiBody({ schema: invitationOnboardingCallbackSchema })
@@ -212,15 +220,33 @@ export class OnboardingController {
       properties: {
         status: { type: 'string', enum: ['ONBOARDING_COMPLETED'] },
         providerKey: { type: 'string' },
-        sessionCreated: { type: 'boolean', enum: [false] },
-        nextStep: { type: 'string', enum: ['SESSION_ISSUANCE_DEFERRED'] },
+        sessionCreated: { type: 'boolean' },
+        nextStep: { type: 'string', enum: ['SESSION_ESTABLISHED', 'SIGN_IN_REQUIRED'] },
       },
     }),
   })
   @ApiBadRequestResponse({ schema: errorEnvelopeSchema })
   @ApiUnauthorizedResponse({ schema: errorEnvelopeSchema })
   @ApiTooManyRequestsResponse({ schema: errorEnvelopeSchema })
-  callback(@Param('providerKey') providerKey: string, @Body() body: unknown): Promise<InvitationAcceptanceResult> {
-    return this.invitations.completeAuthentication(providerKey, body);
+  async callback(
+    @Param('providerKey') providerKey: string,
+    @Body() body: unknown,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<InvitationAcceptanceResult> {
+    const completed = await this.invitations.completeAuthentication(
+      providerKey,
+      body,
+      parseSessionCookie(request),
+    );
+    if (completed.cookie) {
+      applySessionCookie(
+        response,
+        completed.cookie,
+        this.sessions.config,
+        completed.cookie.issuedAt ?? new Date(),
+      );
+    }
+    return completed.response;
   }
 }

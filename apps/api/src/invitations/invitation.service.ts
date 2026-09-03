@@ -2,6 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { InvitationConfig } from '@dar-tech/config';
 import { ApplicationError, STRUCTURED_LOGGER, type StructuredLogger } from '@dar-tech/observability';
 import { AuthenticationService } from '../auth/auth.service.js';
+import type { ParsedSessionCookie } from '../sessions/session-cookie.js';
+import type { SessionCookieInstruction } from '../sessions/session.contracts.js';
+import { SessionService } from '../sessions/session.service.js';
 import { authenticationRequired, authorizationDenied } from '../identity/identity.errors.js';
 import {
   INVITATION_ACTIONS,
@@ -56,6 +59,8 @@ export class InvitationService {
     @Inject(INVITATION_CLOCK) private readonly clock: InvitationClock,
     @Inject(AuthenticationService)
     private readonly authentication: AuthenticationService,
+    @Inject(SessionService)
+    private readonly sessions: SessionService,
     @Inject(STRUCTURED_LOGGER) private readonly logger: StructuredLogger,
   ) {}
 
@@ -225,7 +230,14 @@ export class InvitationService {
     return this.authentication.startForInvitation(providerKey, parsed.authenticationInput, invitation.id);
   }
 
-  async completeAuthentication(providerKey: string, input: unknown): Promise<InvitationAcceptanceResult> {
+  async completeAuthentication(
+    providerKey: string,
+    input: unknown,
+    incomingCookie: ParsedSessionCookie,
+  ): Promise<{
+    readonly response: InvitationAcceptanceResult;
+    readonly cookie: SessionCookieInstruction | null;
+  }> {
     let outcome;
     try {
       outcome = await this.authentication.verify(providerKey, input);
@@ -260,12 +272,37 @@ export class InvitationService {
         organizationId: outcome.principal.organizationId,
         providerKey: accepted.providerKey,
       });
-      return {
-        status: 'ONBOARDING_COMPLETED',
-        providerKey: accepted.providerKey,
-        sessionCreated: false,
-        nextStep: 'SESSION_ISSUANCE_DEFERRED',
-      };
+      try {
+        const established = await this.sessions.establish(
+          {
+            organizationId: accepted.organizationId,
+            employeeId: accepted.employeeId,
+            userAccountId: accepted.userAccountId,
+          },
+          outcome.identity,
+          incomingCookie,
+        );
+        return {
+          response: {
+            status: 'ONBOARDING_COMPLETED',
+            providerKey: accepted.providerKey,
+            sessionCreated: true,
+            nextStep: 'SESSION_ESTABLISHED',
+          },
+          cookie: established.cookie,
+        };
+      } catch (error) {
+        this.logFailure('post_onboarding_session', accepted.organizationId, error);
+        return {
+          response: {
+            status: 'ONBOARDING_COMPLETED',
+            providerKey: accepted.providerKey,
+            sessionCreated: false,
+            nextStep: 'SIGN_IN_REQUIRED',
+          },
+          cookie: null,
+        };
+      }
     } catch (error) {
       if (error instanceof ApplicationError) throw error;
       await this.repository.recordAcceptanceFailure({

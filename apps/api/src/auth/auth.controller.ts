@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Req, Res } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -8,6 +8,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import type {
   PublicAuthenticationCallback,
   PublicAuthenticationProvider,
@@ -25,7 +26,10 @@ import {
   providerLogoutResponseSchema,
 } from './auth.openapi.js';
 import { AuthenticationService } from './auth.service.js';
+import { authenticationFailed } from './auth.errors.js';
 import { successEnvelope } from '../identity/identity.openapi.js';
+import { applySessionCookie, parseSessionCookie } from '../sessions/session-cookie.js';
+import { SessionService } from '../sessions/session.service.js';
 
 const safeAuthenticationFailure = {
   description: 'Authentication failed. The response does not disclose account or invitation state.',
@@ -35,7 +39,10 @@ const safeAuthenticationFailure = {
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthenticationController {
-  constructor(@Inject(AuthenticationService) private readonly authentication: AuthenticationService) {}
+  constructor(
+    @Inject(AuthenticationService) private readonly authentication: AuthenticationService,
+    @Inject(SessionService) private readonly sessions: SessionService,
+  ) {}
 
   @Get('providers')
   @ApiOperation({ summary: 'List configured internal authentication providers' })
@@ -62,18 +69,46 @@ export class AuthenticationController {
   @Post(':providerKey/callback')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Verify a provider callback; no application session or credential is issued',
+    summary: 'Verify a linked account and establish a rotated opaque application session',
   })
   @ApiParam({ name: 'providerKey', type: 'string' })
   @ApiBody({ schema: authenticationCallbackBodySchema })
   @ApiOkResponse({ schema: authenticationCallbackResponseSchema })
   @ApiBadRequestResponse({ schema: errorEnvelopeSchema })
   @ApiUnauthorizedResponse(safeAuthenticationFailure)
-  callback(
+  async callback(
     @Param('providerKey') providerKey: string,
     @Body() body: unknown,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<PublicAuthenticationCallback> {
-    return this.authentication.callback(providerKey, body);
+    const outcome = await this.authentication.verify(providerKey, body);
+    if (outcome.principal.kind !== 'linked_account') throw authenticationFailed();
+    try {
+      const established = await this.sessions.establish(
+        {
+          organizationId: outcome.principal.organizationId,
+          employeeId: outcome.principal.employeeId,
+          userAccountId: outcome.principal.userAccountId,
+        },
+        outcome.identity,
+        parseSessionCookie(request),
+      );
+      applySessionCookie(
+        response,
+        established.cookie,
+        this.sessions.config,
+        established.principal.issuedAt,
+      );
+      return {
+        status: outcome.status,
+        providerKey: outcome.providerKey,
+        sessionCreated: true,
+        nextStep: 'SESSION_ESTABLISHED',
+      };
+    } catch {
+      throw authenticationFailed();
+    }
   }
 
   @Post(':providerKey/provider-logout')

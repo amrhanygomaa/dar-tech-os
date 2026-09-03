@@ -16,7 +16,7 @@ import {
   type NormalizedProviderIdentity,
   type ProtocolValidationRequirement,
   type ProtocolValidationResult,
-  type PublicAuthenticationCallback,
+  type PublicAuthenticationVerification,
   type PublicAuthenticationProvider,
   type PublicAuthenticationStart,
   type PublicProviderLogoutStart,
@@ -134,7 +134,7 @@ export class AuthenticationService {
     }
   }
 
-  async callback(providerInput: string, input: unknown): Promise<PublicAuthenticationCallback> {
+  async callback(providerInput: string, input: unknown): Promise<PublicAuthenticationVerification> {
     const outcome = await this.verify(providerInput, input);
     return {
       status: outcome.status,

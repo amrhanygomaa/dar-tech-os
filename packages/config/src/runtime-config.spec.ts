@@ -8,6 +8,9 @@ const validEnvironment: NodeJS.ProcessEnv = {
   API_PORT: '3001',
   DATABASE_URL: 'postgresql://dartech:dartech@localhost:5432/dartech_os',
   INVITATION_TTL_SECONDS: '86400',
+  SESSION_IDLE_TTL_SECONDS: '1800',
+  SESSION_ABSOLUTE_TTL_SECONDS: '43200',
+  SESSION_ALLOWED_ORIGINS: 'http://localhost:3000',
 };
 
 describe('runtime configuration', () => {
@@ -32,6 +35,12 @@ describe('runtime configuration', () => {
         ttlSeconds: 86400,
         rateLimitMaxRequests: 30,
         rateLimitWindowSeconds: 60,
+      },
+      session: {
+        idleTtlSeconds: 1800,
+        absoluteTtlSeconds: 43200,
+        allowedOrigins: ['http://localhost:3000'],
+        secureCookie: false,
       },
     });
   });
@@ -59,6 +68,27 @@ describe('runtime configuration', () => {
       loadApiConfig({ ...validEnvironment, INVITATION_TTL_SECONDS: '59' }),
     ).toThrowError(/INVITATION_TTL_SECONDS/);
     expect(loadApiConfig(validEnvironment).invitation.ttlSeconds).toBe(86_400);
+  });
+
+  it('requires bounded session lifetimes and exact deployment origins', () => {
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, SESSION_IDLE_TTL_SECONDS: undefined }),
+    ).toThrowError(/SESSION_IDLE_TTL_SECONDS/);
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, SESSION_ABSOLUTE_TTL_SECONDS: '1200' }),
+    ).toThrowError(/SESSION_IDLE_TTL_SECONDS/);
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, SESSION_ALLOWED_ORIGINS: '*' }),
+    ).toThrowError(/SESSION_ALLOWED_ORIGINS/);
+    expect(() =>
+      loadApiConfig({
+        ...validEnvironment,
+        APP_ENV: 'production',
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://service:unique@db.example.invalid:5432/dartech_os',
+        SESSION_ALLOWED_ORIGINS: '',
+      }),
+    ).toThrowError(/SESSION_ALLOWED_ORIGINS/);
   });
 
   it('rejects documented local credentials in staging without echoing the URL', () => {
