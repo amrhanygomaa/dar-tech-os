@@ -127,70 +127,51 @@ export class PrismaSessionRepository implements SessionRepositoryPort {
     const incomingReference = input.incomingCredentialHash
       ? await this.client.session.findUnique({
           where: { credentialHash: input.incomingCredentialHash },
-          select: { organizationId: true, employeeId: true },
+          select: { organizationId: true, employeeId: true, userAccountId: true },
         })
       : null;
+    const rotateIncoming =
+      incomingReference?.organizationId === input.organizationId &&
+      incomingReference.employeeId === input.employeeId &&
+      incomingReference.userAccountId === input.userAccountId;
     return runInTransaction(this.client, async (transaction) => {
-      const ownerKeys = new Map<string, { organizationId: string; employeeId: string }>();
-      for (const owner of [
-        { organizationId: input.organizationId, employeeId: input.employeeId },
-        ...(incomingReference ? [incomingReference] : []),
-      ]) {
-        ownerKeys.set(`${owner.organizationId}:${owner.employeeId}`, owner);
-      }
-      const owners: LockedOwner[] = [];
-      for (const owner of [...ownerKeys.values()].sort((left, right) =>
-        `${left.organizationId}:${left.employeeId}`.localeCompare(
-          `${right.organizationId}:${right.employeeId}`,
-        ),
-      )) {
-        const locked = await this.lockOwner(transaction, owner.organizationId, owner.employeeId);
-        if (locked) owners.push(locked);
-      }
-      const target = owners.find(
-        (owner) =>
-          owner.organizationId === input.organizationId && owner.employeeId === input.employeeId,
+      const target = await this.lockOwner(
+        transaction,
+        input.organizationId,
+        input.employeeId,
       );
       if (!target || target.userAccountId !== input.userAccountId || !this.isEligible(target)) {
         throw new Error('Session issuance identity is ineligible');
       }
 
       let rotated: RawSession | null = null;
-      if (input.incomingCredentialHash) {
+      if (input.incomingCredentialHash && rotateIncoming) {
         const candidate = await this.lockByCredentialHash(transaction, input.incomingCredentialHash);
-        if (candidate && statusOf(candidate, input.issuedAt) === 'ACTIVE') {
-          const sameOrganization = candidate.organizationId === input.organizationId;
-          const revocationActorEmployeeId = sameOrganization
-            ? input.employeeId
-            : candidate.employeeId;
-          const revocationActorAccountId = sameOrganization
-            ? input.userAccountId
-            : candidate.userAccountId;
+        if (
+          candidate &&
+          candidate.organizationId === input.organizationId &&
+          candidate.employeeId === input.employeeId &&
+          candidate.userAccountId === input.userAccountId &&
+          statusOf(candidate, input.issuedAt) === 'ACTIVE'
+        ) {
           rotated = await this.markRevoked(
             transaction,
             candidate,
             input.issuedAt,
-            revocationActorEmployeeId,
+            input.employeeId,
             'authentication_rotation',
           );
-          const rotatedOwner = owners.find(
-            (owner) =>
-              owner.organizationId === rotated!.organizationId &&
-              owner.employeeId === rotated!.employeeId,
+          await this.recordSingleRevocation(
+            transaction,
+            rotated,
+            target,
+            target,
+            input.employeeId,
+            input.userAccountId,
+            AUDIT_ACTION_KEYS.sessionRevokedSelf,
+            'MEDIUM',
+            input.issuedAt,
           );
-          if (rotatedOwner) {
-            await this.recordSingleRevocation(
-              transaction,
-              rotated,
-              rotatedOwner,
-              sameOrganization ? target : rotatedOwner,
-              revocationActorEmployeeId,
-              revocationActorAccountId,
-              AUDIT_ACTION_KEYS.sessionRevokedSelf,
-              'MEDIUM',
-              input.issuedAt,
-            );
-          }
         }
       }
 

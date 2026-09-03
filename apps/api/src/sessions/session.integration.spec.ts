@@ -22,6 +22,8 @@ const databaseUrl = process.env.TEST_DATABASE_URL;
 const organizationA = '018f53d4-2f68-7c52-a399-3df2364d8701';
 const employeeA = '018f53d4-2f68-7c52-a399-3df2364d8702';
 const accountA = '018f53d4-2f68-7c52-a399-3df2364d8703';
+const employeeA2 = '018f53d4-2f68-7c52-a399-3df2364d8704';
+const accountA2 = '018f53d4-2f68-7c52-a399-3df2364d8705';
 const organizationB = '018f53d4-2f68-7c52-a399-3df2364d8711';
 const employeeB = '018f53d4-2f68-7c52-a399-3df2364d8712';
 const accountB = '018f53d4-2f68-7c52-a399-3df2364d8713';
@@ -49,10 +51,12 @@ async function seedIdentity(client: DatabaseClient): Promise<void> {
   ] });
   await client.employee.createMany({ data: [
     { id: employeeA, organizationId: organizationA, employeeCode: 'EMP-A', firstName: 'A', lastName: 'Actor', displayName: 'Actor A', workEmail: 'a@example.com', lifecycleStatus: 'ACTIVE', activatedAt: initialNow },
+    { id: employeeA2, organizationId: organizationA, employeeCode: 'EMP-A2', firstName: 'A2', lastName: 'Actor', displayName: 'Actor A2', workEmail: 'a2@example.com', lifecycleStatus: 'ACTIVE', activatedAt: initialNow },
     { id: employeeB, organizationId: organizationB, employeeCode: 'EMP-B', firstName: 'B', lastName: 'Actor', displayName: 'Actor B', workEmail: 'b@example.com', lifecycleStatus: 'ACTIVE', activatedAt: initialNow },
   ] });
   await client.userAccount.createMany({ data: [
     { id: accountA, organizationId: organizationA, employeeId: employeeA, authenticationEligible: true, activatedAt: initialNow },
+    { id: accountA2, organizationId: organizationA, employeeId: employeeA2, authenticationEligible: true, activatedAt: initialNow },
     { id: accountB, organizationId: organizationB, employeeId: employeeB, authenticationEligible: true, activatedAt: initialNow },
   ] });
 }
@@ -101,6 +105,22 @@ describe.skipIf(!databaseUrl)('S02-T04 session PostgreSQL integration', () => {
   async function establishA() {
     return service.establish(
       { organizationId: organizationA, employeeId: employeeA, userAccountId: accountA },
+      { assurance: { level: 'mfa', methods: ['otp'] }, authenticatedAt: initialNow },
+      { status: 'missing' },
+    );
+  }
+
+  async function establishA2() {
+    return service.establish(
+      { organizationId: organizationA, employeeId: employeeA2, userAccountId: accountA2 },
+      { assurance: { level: 'mfa', methods: ['otp'] }, authenticatedAt: initialNow },
+      { status: 'missing' },
+    );
+  }
+
+  async function establishB() {
+    return service.establish(
+      { organizationId: organizationB, employeeId: employeeB, userAccountId: accountB },
       { assurance: { level: 'mfa', methods: ['otp'] }, authenticatedAt: initialNow },
       { status: 'missing' },
     );
@@ -187,16 +207,114 @@ describe.skipIf(!databaseUrl)('S02-T04 session PostgreSQL integration', () => {
 
   it('rotates a valid incoming session and creates distinct revocation and creation events', async () => {
     const first = await establishA();
+    const firstCredential = first.cookie.credential as string;
     currentTime = new Date(initialNow.getTime() + 1_000);
     const second = await service.establish(
       { organizationId: organizationA, employeeId: employeeA, userAccountId: accountA },
       { assurance: { level: 'mfa', methods: ['otp'] }, authenticatedAt: currentTime },
-      { status: 'present', credential: first.cookie.credential as string },
+      { status: 'present', credential: firstCredential },
     );
+    const secondCredential = second.cookie.credential as string;
     expect(second.principal.sessionId).not.toBe(first.principal.sessionId);
-    expect((await client.session.findUniqueOrThrow({ where: { id: first.principal.sessionId } })).revokedAt).toEqual(currentTime);
-    expect(await client.outboxEvent.count({ where: { eventType: 'identity.session-revoked' } })).toBe(1);
+    expect(secondCredential).not.toBe(firstCredential);
+    expect((await client.session.findUniqueOrThrow({ where: { id: first.principal.sessionId } }))).toMatchObject({
+      revokedAt: currentTime,
+      revokedByEmployeeId: employeeA,
+      safeRevocationReason: 'authentication_rotation',
+    });
+    expect((await service.resolveCookie({ status: 'present', credential: firstCredential })).principal).toBeNull();
+    expect((await service.resolveCookie({ status: 'present', credential: secondCredential })).principal?.sessionId).toBe(second.principal.sessionId);
+    expect(await client.auditEvent.count({ where: { actionKey: 'identity.session.revoke_self', targetId: first.principal.sessionId, actorEmployeeId: employeeA } })).toBe(1);
+    expect(await client.securityEvent.count({ where: { eventType: 'SessionRevoked.v1', sessionReference: first.principal.sessionId, actorEmployeeId: employeeA, actorAccountId: accountA } })).toBe(1);
+    expect(await client.outboxEvent.count({ where: { eventType: 'identity.session-revoked', organizationId: organizationA } })).toBe(1);
     expect(await client.outboxEvent.count({ where: { eventType: 'identity.session-created' } })).toBe(2);
+  });
+
+  it('isolates a valid same-organization foreign-account cookie during authentication', async () => {
+    const foreign = await establishA2();
+    const foreignCredential = foreign.cookie.credential as string;
+    const before = await client.session.findUniqueOrThrow({ where: { id: foreign.principal.sessionId } });
+    currentTime = new Date(initialNow.getTime() + 1_000);
+
+    const established = await service.establish(
+      { organizationId: organizationA, employeeId: employeeA, userAccountId: accountA },
+      { assurance: { level: 'mfa', methods: ['otp'] }, authenticatedAt: currentTime },
+      { status: 'present', credential: foreignCredential },
+    );
+    const issuedCredential = established.cookie.credential as string;
+    const after = await client.session.findUniqueOrThrow({ where: { id: foreign.principal.sessionId } });
+    const revocationOutbox = await client.outboxEvent.findMany({ where: { eventType: 'identity.session-revoked' } });
+
+    expect(after).toEqual(before);
+    expect(after.revokedAt).toBeNull();
+    expect(established.principal).toMatchObject({ organizationId: organizationA, employeeId: employeeA, userAccountId: accountA });
+    expect(issuedCredential).not.toBe(foreignCredential);
+    expect(await client.auditEvent.count({ where: { actionKey: 'identity.session.revoke_self', targetId: foreign.principal.sessionId } })).toBe(0);
+    expect(await client.securityEvent.count({ where: { eventType: 'SessionRevoked.v1', sessionReference: foreign.principal.sessionId } })).toBe(0);
+    expect(revocationOutbox.some(({ payload }) => JSON.stringify(payload).includes(foreign.principal.sessionId))).toBe(false);
+    expect(JSON.stringify(await client.auditEvent.findMany())).not.toContain(foreignCredential);
+    expect(JSON.stringify(await client.securityEvent.findMany())).not.toContain(foreignCredential);
+    expect(JSON.stringify(await client.outboxEvent.findMany())).not.toContain(foreignCredential);
+  });
+
+  it('isolates a valid cross-organization foreign cookie during authentication', async () => {
+    const foreign = await establishB();
+    const foreignCredential = foreign.cookie.credential as string;
+    const before = await client.session.findUniqueOrThrow({ where: { id: foreign.principal.sessionId } });
+    const foreignHistoryBefore = {
+      audit: await client.auditEvent.count({ where: { organizationId: organizationB } }),
+      security: await client.securityEvent.count({ where: { organizationId: organizationB } }),
+      outbox: await client.outboxEvent.count({ where: { organizationId: organizationB } }),
+    };
+    currentTime = new Date(initialNow.getTime() + 1_000);
+
+    const established = await service.establish(
+      { organizationId: organizationA, employeeId: employeeA, userAccountId: accountA },
+      { assurance: { level: 'mfa', methods: ['otp'] }, authenticatedAt: currentTime },
+      { status: 'present', credential: foreignCredential },
+    );
+
+    expect(await client.session.findUniqueOrThrow({ where: { id: foreign.principal.sessionId } })).toEqual(before);
+    expect(established.principal).toMatchObject({ organizationId: organizationA, employeeId: employeeA, userAccountId: accountA });
+    expect(established.cookie.credential).not.toBe(foreignCredential);
+    expect(await client.auditEvent.count({ where: { organizationId: organizationB } })).toBe(foreignHistoryBefore.audit);
+    expect(await client.securityEvent.count({ where: { organizationId: organizationB } })).toBe(foreignHistoryBefore.security);
+    expect(await client.outboxEvent.count({ where: { organizationId: organizationB } })).toBe(foreignHistoryBefore.outbox);
+  });
+
+  it('keeps a foreign session unchanged when new-session history persistence fails', async () => {
+    const foreign = await establishA2();
+    const foreignCredential = foreign.cookie.credential as string;
+    const foreignHash = new CryptographicSessionCredentialGenerator().hash(foreignCredential);
+    const before = await client.session.findUniqueOrThrow({ where: { id: foreign.principal.sessionId } });
+    const baseline = {
+      sessions: await client.session.count(),
+      audit: await client.auditEvent.count(),
+      security: await client.securityEvent.count(),
+      outbox: await client.outboxEvent.count(),
+    };
+    const audit: AuditEventAppendPort = { append: () => Promise.reject(new Error('audit unavailable')) };
+    const failing = new PrismaSessionRepository(
+      client,
+      audit,
+      app.get<SecurityEventAppendPort>(SECURITY_EVENT_APPEND_PORT),
+      contextStore,
+    );
+    const material = new CryptographicSessionCredentialGenerator().generate();
+
+    await expect(failing.issue({
+      organizationId: organizationA, employeeId: employeeA, userAccountId: accountA,
+      credentialHash: material.hash, incomingCredentialHash: foreignHash,
+      issuedAt: initialNow, authenticatedAt: initialNow,
+      idleExpiresAt: new Date(initialNow.getTime() + 300_000),
+      absoluteExpiresAt: new Date(initialNow.getTime() + 900_000), assuranceLevel: 'mfa',
+    })).rejects.toThrow('audit unavailable');
+
+    expect(await client.session.findUniqueOrThrow({ where: { id: foreign.principal.sessionId } })).toEqual(before);
+    expect(await client.session.count()).toBe(baseline.sessions);
+    expect(await client.auditEvent.count()).toBe(baseline.audit);
+    expect(await client.securityEvent.count()).toBe(baseline.security);
+    expect(await client.outboxEvent.count()).toBe(baseline.outbox);
   });
 
   it('never adopts an attacker-supplied session credential during authentication', async () => {

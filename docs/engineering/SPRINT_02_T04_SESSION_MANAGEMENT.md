@@ -61,7 +61,7 @@ A valid resolution takes the owner locks before the session-row lock, rechecks v
 
 S02-T03 linked-account callbacks retain their state, nonce, PKCE, redirect allowlist, provider verification, and replay controls. After verification, T04 rechecks the account and employee, creates a fresh random credential, commits the session plus audit/security/outbox history, and only then emits `Set-Cookie`. Success returns `sessionCreated: true` and `nextStep: SESSION_ESTABLISHED`; no credential is present in JSON. Persistence or mandatory-history failure returns a generic authentication failure and no cookie.
 
-Authentication never adopts a caller-supplied cookie. An unknown incoming value is ignored as authority and a new credential is issued. Reauthentication with a valid incoming session rotates it atomically: the old session is revoked with safe history and a distinct new session and cookie are created. A failed transaction leaves no partial rotation.
+Authentication never adopts a caller-supplied cookie. An unknown incoming value is ignored as authority and a new credential is issued. Authentication rotation revokes an incoming session only when that session belongs to the exact newly authenticated organization, employee, and user account. Valid foreign-account cookies are treated as untrusted browser input and are never mutated. Same-principal reauthentication rotates the existing session atomically: the old session is revoked with safe self-rotation history and a distinct new session and cookie are created. A failed transaction leaves no partial rotation.
 
 S02-T02 onboarding first commits invitation acceptance, identity linking, employee activation, and account activation in its irreversible onboarding transaction. T04 session issuance follows as a separate transaction. On success the response is `ONBOARDING_COMPLETED`, `sessionCreated: true`, and `SESSION_ESTABLISHED`. If post-acceptance session issuance fails, onboarding remains committed, the invitation remains used, no cookie is set, and the response is `ONBOARDING_COMPLETED`, `sessionCreated: false`, and `SIGN_IN_REQUIRED`. The user signs in normally and is never told to reuse the invitation.
 
@@ -97,15 +97,15 @@ Forced audit, security, and outbox failures roll back the mutation and any earli
 
 ## Concurrency and lock order
 
-PostgreSQL concurrency tests exercise operations without timing sleeps. The stable lock order is:
+PostgreSQL concurrency tests exercise operations without timing sleeps. The stable issuance/rotation lock order is:
 
 1. Resolve reference identifiers without treating them as authority.
-2. Lock organization/employee/account owners in sorted organization-and-employee order.
-3. Lock session rows in stable session-ID order.
+2. Lock only the newly authenticated target organization/employee/account owner.
+3. Lock the incoming session only when the pre-resolved organization, employee, and user account all match that target, then recheck the same exact ownership under the lock.
 4. Apply the conditional mutation.
 5. Append audit, security, and outbox history inside the same transaction.
 
-This order serializes two single revokes, two revoke-all commands, issue versus revoke-all, touch versus revoke, exact-expiry touches, and reauthentication rotation versus revoke. A revocation cannot be undone by touch, command history is not duplicated, and concurrent issuance/revoke-all resolves to either a newly issued active session after the command or a session included in the command—never a partial credential state.
+Foreign-account credentials do not cause a foreign-owner or foreign-session lock, mutation, or rotation event. Other multi-owner administration paths preserve their sorted organization-and-employee owner order, and multi-session commands preserve stable session-ID order. Together these orders serialize two single revokes, two revoke-all commands, issue versus revoke-all, touch versus revoke, exact-expiry touches, and same-principal reauthentication rotation versus revoke. A revocation cannot be undone by touch, command history is not duplicated, and concurrent issuance/revoke-all resolves to either a newly issued active session after the command or a session included in the command—never a partial credential state.
 
 ## Configuration and observability
 
