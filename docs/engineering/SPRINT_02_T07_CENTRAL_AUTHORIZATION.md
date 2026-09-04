@@ -44,6 +44,8 @@ Only T04 resolves the cookie, checks revocation/idle/absolute expiry, validates 
 
 Application services retain their own typed authorization calls. Calling a use case directly without the request-local T04 principal returns `AUTHENTICATION_REQUIRED`; an HTTP guard or hidden frontend control is not the enforcement boundary.
 
+For session-domain calls, the supplied `SessionPrincipal` is used only to verify the exact session, organization, employee, and account identity tuple against the request-local T04 actor. After that comparison, the central engine receives the request-local actor itself. Caller-supplied assurance level, authentication/step-up timestamps, issuance/activity timestamps, and expiry timestamps are never treated as trusted authorization metadata.
+
 ## Decision algorithm and current authority
 
 For each decision the service:

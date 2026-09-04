@@ -156,20 +156,19 @@ export class CentralSessionAuthorizationAdapter implements SessionAuthorizationP
   ) {}
 
   async allows(request: Parameters<SessionAuthorizationPort['allows']>[0]): Promise<boolean> {
-    const requestActor = this.context.currentActor();
+    const trustedActor = this.context.currentActor();
     if (
-      !requestActor ||
-      requestActor.sessionId !== request.actor.sessionId ||
-      requestActor.organizationId !== request.actor.organizationId ||
-      requestActor.employeeId !== request.actor.employeeId ||
-      requestActor.userAccountId !== request.actor.userAccountId
+      !trustedActor ||
+      trustedActor.sessionId !== request.actor.sessionId ||
+      trustedActor.organizationId !== request.actor.organizationId ||
+      trustedActor.employeeId !== request.actor.employeeId ||
+      trustedActor.userAccountId !== request.actor.userAccountId
     ) {
       return false;
     }
-    const actor = { ...request.actor, actorType: 'employee' as const };
     return (
       await this.authorization.authorize(
-        actor,
+        trustedActor,
         request.action,
         {
           ...request.resource,
