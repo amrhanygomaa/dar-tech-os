@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { StructuredLogger } from '@dar-tech/observability';
 import type { AuthorizationMetricsPort } from './authorization.contracts.js';
-import { StructuredAuthorizationMetricsAdapter } from './authorization-metrics.js';
+import {
+  StructuredAuthorizationMetricsAdapter,
+  StructuredAuthorizationResolverMetricsAdapter,
+} from './authorization-metrics.js';
 
 function harness(options?: { readonly windowMs?: number; readonly maxEntries?: number }) {
   let currentTime = 1_000_000;
@@ -60,5 +63,42 @@ describe('StructuredAuthorizationMetricsAdapter bounded observability', () => {
       'authorization.decision.metric',
       { ...decision, actionFamily: 'invalid' },
     );
+  });
+});
+
+describe('StructuredAuthorizationResolverMetricsAdapter safe dimensions', () => {
+  it('emits only scope, bounded resource type, outcome, and latency bucket', () => {
+    const logger = { info: vi.fn() } as unknown as StructuredLogger;
+    const adapter = new StructuredAuthorizationResolverMetricsAdapter(logger);
+    adapter.recordResolver({
+      scopeType: 'PROJECT',
+      resourceType: 'employee',
+      outcome: 'NO_MATCH',
+      latencyBucket: 'LT_25_MS',
+      employeeId: 'employee-secret',
+      resourceId: 'resource-secret',
+      scopeBindingId: 'binding-secret',
+    } as never);
+    expect(logger.info).toHaveBeenCalledWith('authorization.scope_resolver.metric', {
+      scopeType: 'PROJECT',
+      resourceType: 'employee',
+      outcome: 'NO_MATCH',
+      latencyBucket: 'LT_25_MS',
+    });
+  });
+
+  it('does not let a logging failure affect resolver evaluation', () => {
+    const logger = {
+      info: () => { throw new Error('sink failed'); },
+    } as unknown as StructuredLogger;
+    const adapter = new StructuredAuthorizationResolverMetricsAdapter(logger);
+    expect(() =>
+      adapter.recordResolver({
+        scopeType: 'CUSTOMER',
+        resourceType: 'employee',
+        outcome: 'ERROR',
+        latencyBucket: 'LT_5_MS',
+      }),
+    ).not.toThrow();
   });
 });

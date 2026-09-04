@@ -37,5 +37,9 @@ describe("S02-T06 permission administration frontend boundary", () => {
     expect(source).toMatch(
       /Risk is\s+technical metadata, not an approval decision/u,
     );
+    expect(source).toContain("owning relationship resolver is installed");
+    expect(source).toContain("owning resolver required");
+    expect(source).toContain("prefixes, wildcards, or hierarchy inference");
+    expect(source).not.toMatch(/\/api\/v1\/(?:teams|departments|projects|customers)/u);
   });
 });

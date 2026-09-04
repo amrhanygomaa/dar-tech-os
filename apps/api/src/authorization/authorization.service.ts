@@ -7,7 +7,7 @@ import {
   AUTHORIZATION_METRICS_PORT,
   AUTHORIZATION_POLICY_EVALUATOR,
   AUTHORIZATION_RESOURCE_TYPES,
-  AUTHORIZATION_SCOPE_RESOLVERS,
+  AUTHORIZATION_SCOPE_RESOLVER_REGISTRY,
   AUTHORIZATION_TEMPORARY_GRANT_SOURCE,
   EXTENSION_SCOPE_TYPES,
   type AuthorizationActor,
@@ -21,7 +21,8 @@ import {
   type AuthorizationPolicyResult,
   type AuthorizationReasonCode,
   type AuthorizationResource,
-  type AuthorizationScopeResolver,
+  type AuthorizationScopeRegistryOutcome,
+  type AuthorizationScopeResolverRegistryPort,
   type AuthorizationTemporaryGrantSource,
   type ExtensionScopeType,
 } from './authorization.contracts.js';
@@ -54,8 +55,8 @@ export class AuthorizationService {
   constructor(
     @Inject(AUTHORIZATION_GRANT_REPOSITORY)
     private readonly grants: AuthorizationGrantRepository,
-    @Inject(AUTHORIZATION_SCOPE_RESOLVERS)
-    private readonly resolvers: readonly AuthorizationScopeResolver[],
+    @Inject(AUTHORIZATION_SCOPE_RESOLVER_REGISTRY)
+    private readonly resolverRegistry: AuthorizationScopeResolverRegistryPort,
     @Inject(AUTHORIZATION_METRICS_PORT)
     private readonly metrics: AuthorizationMetricsPort,
     @Optional()
@@ -104,7 +105,7 @@ export class AuthorizationService {
       action,
       resource,
       context,
-      currentGrants.filter((grant) => grant.permissionKey === action),
+      currentGrants.filter((grant) => this.validGrant(grant, action)),
     );
     if (normal && 'allowedGrant' in normal) {
       return this.decision(true, 'AUTHORIZED', action, normal.allowedGrant);
@@ -121,7 +122,7 @@ export class AuthorizationService {
         this.emergencyGrants.listGrants(input),
       ]);
       alternateGrants = [...temporary, ...emergency].filter((grant) =>
-        this.validAlternateGrant(grant, action),
+        this.validGrant(grant, action),
       );
     } catch {
       return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
@@ -202,27 +203,27 @@ export class AuthorizationService {
     }
     if (!this.isExtensionScope(grant.scopeType)) return 'NO_MATCH';
 
-    let resolver: AuthorizationScopeResolver | undefined;
+    let outcome: AuthorizationScopeRegistryOutcome;
     try {
-      resolver = this.resolvers.find((candidate) =>
-        candidate.canResolve(grant.scopeType as ExtensionScopeType, resource.type),
-      );
+      outcome = await this.resolverRegistry.resolve({
+        actor: this.boundedActor(actor),
+        organizationId: actor.organizationId,
+        grant: {
+          permissionKey: grant.permissionKey,
+          riskClassification: grant.riskClassification,
+          scopeType: grant.scopeType as ExtensionScopeType,
+          scopeBindingType: grant.scopeBindingType,
+          scopeBindingId: grant.scopeBindingId,
+        },
+        resource: this.boundedResource(resource),
+        context: { at: new Date(context.at.getTime()), source: context.source },
+      });
     } catch {
       return 'RESOLVER_UNAVAILABLE';
     }
-    if (!resolver) return 'RESOLVER_UNAVAILABLE';
-    try {
-      return (await resolver.resolve({
-        actor,
-        grant: { ...grant, scopeType: grant.scopeType as ExtensionScopeType },
-        resource,
-        context,
-      })) === 'MATCH'
-        ? 'MATCH'
-        : 'NO_MATCH';
-    } catch {
-      return 'RESOLVER_UNAVAILABLE';
-    }
+    if (outcome === 'MATCH') return 'MATCH';
+    if (outcome === 'NO_MATCH') return 'NO_MATCH';
+    return 'RESOLVER_UNAVAILABLE';
   }
 
   private matchesSelf(actor: AuthorizationActor, resource: AuthorizationResource): boolean {
@@ -234,12 +235,59 @@ export class AuthorizationService {
   }
 
   private validActor(actor: AuthorizationActor): boolean {
+    const validDate = (value: unknown): value is Date =>
+      value instanceof Date && Number.isFinite(value.getTime());
     return (
       actor.actorType === 'employee' &&
       [actor.sessionId, actor.organizationId, actor.userAccountId, actor.employeeId].every(
-        (value) => typeof value === 'string' && value.length > 0,
-      )
+        (value) => typeof value === 'string' && value.length > 0 && value.length <= 160,
+      ) &&
+      actor.clientKind === 'browser' &&
+      (actor.assuranceLevel === null ||
+        (typeof actor.assuranceLevel === 'string' && actor.assuranceLevel.length <= 80)) &&
+      (actor.authenticatedAt === null || validDate(actor.authenticatedAt)) &&
+      (actor.lastStepUpAt === undefined ||
+        actor.lastStepUpAt === null ||
+        validDate(actor.lastStepUpAt)) &&
+      validDate(actor.issuedAt) &&
+      validDate(actor.lastSeenAt) &&
+      validDate(actor.idleExpiresAt) &&
+      validDate(actor.absoluteExpiresAt)
     );
+  }
+
+  private boundedActor(actor: AuthorizationActor): AuthorizationActor {
+    return {
+      actorType: 'employee',
+      sessionId: actor.sessionId,
+      organizationId: actor.organizationId,
+      employeeId: actor.employeeId,
+      userAccountId: actor.userAccountId,
+      clientKind: actor.clientKind,
+      assuranceLevel: actor.assuranceLevel,
+      authenticatedAt: actor.authenticatedAt
+        ? new Date(actor.authenticatedAt.getTime())
+        : null,
+      lastStepUpAt: actor.lastStepUpAt ? new Date(actor.lastStepUpAt.getTime()) : null,
+      issuedAt: new Date(actor.issuedAt.getTime()),
+      lastSeenAt: new Date(actor.lastSeenAt.getTime()),
+      idleExpiresAt: new Date(actor.idleExpiresAt.getTime()),
+      absoluteExpiresAt: new Date(actor.absoluteExpiresAt.getTime()),
+    };
+  }
+
+  private boundedResource(resource: AuthorizationResource): AuthorizationResource {
+    return {
+      type: resource.type,
+      organizationId: resource.organizationId,
+      ...(resource.id !== undefined ? { id: resource.id } : {}),
+      ...(resource.ownerEmployeeId !== undefined
+        ? { ownerEmployeeId: resource.ownerEmployeeId }
+        : {}),
+      ...(resource.ownerUserAccountId !== undefined
+        ? { ownerUserAccountId: resource.ownerUserAccountId }
+        : {}),
+    };
   }
 
   private validResource(resource: AuthorizationResource): boolean {
@@ -247,11 +295,16 @@ export class AuthorizationService {
       AUTHORIZATION_RESOURCE_TYPES.includes(resource.type) &&
       typeof resource.organizationId === 'string' &&
       resource.organizationId.length > 0 &&
-      (resource.id === undefined || (resource.id.length > 0 && resource.id.length <= 160))
+      resource.organizationId.length <= 160 &&
+      [resource.id, resource.ownerEmployeeId, resource.ownerUserAccountId].every(
+        (value) =>
+          value === undefined ||
+          (typeof value === 'string' && value.length > 0 && value.length <= 160),
+      )
     );
   }
 
-  private validAlternateGrant(grant: AuthorizationGrant, action: string): boolean {
+  private validGrant(grant: AuthorizationGrant, action: string): boolean {
     const definition = canonicalPermissionDefinition(action);
     if (
       !definition ||

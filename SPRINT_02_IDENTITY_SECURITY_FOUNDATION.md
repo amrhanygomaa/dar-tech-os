@@ -1,7 +1,7 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T07 CLOSED
-> S02-T00 through S02-T07 and S02-T12 are completed. S02-T04 was merged through PR #10 at `2e7d5bbc8e4bddfeb85b8c5be18582f26eded996`. S02-T07 was merged through PR #11 from final reviewed implementation head `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`; the canonical merge/main SHA is `0164fa03883f78847429bc46458316c9bafd75e8`. S02-T08 through S02-T11 and S02-T13 through S02-T15 remain unauthorized.
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T08 AUTHORIZED — IMPLEMENTATION UNDER REVIEW
+> S02-T00 through S02-T07 and S02-T12 are completed. S02-T08 is explicitly authorized and its implementation is under review. S02-T09 through S02-T11 and S02-T13 through S02-T15 remain unauthorized. S02-T07 was merged through PR #11 from final reviewed implementation head `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`; the T08 canonical base is `6cba2996d0e737dce019930cb6d409512511db61`.
 
 ## Sprint objective
 
@@ -21,13 +21,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00 through S02-T07 and S02-T12 are completed. S02-T07 was merged through PR #11 at canonical merge/main SHA `0164fa03883f78847429bc46458316c9bafd75e8` from final reviewed implementation head `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`. S02-T08 through S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion and merge of S02-T07 does not authorize any other ticket.
+Sprint 01 is closed. S02-T00 through S02-T07 and S02-T12 are completed. S02-T08 is explicitly authorized and its implementation is under review from canonical base `6cba2996d0e737dce019930cb6d409512511db61`. S02-T09 through S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized. This T08 authorization does not authorize any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside the completed tickets;
-- add production provider adapters, business relationship resolvers, approvals, temporary/emergency access behavior, offboarding, seeds, or bootstrap commands;
-- mark S02-T08 through S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside the completed tickets and the authorized S02-T08 boundary;
+- add production provider adapters, real business relationship resolvers, approvals, temporary/emergency access behavior, offboarding, seeds, or bootstrap commands;
+- mark S02-T09 through S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -101,7 +101,8 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T06 | COMPLETED | PR #9; merge commit `48f5327928cedd8cb1c7a531e9a3cb0c40f5599c`; evidence in `docs/engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md` |
 | S02-T04 | COMPLETED | PR #10; merge commit `2e7d5bbc8e4bddfeb85b8c5be18582f26eded996`; evidence in `docs/engineering/SPRINT_02_T04_SESSION_MANAGEMENT.md` |
 | S02-T07 | COMPLETED — CLOSED — MERGED | PR #11; final reviewed implementation head `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`; merge commit `0164fa03883f78847429bc46458316c9bafd75e8`; evidence in `docs/engineering/SPRINT_02_T07_CENTRAL_AUTHORIZATION.md` |
-| S02-T08 through S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T08 | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | Explicit supervisor authorization; implementation branch `codex/sprint-02-t08-resource-scope-foundation`; canonical base `6cba2996d0e737dce019930cb6d409512511db61` |
+| S02-T09 through S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -947,6 +948,8 @@ Implement one server-side authorization service through the canonical `authorize
 ---
 
 ## S02-T08 — Resource & Scope Authorization Foundation
+
+**Status: AUTHORIZED — IMPLEMENTATION UNDER REVIEW.**
 
 ### Objective
 

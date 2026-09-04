@@ -73,7 +73,7 @@ describe('CentralSessionAuthorizationAdapter trusted principal boundary', () => 
     const metrics: AuthorizationMetricsPort = { record: vi.fn() };
     const authorization = new AuthorizationService(
       grants,
-      [],
+      { resolve: async () => 'UNAVAILABLE' },
       metrics,
       undefined,
       undefined,

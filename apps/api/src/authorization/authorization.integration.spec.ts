@@ -11,8 +11,10 @@ import { AppModule } from '../app.module.js';
 import { AuthorizationActorContext } from './authorization-context.js';
 import { IdentityService } from '../identity/identity.service.js';
 import { PERMISSION_REGISTRY } from '../permissions/permission-manifest.js';
+import type { ScopeType } from '../permissions/permission.contracts.js';
 import { configureApiFoundation } from '../platform/configure-api-foundation.js';
 import { SessionService } from '../sessions/session.service.js';
+import { AuthorizationService } from './authorization.service.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const now = new Date('2026-09-03T12:00:00.000Z');
@@ -194,7 +196,7 @@ describe.skipIf(!databaseUrl)('S02-T07 central authorization PostgreSQL integrat
     if (client) await client.$disconnect();
   });
 
-  async function grant(permissionKey: string, scopeType: 'SELF' | 'ORGANIZATION' | 'EXPLICIT' = 'ORGANIZATION', binding?: { type: string; id: string }) {
+  async function grant(permissionKey: string, scopeType: ScopeType = 'ORGANIZATION', binding?: { type: string; id: string }) {
     const permission = await client.permission.findUniqueOrThrow({ where: { key: permissionKey } });
     return client.rolePermission.create({
       data: {
@@ -298,6 +300,59 @@ describe.skipIf(!databaseUrl)('S02-T07 central authorization PostgreSQL integrat
       .expect(404);
     await expect(client.employee.findUniqueOrThrow({ where: { id: foreignEmployeeId } }))
       .resolves.toMatchObject({ displayName: 'Foreign Employee' });
+  });
+
+  it('denies every relationship scope by default with real PostgreSQL grants', async () => {
+    for (const scopeType of [
+      'ASSIGNED',
+      'TEAM',
+      'DEPARTMENT',
+      'PROJECT',
+      'CUSTOMER',
+    ] as const) {
+      await client.rolePermission.deleteMany();
+      await grant('admin.employee.read', scopeType, {
+        type: scopeType.toLowerCase(),
+        id: `opaque:${scopeType.toLowerCase()}`,
+      });
+      await get(`/api/v1/employees/${targetEmployeeId}`).expect(403);
+    }
+  });
+
+  it('rejects a real cross-organization EXPLICIT binding before scope evaluation', async () => {
+    await grant('admin.employee.read', 'EXPLICIT', {
+      type: 'employee',
+      id: foreignEmployeeId,
+    });
+    const authorization = app.get(AuthorizationService);
+    const decision = await authorization.authorize(
+      {
+        actorType: 'employee',
+        sessionId,
+        organizationId: organizationAId,
+        employeeId: actorEmployeeId,
+        userAccountId: actorAccountId,
+        clientKind: 'browser',
+        assuranceLevel: 'mfa',
+        authenticatedAt: now,
+        lastStepUpAt: null,
+        issuedAt: now,
+        lastSeenAt: now,
+        idleExpiresAt: new Date(now.getTime() + 300_000),
+        absoluteExpiresAt: new Date(now.getTime() + 3_600_000),
+      },
+      'admin.employee.read',
+      {
+        type: 'employee',
+        organizationId: organizationBId,
+        id: foreignEmployeeId,
+      },
+      { at: now, source: 'test' },
+    );
+    expect(decision).toMatchObject({
+      allowed: false,
+      reasonCode: 'ORGANIZATION_MISMATCH',
+    });
   });
 
   it('requires current permissions and cannot bypass protected services outside HTTP context', async () => {

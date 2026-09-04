@@ -109,19 +109,23 @@ export const grantRolePermissionSchema: SchemaObject = {
       type: "string",
       enum: [...SCOPE_TYPES],
       description:
-        "Stored scope contract only. T06 does not resolve project, customer, team, department, or assignment relationships.",
+        "Scope narrows this permission. SELF is limited to approved account/session ownership; ORGANIZATION requires the trusted organization boundary; EXPLICIT requires exact type and ID; ASSIGNED, TEAM, DEPARTMENT, PROJECT, and CUSTOMER deny until an owning resolver confirms the relationship.",
     },
     scopeBindingType: {
       type: "string",
       minLength: 1,
       maxLength: 80,
       nullable: true,
+      description:
+        "Forbidden for SELF/ORGANIZATION; required with scopeBindingId for EXPLICIT; optional bounded owning-resolver descriptor for relationship scopes.",
     },
     scopeBindingId: {
       type: "string",
       minLength: 1,
       maxLength: 128,
       nullable: true,
+      description:
+        "Forbidden for SELF/ORGANIZATION; required with scopeBindingType for EXPLICIT; exact opaque value only (no wildcard or prefix semantics).",
     },
     expiresAt: nullableDateTime,
   },

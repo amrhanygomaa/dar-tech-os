@@ -5,7 +5,11 @@ import type { SessionPrincipal } from '../sessions/session.contracts.js';
 export const AUTHORIZATION_CLOCK = Symbol('AUTHORIZATION_CLOCK');
 export const AUTHORIZATION_GRANT_REPOSITORY = Symbol('AUTHORIZATION_GRANT_REPOSITORY');
 export const AUTHORIZATION_METRICS_PORT = Symbol('AUTHORIZATION_METRICS_PORT');
+export const AUTHORIZATION_RESOLVER_METRICS_PORT = Symbol('AUTHORIZATION_RESOLVER_METRICS_PORT');
 export const AUTHORIZATION_SCOPE_RESOLVERS = Symbol('AUTHORIZATION_SCOPE_RESOLVERS');
+export const AUTHORIZATION_SCOPE_RESOLVER_REGISTRY = Symbol(
+  'AUTHORIZATION_SCOPE_RESOLVER_REGISTRY',
+);
 export const AUTHORIZATION_TEMPORARY_GRANT_SOURCE = Symbol('AUTHORIZATION_TEMPORARY_GRANT_SOURCE');
 export const AUTHORIZATION_EMERGENCY_GRANT_SOURCE = Symbol('AUTHORIZATION_EMERGENCY_GRANT_SOURCE');
 export const AUTHORIZATION_POLICY_EVALUATOR = Symbol('AUTHORIZATION_POLICY_EVALUATOR');
@@ -95,14 +99,36 @@ export const EXTENSION_SCOPE_TYPES = [
 export type ExtensionScopeType = (typeof EXTENSION_SCOPE_TYPES)[number];
 export type ScopeResolution = 'MATCH' | 'NO_MATCH';
 
+export interface AuthorizationScopeResolverCapability {
+  readonly scopeType: ExtensionScopeType;
+  readonly resourceType: AuthorizationResourceType;
+}
+
+export interface AuthorizationScopeResolverInput {
+  readonly actor: AuthorizationActor;
+  readonly organizationId: string;
+  readonly grant: AuthorizationGrant & { readonly scopeType: ExtensionScopeType };
+  readonly resource: AuthorizationResource;
+  readonly context: AuthorizationContext;
+}
+
 export interface AuthorizationScopeResolver {
+  /**
+   * Compatibility seam for T07 test adapters. Production resolver ownership is
+   * declared with `AuthorizationScopeResolverFor` and never selected by order.
+   */
   canResolve(scopeType: ExtensionScopeType, resourceType: AuthorizationResourceType): boolean;
-  resolve(input: {
-    readonly actor: AuthorizationActor;
-    readonly grant: AuthorizationGrant & { readonly scopeType: ExtensionScopeType };
-    readonly resource: AuthorizationResource;
-    readonly context: AuthorizationContext;
-  }): Promise<ScopeResolution>;
+  resolve(input: AuthorizationScopeResolverInput): Promise<ScopeResolution>;
+}
+
+export type AuthorizationScopeRegistryOutcome =
+  | 'MATCH'
+  | 'NO_MATCH'
+  | 'UNAVAILABLE'
+  | 'ERROR';
+
+export interface AuthorizationScopeResolverRegistryPort {
+  resolve(input: AuthorizationScopeResolverInput): Promise<AuthorizationScopeRegistryOutcome>;
 }
 
 export interface AuthorizationMetricsPort {
@@ -111,6 +137,22 @@ export interface AuthorizationMetricsPort {
     readonly reasonCode: AuthorizationReasonCode;
     readonly actionFamily: string;
     readonly scopeType?: ScopeType;
+  }): void;
+}
+
+export type AuthorizationResolverLatencyBucket =
+  | 'LT_5_MS'
+  | 'LT_25_MS'
+  | 'LT_100_MS'
+  | 'LT_500_MS'
+  | 'GTE_500_MS';
+
+export interface AuthorizationResolverMetricsPort {
+  recordResolver(input: {
+    readonly scopeType: ExtensionScopeType;
+    readonly resourceType: AuthorizationResourceType;
+    readonly outcome: 'MATCH' | 'NO_MATCH' | 'UNAVAILABLE' | 'ERROR';
+    readonly latencyBucket: AuthorizationResolverLatencyBucket;
   }): void;
 }
 

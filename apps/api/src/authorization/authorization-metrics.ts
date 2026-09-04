@@ -1,6 +1,9 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { STRUCTURED_LOGGER, type StructuredLogger } from '@dar-tech/observability';
-import type { AuthorizationMetricsPort } from './authorization.contracts.js';
+import type {
+  AuthorizationMetricsPort,
+  AuthorizationResolverMetricsPort,
+} from './authorization.contracts.js';
 
 export interface AuthorizationMetricsRateLimitOptions {
   readonly windowMs?: number;
@@ -79,6 +82,26 @@ export class StructuredAuthorizationMetricsAdapter implements AuthorizationMetri
       if (oldestKey) {
         this.cache.delete(oldestKey);
       }
+    }
+  }
+}
+
+@Injectable()
+export class StructuredAuthorizationResolverMetricsAdapter
+  implements AuthorizationResolverMetricsPort
+{
+  constructor(@Inject(STRUCTURED_LOGGER) private readonly logger: StructuredLogger) {}
+
+  recordResolver(input: Parameters<AuthorizationResolverMetricsPort['recordResolver']>[0]): void {
+    try {
+      this.logger.info('authorization.scope_resolver.metric', {
+        scopeType: input.scopeType,
+        resourceType: input.resourceType,
+        outcome: input.outcome,
+        latencyBucket: input.latencyBucket,
+      });
+    } catch {
+      // Observability is best-effort and must never throw or affect callers.
     }
   }
 }

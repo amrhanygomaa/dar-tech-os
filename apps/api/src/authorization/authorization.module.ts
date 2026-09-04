@@ -1,4 +1,5 @@
 import { type DynamicModule, Global, Module, type Provider } from '@nestjs/common';
+import { DiscoveryModule } from '@nestjs/core';
 import type { AppEnvironment } from '@dar-tech/config';
 import { PERMISSION_REPOSITORY_PORT } from '../permissions/permission.contracts.js';
 import {
@@ -17,6 +18,8 @@ import {
   AUTHORIZATION_GRANT_REPOSITORY,
   AUTHORIZATION_METRICS_PORT,
   AUTHORIZATION_POLICY_EVALUATOR,
+  AUTHORIZATION_RESOLVER_METRICS_PORT,
+  AUTHORIZATION_SCOPE_RESOLVER_REGISTRY,
   AUTHORIZATION_SCOPE_RESOLVERS,
   AUTHORIZATION_TEMPORARY_GRANT_SOURCE,
   type AuthorizationClock,
@@ -24,6 +27,7 @@ import {
   type AuthorizationGrantRepository,
   type AuthorizationMetricsPort,
   type AuthorizationPolicyEvaluator,
+  type AuthorizationResolverMetricsPort,
   type AuthorizationScopeResolver,
   type AuthorizationTemporaryGrantSource,
 } from './authorization.contracts.js';
@@ -32,14 +36,19 @@ import {
   DefaultAuthorizationPolicyEvaluator,
   DefaultAuthorizationTemporaryGrantSource,
 } from './authorization-extensions.js';
-import { StructuredAuthorizationMetricsAdapter } from './authorization-metrics.js';
+import {
+  StructuredAuthorizationMetricsAdapter,
+  StructuredAuthorizationResolverMetricsAdapter,
+} from './authorization-metrics.js';
 import { AuthorizationRequestMiddleware } from './authorization-request.middleware.js';
+import { AuthorizationScopeResolverRegistry } from './authorization-scope-resolver.registry.js';
 import { AuthorizationService } from './authorization.service.js';
 
 export interface AuthorizationTestAdapters {
   readonly clock?: AuthorizationClock;
   readonly grants?: AuthorizationGrantRepository;
   readonly metrics?: AuthorizationMetricsPort;
+  readonly resolverMetrics?: AuthorizationResolverMetricsPort;
   readonly scopeResolvers?: readonly AuthorizationScopeResolver[];
   readonly temporaryGrantSource?: AuthorizationTemporaryGrantSource;
   readonly emergencyGrantSource?: AuthorizationEmergencyGrantSource;
@@ -47,7 +56,6 @@ export interface AuthorizationTestAdapters {
 }
 
 export interface AuthorizationModuleExtensions {
-  readonly scopeResolvers?: readonly AuthorizationScopeResolver[];
   readonly temporaryGrantSource?: AuthorizationTemporaryGrantSource;
   readonly emergencyGrantSource?: AuthorizationEmergencyGrantSource;
   readonly policyEvaluator?: AuthorizationPolicyEvaluator;
@@ -76,6 +84,7 @@ export class AuthorizationModule {
     return {
       module: AuthorizationModule,
       global: true,
+      imports: [DiscoveryModule],
       providers: [
         AuthorizationActorContext,
         selectedProvider(AUTHORIZATION_CLOCK, testAdapters?.clock, {
@@ -92,7 +101,16 @@ export class AuthorizationModule {
         }),
         {
           provide: AUTHORIZATION_SCOPE_RESOLVERS,
-          useValue: testAdapters?.scopeResolvers ?? extensions?.scopeResolvers ?? [],
+          useValue: testAdapters?.scopeResolvers ?? [],
+        },
+        selectedProvider(AUTHORIZATION_RESOLVER_METRICS_PORT, testAdapters?.resolverMetrics, {
+          provide: AUTHORIZATION_RESOLVER_METRICS_PORT,
+          useClass: StructuredAuthorizationResolverMetricsAdapter,
+        }),
+        AuthorizationScopeResolverRegistry,
+        {
+          provide: AUTHORIZATION_SCOPE_RESOLVER_REGISTRY,
+          useExisting: AuthorizationScopeResolverRegistry,
         },
         selectedProvider(
           AUTHORIZATION_TEMPORARY_GRANT_SOURCE,
@@ -130,7 +148,7 @@ export class AuthorizationModule {
       ],
       exports: [
         AUTHORIZATION_CLOCK,
-        AUTHORIZATION_SCOPE_RESOLVERS,
+        AUTHORIZATION_SCOPE_RESOLVER_REGISTRY,
         AUTHORIZATION_TEMPORARY_GRANT_SOURCE,
         AUTHORIZATION_EMERGENCY_GRANT_SOURCE,
         AUTHORIZATION_POLICY_EVALUATOR,
