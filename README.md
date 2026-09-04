@@ -6,7 +6,7 @@ Internal company operating system for Dar Tech.
 
 **Sprint 01 — Engineering Foundation: COMPLETED**
 
-Sprint 02 remains under controlled implementation. S02-T00 through S02-T07 and S02-T12 are complete. S02-T07 was merged through PR #11; its final reviewed implementation head is `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`, and its canonical merge/main SHA is `0164fa03883f78847429bc46458316c9bafd75e8`. S02-T08 through S02-T11 and S02-T13 through S02-T15 remain unauthorized. Business-module implementation has not started.
+Sprint 02 remains under controlled implementation. S02-T00 through S02-T07 and S02-T12 are complete. S02-T08 is explicitly authorized and its resource/scope foundation implementation is under review from canonical base `6cba2996d0e737dce019930cb6d409512511db61`. S02-T09 through S02-T11 and S02-T13 through S02-T15 remain unauthorized. No real business relationship resolver or business module has been installed.
 
 ## Start here
 
@@ -18,7 +18,7 @@ Codex must read these files before implementation:
 4. `docs/README.md`
 5. Only the documentation relevant to the active ticket
 
-Do **not** start another Sprint 02 ticket or any business module without explicit supervisor authorization.
+Do **not** start S02-T09+ or any business module without explicit supervisor authorization.
 
 ## Initial architecture baseline
 

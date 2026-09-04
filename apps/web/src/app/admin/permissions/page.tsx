@@ -66,6 +66,31 @@ const scopeTypes = [
   "EXPLICIT",
 ] as const;
 
+const relationshipScopeTypes = [
+  "ASSIGNED",
+  "TEAM",
+  "DEPARTMENT",
+  "PROJECT",
+  "CUSTOMER",
+] as const;
+
+function isRelationshipScope(
+  scope: (typeof scopeTypes)[number],
+): scope is (typeof relationshipScopeTypes)[number] {
+  return (relationshipScopeTypes as readonly string[]).includes(scope);
+}
+
+const scopeLabels: Record<(typeof scopeTypes)[number], string> = {
+  SELF: "SELF — approved account/session ownership only",
+  ORGANIZATION: "ORGANIZATION — same organization",
+  EXPLICIT: "EXPLICIT — exact resource type and ID",
+  ASSIGNED: "ASSIGNED — owning resolver required",
+  TEAM: "TEAM — owning resolver required",
+  DEPARTMENT: "DEPARTMENT — owning resolver required",
+  PROJECT: "PROJECT — owning resolver required",
+  CUSTOMER: "CUSTOMER — owning resolver required",
+};
+
 function stateFor(status: number): PageState {
   if (status === 401) return "unauthorized";
   if (status === 403) return "forbidden";
@@ -234,6 +259,7 @@ export default function PermissionAdministrationPage() {
 
   const bindingDisabled = scopeType === "SELF" || scopeType === "ORGANIZATION";
   const bindingRequired = scopeType === "EXPLICIT";
+  const relationshipScope = isRelationshipScope(scopeType);
 
   return (
     <main className="workspace-main">
@@ -379,11 +405,20 @@ export default function PermissionAdministrationPage() {
                 >
                   {scopeTypes.map((scope) => (
                     <option value={scope} key={scope}>
-                      {scope}
+                      {scopeLabels[scope]}
                     </option>
                   ))}
                 </select>
               </label>
+              <p className="security-note compact" role="status">
+                {relationshipScope
+                  ? `${scopeType} can be stored for future configuration, but it does not authorize in the current application because no owning relationship resolver is installed.`
+                  : scopeType === "EXPLICIT"
+                    ? "EXPLICIT requires an exact bounded resource type and resource ID. It never uses prefixes, wildcards, or hierarchy inference."
+                    : scopeType === "SELF"
+                      ? "SELF is limited to approved account and session ownership; it is not generic employee ownership."
+                      : "ORGANIZATION applies only after the trusted actor and resource organizations match."}
+              </p>
               <label>
                 Binding type
                 <input
@@ -446,6 +481,11 @@ export default function PermissionAdministrationPage() {
                       {grant.scopeType}
                       {grant.scopeBindingType
                         ? ` · ${grant.scopeBindingType}:${grant.scopeBindingId}`
+                        : ""}
+                      {isRelationshipScope(
+                        grant.scopeType as (typeof scopeTypes)[number],
+                      )
+                        ? " · owning resolver required"
                         : ""}
                     </p>
                     <p>

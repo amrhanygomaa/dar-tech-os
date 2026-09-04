@@ -9,9 +9,11 @@ import type {
   AuthorizationPolicyEvaluator,
   AuthorizationResource,
   AuthorizationScopeResolver,
+  AuthorizationScopeResolverRegistryPort,
   AuthorizationTemporaryGrantSource,
 } from './authorization.contracts.js';
 import { EXTENSION_SCOPE_TYPES } from './authorization.contracts.js';
+import { SCOPE_TYPES } from '../permissions/permission.contracts.js';
 import {
   DefaultAuthorizationEmergencyGrantSource,
   DefaultAuthorizationTemporaryGrantSource,
@@ -61,9 +63,28 @@ function harness(
     listEffectivePermissionGrantsForEmployee: vi.fn(() => Promise.resolve(grants)),
   };
   const metrics: AuthorizationMetricsPort = { record: vi.fn() };
+  const resolverRegistry: AuthorizationScopeResolverRegistryPort = {
+    resolve: async (input) => {
+      let matching: readonly AuthorizationScopeResolver[];
+      try {
+        matching = resolvers.filter((resolver) =>
+          resolver.canResolve(input.grant.scopeType, input.resource.type),
+        );
+      } catch {
+        return 'ERROR';
+      }
+      if (matching.length !== 1) return 'UNAVAILABLE';
+      try {
+        const result = await matching[0]!.resolve(input);
+        return result === 'MATCH' || result === 'NO_MATCH' ? result : 'ERROR';
+      } catch {
+        return 'ERROR';
+      }
+    },
+  };
   const service = new AuthorizationService(
     repository,
-    resolvers,
+    resolverRegistry,
     metrics,
     options.temporaryGrantSource,
     options.emergencyGrantSource,
@@ -73,6 +94,18 @@ function harness(
 }
 
 describe('S02-T07 canonical authorization service', () => {
+  it('represents exactly the eight approved scope contracts', () => {
+    expect(SCOPE_TYPES).toEqual([
+      'SELF',
+      'ASSIGNED',
+      'TEAM',
+      'DEPARTMENT',
+      'PROJECT',
+      'CUSTOMER',
+      'ORGANIZATION',
+      'EXPLICIT',
+    ]);
+  });
   it('allows a canonical permission through an organization-scoped effective grant', async () => {
     const test = harness([organizationGrant]);
     await expect(test.service.authorize(actor, organizationGrant.permissionKey, resource, { at: now, source: 'test' }))
@@ -119,6 +152,17 @@ describe('S02-T07 canonical authorization service', () => {
     await expect(test.service.authorize(actor, explicit.permissionKey, resource, { at: now, source: 'test' })).resolves.toMatchObject({ allowed: true });
     await expect(test.service.authorize(actor, explicit.permissionKey, { ...resource, id: 'employee-c' }, { at: now, source: 'test' })).resolves.toMatchObject({ allowed: false });
     await expect(test.service.authorize(actor, explicit.permissionKey, { ...resource, type: 'role' }, { at: now, source: 'test' })).resolves.toMatchObject({ allowed: false });
+    for (const malformed of [
+      { ...explicit, scopeBindingType: null },
+      { ...explicit, scopeBindingId: null },
+    ]) {
+      await expect(
+        harness([malformed]).service.authorize(actor, explicit.permissionKey, resource, {
+          at: now,
+          source: 'test',
+        }),
+      ).resolves.toMatchObject({ allowed: false });
+    }
   });
 
   it('unions all effective grants without broadening their scopes', async () => {
@@ -129,22 +173,164 @@ describe('S02-T07 canonical authorization service', () => {
     await expect(test.service.authorize(actor, organizationGrant.permissionKey, resource, { at: now, source: 'test' })).resolves.toMatchObject({ allowed: false });
   });
 
-  it('denies missing and throwing extension resolvers and permits a test-only match', async () => {
-    const extension: AuthorizationGrant = { ...organizationGrant, scopeType: 'TEAM' };
-    await expect(harness([extension]).service.authorize(actor, extension.permissionKey, resource, { at: now, source: 'test' }))
-      .resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_RESOLVER_UNAVAILABLE' });
-    const throwing: AuthorizationScopeResolver = { canResolve: () => true, resolve: () => Promise.reject(new Error('failed')) };
-    await expect(harness([extension], [throwing]).service.authorize(actor, extension.permissionKey, resource, { at: now, source: 'test' }))
-      .resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_RESOLVER_UNAVAILABLE' });
-    const throwingCapabilityCheck: AuthorizationScopeResolver = {
-      canResolve: () => { throw new Error('failed'); },
-      resolve: () => Promise.resolve('MATCH'),
+  it.each(EXTENSION_SCOPE_TYPES)(
+    'enforces the complete typed resolver contract for %s',
+    async (scopeType) => {
+      const extension: AuthorizationGrant = {
+        ...organizationGrant,
+        scopeType,
+        scopeBindingType: scopeType.toLowerCase(),
+        scopeBindingId: 'relationship-1',
+      };
+      const matching: AuthorizationScopeResolver = {
+        canResolve: (candidateScope, resourceType) =>
+          candidateScope === scopeType && resourceType === 'employee',
+        resolve: async (resolverInput) =>
+          resolverInput.grant.scopeBindingType === scopeType.toLowerCase() &&
+          resolverInput.grant.scopeBindingId === 'relationship-1' &&
+          resolverInput.resource.id === resource.id
+            ? 'MATCH'
+            : 'NO_MATCH',
+      };
+      const noMatch: AuthorizationScopeResolver = {
+        ...matching,
+        resolve: async () => 'NO_MATCH',
+      };
+      const throwing: AuthorizationScopeResolver = {
+        ...matching,
+        resolve: async () => { throw new Error('resolver failed'); },
+      };
+
+      await expect(
+        harness([extension], [matching]).service.authorize(
+          actor,
+          extension.permissionKey,
+          resource,
+          { at: now, source: 'test' },
+        ),
+      ).resolves.toMatchObject({ allowed: true, matchedGrant: { scopeType } });
+      await expect(
+        harness([extension], [noMatch]).service.authorize(
+          actor,
+          extension.permissionKey,
+          resource,
+          { at: now, source: 'test' },
+        ),
+      ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' });
+      for (const resolvers of [[], [throwing]] as const) {
+        await expect(
+          harness([extension], resolvers).service.authorize(
+            actor,
+            extension.permissionKey,
+            resource,
+            { at: now, source: 'test' },
+          ),
+        ).resolves.toMatchObject({
+          allowed: false,
+          reasonCode: 'SCOPE_RESOLVER_UNAVAILABLE',
+        });
+      }
+      await expect(
+        harness([extension], [matching]).service.authorize(
+          actor,
+          extension.permissionKey,
+          { ...resource, type: 'role' },
+          { at: now, source: 'test' },
+        ),
+      ).resolves.toMatchObject({ allowed: false });
+      await expect(
+        harness(
+          [{ ...extension, scopeBindingId: 'relationship-wrong' }],
+          [matching],
+        ).service.authorize(actor, extension.permissionKey, resource, {
+          at: now,
+          source: 'test',
+        }),
+      ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' });
+
+      const wrongOrganizationResolver = { ...matching, resolve: vi.fn(matching.resolve) };
+      await expect(
+        harness([extension], [wrongOrganizationResolver]).service.authorize(
+          actor,
+          extension.permissionKey,
+          { ...resource, organizationId: 'organization-b' },
+          { at: now, source: 'test' },
+        ),
+      ).resolves.toMatchObject({ allowed: false, reasonCode: 'ORGANIZATION_MISMATCH' });
+      expect(wrongOrganizationResolver.resolve).not.toHaveBeenCalled();
+
+      const authorityProbe = { ...matching, resolve: vi.fn(matching.resolve) };
+      for (const grants of [
+        [],
+        [{ ...extension, permissionKey: 'admin.role.read' }],
+      ] as const) {
+        await expect(
+          harness(grants, [authorityProbe]).service.authorize(
+            actor,
+            extension.permissionKey,
+            resource,
+            { at: now, source: 'test' },
+          ),
+        ).resolves.toMatchObject({ allowed: false, reasonCode: 'PERMISSION_NOT_GRANTED' });
+      }
+      expect(authorityProbe.resolve).not.toHaveBeenCalled();
+    },
+  );
+
+  it('passes resolvers only a bounded trusted projection', async () => {
+    let received: unknown;
+    const resolver: AuthorizationScopeResolver = {
+      canResolve: () => true,
+      resolve: async (input) => {
+        received = input;
+        return 'MATCH';
+      },
     };
-    await expect(harness([extension], [throwingCapabilityCheck]).service.authorize(actor, extension.permissionKey, resource, { at: now, source: 'test' }))
-      .resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_RESOLVER_UNAVAILABLE' });
-    const matching: AuthorizationScopeResolver = { canResolve: (scope) => scope === 'TEAM', resolve: () => Promise.resolve('MATCH') };
-    await expect(harness([extension], [matching]).service.authorize(actor, extension.permissionKey, resource, { at: now, source: 'test' }))
-      .resolves.toMatchObject({ allowed: true });
+    const grant: AuthorizationGrant = { ...organizationGrant, scopeType: 'TEAM' };
+    const actorWithUntrustedExtras = {
+      ...actor,
+      request: { headers: { cookie: 'secret' } },
+      roleName: 'Founder',
+    } as AuthorizationActor;
+    const resourceWithUntrustedExtras = {
+      ...resource,
+      membershipClaim: 'team-a',
+    } as AuthorizationResource;
+    await harness([grant], [resolver]).service.authorize(
+      actorWithUntrustedExtras,
+      grant.permissionKey,
+      resourceWithUntrustedExtras,
+      { at: now, source: 'test', rawBody: { member: true } } as never,
+    );
+    expect(received).toMatchObject({ organizationId: actor.organizationId });
+    expect(JSON.stringify(received)).not.toMatch(/request|headers|cookie|roleName|membershipClaim|rawBody/u);
+  });
+
+  it('keeps TEAM and PROJECT grant union bounded to independently matching scopes', async () => {
+    const teamGrant: AuthorizationGrant = { ...organizationGrant, scopeType: 'TEAM' };
+    const projectGrant: AuthorizationGrant = { ...organizationGrant, scopeType: 'PROJECT' };
+    const resolver = (scopeType: 'TEAM' | 'PROJECT', result: 'MATCH' | 'NO_MATCH') => ({
+      canResolve: (scope: string) => scope === scopeType,
+      resolve: async () => result,
+    }) satisfies AuthorizationScopeResolver;
+    await expect(
+      harness(
+        [teamGrant, projectGrant],
+        [resolver('TEAM', 'NO_MATCH'), resolver('PROJECT', 'MATCH')],
+      ).service.authorize(actor, organizationGrant.permissionKey, resource, {
+        at: now,
+        source: 'test',
+      }),
+    ).resolves.toMatchObject({ allowed: true, matchedGrant: { scopeType: 'PROJECT' } });
+    await expect(
+      harness(
+        [teamGrant, projectGrant],
+        [resolver('TEAM', 'NO_MATCH'), resolver('PROJECT', 'NO_MATCH')],
+      ).service.authorize(actor, organizationGrant.permissionKey, resource, {
+        at: now,
+        source: 'test',
+      }),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' });
   });
 
   it('does not infer authority from role names, founder state, or job-title-like values', async () => {
@@ -447,7 +633,11 @@ describe('S02-T07 canonical authorization service', () => {
     const metrics: AuthorizationMetricsPort = {
       record: () => { throw new Error('metrics unavailable'); },
     };
-    const service = new AuthorizationService(repository, [], metrics);
+    const service = new AuthorizationService(
+      repository,
+      { resolve: async () => 'UNAVAILABLE' },
+      metrics,
+    );
     await expect(
       service.authorize(actor, organizationGrant.permissionKey, resource, {
         at: now,
