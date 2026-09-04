@@ -71,6 +71,7 @@ function principal(session: RawSession): SessionPrincipal {
     clientKind: 'browser',
     assuranceLevel: session.assuranceLevel,
     authenticatedAt: session.authenticatedAt,
+    lastStepUpAt: session.lastStepUpAt,
     issuedAt: session.issuedAt,
     lastSeenAt: session.lastSeenAt,
     idleExpiresAt: session.idleExpiresAt,

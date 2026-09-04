@@ -105,7 +105,7 @@ export default function RoleAdministrationPage() {
       setRoles((current) => [...current, role]);
       event.currentTarget.reset();
       setState('ready');
-      setMessage('Role created. Permission grants are managed separately and do not authorize actions until T07.');
+      setMessage('Role created. It grants authority only through current explicit permission grants and matching scopes.');
     } catch (error) {
       reportFailure(error);
     } finally {
@@ -239,7 +239,7 @@ export default function RoleAdministrationPage() {
           <p className="eyebrow">Identity administration</p>
           <h1>Roles and assignments</h1>
           <p className="lede">Create organization roles and preserve multi-role assignment history.</p>
-          <p className="security-note compact"><strong>Role names never authorize actions.</strong> T06 stores explicit grants; final application authorization remains deferred to T07.</p>
+          <p className="security-note compact"><strong>Role names never authorize actions.</strong> Current explicit grants and matching scopes are evaluated server-side for every protected action.</p>
         </div>
         <div className="header-links"><a className="text-link" href="/admin/permissions">Permission administration</a><a className="text-link" href="/">Portal home</a></div>
       </header>

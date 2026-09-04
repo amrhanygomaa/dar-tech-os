@@ -16,9 +16,9 @@ import {
 import { SessionAdministrationController, SessionSelfController } from './session.controller.js';
 import { PrismaSessionRepository } from './prisma-session.repository.js';
 import {
-  DenyAllSessionAdministrationAuthorizationAdapter,
   StructuredSessionMetricsAdapter,
 } from './session-security.adapters.js';
+import { CentralSessionAuthorizationAdapter } from '../authorization/authorization.adapters.js';
 import { CryptographicSessionCredentialGenerator } from './session-secret.js';
 import { SessionService } from './session.service.js';
 
@@ -64,7 +64,7 @@ export class SessionModule {
           testAdapters?.administrationAuthorization,
           {
             provide: SESSION_ADMINISTRATION_AUTHORIZATION_PORT,
-            useClass: DenyAllSessionAdministrationAuthorizationAdapter,
+            useClass: CentralSessionAuthorizationAdapter,
           },
         ),
         selectedProvider(SESSION_METRICS_PORT, testAdapters?.metrics, {

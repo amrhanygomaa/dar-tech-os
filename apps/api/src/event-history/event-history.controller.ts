@@ -1,6 +1,7 @@
 import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiCookieAuth,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -24,6 +25,7 @@ import {
   securityEventSchema,
 } from './event-history.openapi.js';
 import { EventHistoryService } from './event-history.service.js';
+import { SESSION_COOKIE_NAME } from '../sessions/session.contracts.js';
 
 const protectedError = {
   schema: eventHistoryErrorSchema,
@@ -31,6 +33,7 @@ const protectedError = {
 };
 
 @ApiTags('Audit events')
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller('audit-events')
 export class AuditEventsController {
   constructor(@Inject(EventHistoryService) private readonly history: EventHistoryService) {}
@@ -106,6 +109,7 @@ export class AuditEventsController {
 }
 
 @ApiTags('Security events')
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller('security-events')
 export class SecurityEventsController {
   constructor(@Inject(EventHistoryService) private readonly history: EventHistoryService) {}

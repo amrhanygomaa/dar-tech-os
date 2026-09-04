@@ -73,6 +73,27 @@ describe('S02-T04 session API boundary', () => {
     app = await NestFactory.create(
       AppModule.register(config, { contextStore, logger }, {
         sessionTestAdapters: { repository, credentials, clock: { now: () => now } },
+        authorizationTestAdapters: {
+          clock: { now: () => now },
+          grants: {
+            listEffectivePermissionGrantsForEmployee: () => Promise.resolve([
+              {
+                permissionKey: 'identity.session.read_self',
+                riskClassification: 'LOW',
+                scopeType: 'SELF',
+                scopeBindingType: null,
+                scopeBindingId: null,
+              },
+              {
+                permissionKey: 'identity.session.revoke_self',
+                riskClassification: 'MEDIUM',
+                scopeType: 'SELF',
+                scopeBindingType: null,
+                scopeBindingId: null,
+              },
+            ]),
+          },
+        },
       }),
       { logger },
     );

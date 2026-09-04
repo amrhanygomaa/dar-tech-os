@@ -4,6 +4,7 @@ import type { NormalizedProviderIdentity } from '../auth/auth.contracts.js';
 import {
   SESSION_ADMINISTRATION_ACTIONS,
   SESSION_ADMINISTRATION_AUTHORIZATION_PORT,
+  SESSION_SELF_ACTIONS,
   SESSION_CLOCK,
   SESSION_CONFIG,
   SESSION_CREDENTIAL_GENERATOR,
@@ -137,7 +138,14 @@ export class SessionService {
     return { ...resolution, principal: resolution.principal };
   }
 
-  listSelf(principal: SessionPrincipal): Promise<readonly SessionView[]> {
+  async listSelf(principal: SessionPrincipal): Promise<readonly SessionView[]> {
+    await this.requireSessionAuthorization(
+      principal,
+      SESSION_SELF_ACTIONS.read,
+      'employee-sessions',
+      principal.employeeId,
+      true,
+    );
     return this.repository.listSelf({ principal, now: this.clock.now() });
   }
 
@@ -146,6 +154,13 @@ export class SessionService {
     readonly currentSessionRevoked: boolean;
   }> {
     const sessionId = parseSessionId(sessionIdInput);
+    await this.requireSessionAuthorization(
+      principal,
+      SESSION_SELF_ACTIONS.revoke,
+      'session',
+      sessionId,
+      true,
+    );
     const status = await this.repository.revokeSelf({
       principal,
       sessionId,
@@ -161,6 +176,13 @@ export class SessionService {
     readonly currentSessionRevoked: boolean;
   }> {
     const { includeCurrent } = parseRevokeAllBody(body);
+    await this.requireSessionAuthorization(
+      principal,
+      SESSION_SELF_ACTIONS.revoke,
+      'employee-sessions',
+      principal.employeeId,
+      true,
+    );
     const result = await this.repository.revokeAllSelf({
       principal,
       includeCurrent,
@@ -180,7 +202,7 @@ export class SessionService {
     pageSizeInput?: string,
   ): Promise<SessionPage> {
     const employeeId = employeeIdInput ? parseSessionId(employeeIdInput) : undefined;
-    await this.requireAdministrationAuthorization(
+    await this.requireSessionAuthorization(
       actor,
       SESSION_ADMINISTRATION_ACTIONS.read,
       'employee-sessions',
@@ -201,7 +223,7 @@ export class SessionService {
     readonly currentSessionRevoked: boolean;
   }> {
     const sessionId = parseSessionId(sessionIdInput);
-    await this.requireAdministrationAuthorization(
+    await this.requireSessionAuthorization(
       actor,
       SESSION_ADMINISTRATION_ACTIONS.revoke,
       'session',
@@ -224,7 +246,7 @@ export class SessionService {
   ): Promise<{ readonly revokedCount: number; readonly currentSessionRevoked: boolean }> {
     const employeeId = parseSessionId(employeeIdInput);
     const { includeCurrent } = parseRevokeAllBody(body);
-    await this.requireAdministrationAuthorization(
+    await this.requireSessionAuthorization(
       actor,
       SESSION_ADMINISTRATION_ACTIONS.revoke,
       'employee-sessions',
@@ -266,11 +288,14 @@ export class SessionService {
     this.metrics.record({ operation: 'csrf', outcome: 'denied', category });
   }
 
-  private async requireAdministrationAuthorization(
+  private async requireSessionAuthorization(
     actor: SessionPrincipal,
-    action: (typeof SESSION_ADMINISTRATION_ACTIONS)[keyof typeof SESSION_ADMINISTRATION_ACTIONS],
+    action:
+      | (typeof SESSION_ADMINISTRATION_ACTIONS)[keyof typeof SESSION_ADMINISTRATION_ACTIONS]
+      | (typeof SESSION_SELF_ACTIONS)[keyof typeof SESSION_SELF_ACTIONS],
     type: 'session' | 'employee-sessions',
     id?: string,
+    self = false,
   ): Promise<void> {
     const allowed = await this.administrationAuthorization.allows({
       actor,
@@ -279,6 +304,12 @@ export class SessionService {
         type,
         organizationId: actor.organizationId,
         ...(id ? { id } : {}),
+        ...(self
+          ? {
+              ownerEmployeeId: actor.employeeId,
+              ownerUserAccountId: actor.userAccountId,
+            }
+          : {}),
       },
     });
     if (!allowed) throw sessionAuthorizationDenied();

@@ -61,7 +61,7 @@ export default function AdminSessionsPage() {
 
   return (
     <main className="workspace-main">
-      <header className="workspace-header"><div><p className="eyebrow">Fail-closed administration</p><h1>Organization sessions</h1><p className="lede">Safe metadata only. Production access remains denied until the central authorization ticket supplies a decision.</p></div></header>
+      <header className="workspace-header"><div><p className="eyebrow">Server-authorized administration</p><h1>Organization sessions</h1><p className="lede">Safe metadata only. Access is enforced from the current session, effective roles, permission grants, organization boundary, and scope.</p></div></header>
       <div className="workspace-grid">
         <section className="panel"><div className="panel-heading"><h2>Filter by employee</h2></div><form className="form-grid" onSubmit={filter}><label>Employee ID<input value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)} /></label><button className="button primary" disabled={submitting}>Apply filter</button></form></section>
         <section className="panel" aria-live="polite">

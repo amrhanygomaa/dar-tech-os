@@ -13,6 +13,7 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConflictResponse,
+  ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -39,8 +40,10 @@ import {
   successEnvelope,
 } from "./permission.openapi.js";
 import { PermissionService } from "./permission.service.js";
+import { SESSION_COOKIE_NAME } from "../sessions/session.contracts.js";
 
 @ApiTags("Permissions")
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller("permissions")
 export class PermissionsController {
   constructor(
@@ -51,7 +54,7 @@ export class PermissionsController {
   @ApiOperation({
     summary: "List the synchronized product-global permission catalog",
     description:
-      "Risk is technical security metadata, not an approval decision. T06 does not authorize application actions.",
+      "Access is centrally authorized from the current session and effective grants. Risk is technical security metadata, not an approval decision.",
   })
   @ApiQuery({ name: "page", required: false, type: Number, minimum: 1 })
   @ApiQuery({
@@ -74,6 +77,7 @@ export class PermissionsController {
 }
 
 @ApiTags("Role permissions")
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller("roles")
 export class RolePermissionsController {
   constructor(

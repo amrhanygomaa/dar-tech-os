@@ -1,7 +1,7 @@
 # Dar Tech OS — Sprint 02
 ## Identity & Security Foundation
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T04 UNDER REVIEW
-> S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, S02-T06, and S02-T12 are completed. S02-T06 was merged through PR #9 at `48f5327928cedd8cb1c7a531e9a3cb0c40f5599c`. S02-T04 is explicitly authorized and its bounded implementation is under review. S02-T07 through S02-T11 and S02-T13 through S02-T15 remain unauthorized.
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T07 UNDER REVIEW
+> S02-T00, S02-T01, S02-T02, S02-T03, S02-T04, S02-T05, S02-T06, and S02-T12 are completed. S02-T04 was merged through PR #10 at `2e7d5bbc8e4bddfeb85b8c5be18582f26eded996`. S02-T07 is explicitly authorized and its bounded implementation is under review. S02-T08 through S02-T11 and S02-T13 through S02-T15 remain unauthorized.
 
 ## Sprint objective
 
@@ -21,13 +21,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00, S02-T01, S02-T02, S02-T03, S02-T05, S02-T06, and S02-T12 are completed. S02-T04 is explicitly authorized and its bounded implementation is under review. S02-T07 through S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T04 must not be inferred as authorization to begin any other ticket.
+Sprint 01 is closed. S02-T00, S02-T01, S02-T02, S02-T03, S02-T04, S02-T05, S02-T06, and S02-T12 are completed. S02-T07 is explicitly authorized and its bounded implementation is under review. S02-T08 through S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized. Completion, pull-request approval, or merge of S02-T07 must not be inferred as authorization to begin any other ticket.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside the completed tickets and S02-T04;
-- add production provider adapters, a central authorization engine, approvals, temporary/emergency access behavior, offboarding, seeds, or bootstrap commands;
-- mark S02-T07 through S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside the completed tickets and S02-T07;
+- add production provider adapters, business relationship resolvers, approvals, temporary/emergency access behavior, offboarding, seeds, or bootstrap commands;
+- mark S02-T08 through S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -99,8 +99,9 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T02 | COMPLETED | PR #7; merge commit `9f27434a292c557d18254eea0b84355c1c1693a2` |
 | S02-T05 | COMPLETED | Implemented before the explicit S02-T06 authorization; see `docs/engineering/SPRINT_02_T05_ROLE_MODEL.md` |
 | S02-T06 | COMPLETED | PR #9; merge commit `48f5327928cedd8cb1c7a531e9a3cb0c40f5599c`; evidence in `docs/engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md` |
-| S02-T04 | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | Bounded session-management implementation and evidence in `docs/engineering/SPRINT_02_T04_SESSION_MANAGEMENT.md` |
-| S02-T07 through S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T04 | COMPLETED | PR #10; merge commit `2e7d5bbc8e4bddfeb85b8c5be18582f26eded996`; evidence in `docs/engineering/SPRINT_02_T04_SESSION_MANAGEMENT.md` |
+| S02-T07 | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | Bounded central-authorization implementation and evidence in `docs/engineering/SPRINT_02_T07_CENTRAL_AUTHORIZATION.md` |
+| S02-T08 through S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
@@ -874,6 +875,8 @@ Create the stable permission-key registry and organization-scoped role-to-permis
 ---
 
 ## S02-T07 — Central Authorization Service
+
+**Status: AUTHORIZED — IMPLEMENTATION UNDER REVIEW.**
 
 ### Objective
 

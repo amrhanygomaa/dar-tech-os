@@ -17,6 +17,7 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConflictResponse,
+  ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -54,6 +55,7 @@ import { InvitationService } from './invitation.service.js';
 import { OnboardingRateLimitGuard } from './invitation-rate-limit.guard.js';
 import { applySessionCookie, parseSessionCookie } from '../sessions/session-cookie.js';
 import { SessionService } from '../sessions/session.service.js';
+import { SESSION_COOKIE_NAME } from '../sessions/session.contracts.js';
 
 const protectedErrors = {
   schema: errorEnvelopeSchema,
@@ -61,6 +63,7 @@ const protectedErrors = {
 };
 
 @ApiTags('Invitations')
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller()
 export class InvitationController {
   constructor(@Inject(InvitationService) private readonly invitations: InvitationService) {}

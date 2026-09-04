@@ -1,4 +1,4 @@
-import { type DynamicModule, Module, type Provider } from "@nestjs/common";
+import { type DynamicModule, Global, Module, type Provider } from "@nestjs/common";
 import type { AppEnvironment } from "@dar-tech/config";
 import {
   PERMISSION_ACTOR_PORT,
@@ -18,10 +18,12 @@ import {
 } from "./permission.controller.js";
 import { PrismaPermissionRepository } from "./prisma-permission.repository.js";
 import {
-  DenyAllPermissionActorAdapter,
-  DenyAllPermissionAdministrationAuthorizationAdapter,
   StructuredPermissionMetricsAdapter,
 } from "./permission-security.adapters.js";
+import {
+  CentralAuthenticatedActorAdapter,
+  CentralPermissionAuthorizationAdapter,
+} from "../authorization/authorization.adapters.js";
 import {
   PermissionRegistryService,
   PermissionService,
@@ -43,6 +45,7 @@ function selectedProvider(
   return value ? { provide: token, useValue: value } : fallback;
 }
 
+@Global()
 @Module({})
 export class PermissionModule {
   static register(
@@ -60,14 +63,14 @@ export class PermissionModule {
       providers: [
         selectedProvider(PERMISSION_ACTOR_PORT, testAdapters?.actors, {
           provide: PERMISSION_ACTOR_PORT,
-          useClass: DenyAllPermissionActorAdapter,
+          useClass: CentralAuthenticatedActorAdapter,
         }),
         selectedProvider(
           PERMISSION_ADMINISTRATION_AUTHORIZATION_PORT,
           testAdapters?.authorization,
           {
             provide: PERMISSION_ADMINISTRATION_AUTHORIZATION_PORT,
-            useClass: DenyAllPermissionAdministrationAuthorizationAdapter,
+            useClass: CentralPermissionAuthorizationAdapter,
           },
         ),
         selectedProvider(PERMISSION_CLOCK, testAdapters?.clock, {

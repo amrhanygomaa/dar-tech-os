@@ -2,6 +2,7 @@ import { Body, Controller, Get, Inject, Param, Patch, Query } from '@nestjs/comm
 import {
   ApiBadRequestResponse,
   ApiBody,
+  ApiCookieAuth,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -23,6 +24,7 @@ import {
   successEnvelope,
 } from './identity.openapi.js';
 import { IdentityService } from './identity.service.js';
+import { SESSION_COOKIE_NAME } from '../sessions/session.contracts.js';
 
 const protectedErrors = {
   schema: errorEnvelopeSchema,
@@ -30,6 +32,7 @@ const protectedErrors = {
 };
 
 @ApiTags('Identity')
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller('me')
 export class MeController {
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
@@ -61,6 +64,7 @@ export class MeController {
 }
 
 @ApiTags('Employees')
+@ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller('employees')
 export class EmployeesController {
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}

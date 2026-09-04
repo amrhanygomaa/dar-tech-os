@@ -24,10 +24,12 @@ import {
 } from './event-history.contracts.js';
 import { AuditEventsController, SecurityEventsController } from './event-history.controller.js';
 import {
-  DenyAllEventHistoryActorAdapter,
-  DenyAllEventHistoryAuthorizationAdapter,
   StructuredEventHistoryMetricsAdapter,
 } from './event-history-security.adapters.js';
+import {
+  CentralAuthenticatedActorAdapter,
+  CentralEventHistoryAuthorizationAdapter,
+} from '../authorization/authorization.adapters.js';
 import { EventHistoryService } from './event-history.service.js';
 import {
   PrismaAuditEventRepository,
@@ -70,7 +72,7 @@ export class EventHistoryModule {
       ? { provide: EVENT_HISTORY_ACTOR_PORT, useValue: testAdapters.actors }
       : {
           provide: EVENT_HISTORY_ACTOR_PORT,
-          useClass: DenyAllEventHistoryActorAdapter,
+          useClass: CentralAuthenticatedActorAdapter,
         };
     const authorizationProvider: Provider = testAdapters?.authorization
       ? {
@@ -79,7 +81,7 @@ export class EventHistoryModule {
         }
       : {
           provide: EVENT_HISTORY_AUTHORIZATION_PORT,
-          useClass: DenyAllEventHistoryAuthorizationAdapter,
+          useClass: CentralEventHistoryAuthorizationAdapter,
         };
     const metricsProvider: Provider = testAdapters?.metrics
       ? { provide: EVENT_HISTORY_METRICS_PORT, useValue: testAdapters.metrics }

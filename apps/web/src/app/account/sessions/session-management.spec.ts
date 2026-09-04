@@ -45,7 +45,7 @@ describe('S02-T04 session management frontend boundary', () => {
     expect(adminSource).toContain("pageSize: '25'");
     expect(adminSource).toMatch(/loading.*ready.*unauthorized.*forbidden.*not-found.*error/su);
     expect(adminSource).toContain('No sessions match this organization-scoped view.');
-    expect(adminSource).toContain('Production access remains denied');
+    expect(adminSource).toContain('Access is enforced from the current session');
     expect(adminSource).not.toMatch(/Founder|job.?title|role.?name/iu);
   });
 

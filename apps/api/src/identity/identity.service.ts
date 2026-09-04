@@ -49,7 +49,12 @@ export class IdentityService {
 
   async getMe(): Promise<SelfIdentityView> {
     const actor = await this.requireActor();
-    await this.requireAuthorization(actor, IDENTITY_ACTIONS.readSelf, 'user-account');
+    await this.requireAuthorization(
+      actor,
+      IDENTITY_ACTIONS.readSelf,
+      'user-account',
+      actor.userAccountId,
+    );
     const view = await this.repository.findSelf(
       actor.organizationId,
       actor.employeeId,
@@ -65,7 +70,12 @@ export class IdentityService {
 
   async updateMe(input: unknown): Promise<SelfIdentityView> {
     const actor = await this.requireActor();
-    await this.requireAuthorization(actor, IDENTITY_ACTIONS.updateSelf, 'user-account');
+    await this.requireAuthorization(
+      actor,
+      IDENTITY_ACTIONS.updateSelf,
+      'user-account',
+      actor.userAccountId,
+    );
     const patch = this.parsePatch(
       actor,
       IDENTITY_ACTIONS.updateSelf,

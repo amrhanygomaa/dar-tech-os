@@ -33,7 +33,7 @@ describe("S02-T06 permission administration frontend boundary", () => {
     expect(source).toMatch(
       /loading.*ready.*unauthorized.*forbidden.*conflict.*validation.*error/su,
     );
-    expect(source).toContain("T06 does not authorize application actions.");
+    expect(source).toContain("Application actions are authorized server-side.");
     expect(source).toMatch(
       /Risk is\s+technical metadata, not an approval decision/u,
     );

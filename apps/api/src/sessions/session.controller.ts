@@ -9,7 +9,6 @@ import {
   Param,
   Post,
   Query,
-  Req,
   Res,
 } from '@nestjs/common';
 import {
@@ -25,15 +24,16 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import {
   SESSION_COOKIE_NAME,
   type SessionPage,
   type SessionPrincipal,
   type SessionView,
 } from './session.contracts.js';
-import { applySessionCookie, hasValidCsrfOrigin, parseSessionCookie } from './session-cookie.js';
-import { sessionAuthenticationRequired, sessionAuthorizationDenied } from './session.errors.js';
+import { applySessionCookie } from './session-cookie.js';
+import { sessionAuthenticationRequired } from './session.errors.js';
+import { AuthorizationActorContext } from '../authorization/authorization-context.js';
 import {
   errorEnvelopeSchema,
   revokeAllBodySchema,
@@ -54,22 +54,15 @@ type RevokeAllResult = {
 };
 
 abstract class SessionControllerBase {
-  constructor(protected readonly sessions: SessionService) {}
+  constructor(
+    protected readonly sessions: SessionService,
+    private readonly actors: AuthorizationActorContext,
+  ) {}
 
-  protected async actor(request: Request, response: Response): Promise<SessionPrincipal> {
-    const resolution = await this.sessions.resolveCookie(parseSessionCookie(request));
-    if (resolution.cookie) {
-      applySessionCookie(response, resolution.cookie, this.sessions.config, new Date());
-    }
-    if (!resolution.principal) throw sessionAuthenticationRequired();
-    return resolution.principal;
-  }
-
-  protected csrf(request: Request): void {
-    if (hasValidCsrfOrigin(request, this.sessions.config.allowedOrigins)) return;
-    const origin = request.headers.origin;
-    this.sessions.recordCsrfDenied(typeof origin === 'string' ? 'foreign_origin' : 'missing_origin');
-    throw sessionAuthorizationDenied();
+  protected actor(): SessionPrincipal {
+    const actor = this.actors.currentActor();
+    if (!actor) throw sessionAuthenticationRequired();
+    return actor;
   }
 
   protected clearIfCurrent(response: Response, currentSessionRevoked: boolean): void {
@@ -83,8 +76,11 @@ abstract class SessionControllerBase {
 @ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller('me/sessions')
 export class SessionSelfController extends SessionControllerBase {
-  constructor(@Inject(SessionService) sessions: SessionService) {
-    super(sessions);
+  constructor(
+    @Inject(SessionService) sessions: SessionService,
+    @Inject(AuthorizationActorContext) actors: AuthorizationActorContext,
+  ) {
+    super(sessions, actors);
   }
 
   @Get()
@@ -92,8 +88,8 @@ export class SessionSelfController extends SessionControllerBase {
   @ApiOperation({ summary: 'List the current account session history' })
   @ApiOkResponse({ schema: successEnvelope({ type: 'array', items: sessionSchema }) })
   @ApiUnauthorizedResponse({ schema: errorEnvelopeSchema })
-  async list(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<readonly SessionView[]> {
-    const actor = await this.actor(request, response);
+  async list(): Promise<readonly SessionView[]> {
+    const actor = this.actor();
     return this.sessions.listSelf(actor);
   }
 
@@ -109,11 +105,9 @@ export class SessionSelfController extends SessionControllerBase {
   @ApiNotFoundResponse({ schema: errorEnvelopeSchema })
   async revoke(
     @Param('id') id: string,
-    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<RevokeResult> {
-    this.csrf(request);
-    const actor = await this.actor(request, response);
+    const actor = this.actor();
     const result = await this.sessions.revokeSelf(actor, id);
     this.clearIfCurrent(response, result.currentSessionRevoked);
     return result;
@@ -130,11 +124,9 @@ export class SessionSelfController extends SessionControllerBase {
   @ApiForbiddenResponse({ schema: errorEnvelopeSchema })
   async revokeAll(
     @Body() body: unknown,
-    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<RevokeAllResult> {
-    this.csrf(request);
-    const actor = await this.actor(request, response);
+    const actor = this.actor();
     const result = await this.sessions.revokeAllSelf(actor, body);
     this.clearIfCurrent(response, result.currentSessionRevoked);
     return result;
@@ -145,8 +137,11 @@ export class SessionSelfController extends SessionControllerBase {
 @ApiCookieAuth(SESSION_COOKIE_NAME)
 @Controller()
 export class SessionAdministrationController extends SessionControllerBase {
-  constructor(@Inject(SessionService) sessions: SessionService) {
-    super(sessions);
+  constructor(
+    @Inject(SessionService) sessions: SessionService,
+    @Inject(AuthorizationActorContext) actors: AuthorizationActorContext,
+  ) {
+    super(sessions, actors);
   }
 
   @Get('admin/sessions')
@@ -182,13 +177,11 @@ export class SessionAdministrationController extends SessionControllerBase {
   @ApiUnauthorizedResponse({ schema: errorEnvelopeSchema })
   @ApiForbiddenResponse({ schema: errorEnvelopeSchema })
   async list(
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
     @Query('employeeId') employeeId?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ): Promise<SessionPage> {
-    const actor = await this.actor(request, response);
+    const actor = this.actor();
     return this.sessions.listAdministration(actor, employeeId, page, pageSize);
   }
 
@@ -204,11 +197,9 @@ export class SessionAdministrationController extends SessionControllerBase {
   @ApiNotFoundResponse({ schema: errorEnvelopeSchema })
   async revoke(
     @Param('id') id: string,
-    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<RevokeResult> {
-    this.csrf(request);
-    const actor = await this.actor(request, response);
+    const actor = this.actor();
     const result = await this.sessions.revokeAdministration(actor, id);
     this.clearIfCurrent(response, result.currentSessionRevoked);
     return result;
@@ -228,11 +219,9 @@ export class SessionAdministrationController extends SessionControllerBase {
   async revokeAll(
     @Param('id') id: string,
     @Body() body: unknown,
-    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<RevokeAllResult> {
-    this.csrf(request);
-    const actor = await this.actor(request, response);
+    const actor = this.actor();
     const result = await this.sessions.revokeAllAdministration(actor, id, body);
     this.clearIfCurrent(response, result.currentSessionRevoked);
     return result;
