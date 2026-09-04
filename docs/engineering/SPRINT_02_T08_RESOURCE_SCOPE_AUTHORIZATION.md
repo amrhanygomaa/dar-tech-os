@@ -120,6 +120,11 @@ Resolver evaluation records four bounded outcomes: `MATCH`, `NO_MATCH`,
 resource type, outcome, and a fixed latency bucket (`LT_5_MS`, `LT_25_MS`,
 `LT_100_MS`, `LT_500_MS`, or `GTE_500_MS`).
 
+Emission is rate-bounded in a fixed time window. An identical category emits
+at most once per window, and a hard global per-window cap prevents diverse
+category churn from bypassing the bound. The in-memory category state is capped
+by that same emission limit and is cleared when the next window begins.
+
 Employee, account, session, role, resource, binding, email, opaque customer or
 project, and raw permission database IDs are never resolver metric fields or
 labels. Resolver metric failure is swallowed and never changes authorization.
