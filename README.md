@@ -6,7 +6,7 @@ Internal company operating system for Dar Tech.
 
 **Sprint 01 — Engineering Foundation: COMPLETED**
 
-Sprint 02 remains under controlled implementation. S02-T00 through S02-T07 and S02-T12 are complete. S02-T08 is explicitly authorized and its resource/scope foundation implementation is under review from canonical base `6cba2996d0e737dce019930cb6d409512511db61`. S02-T09 through S02-T11 and S02-T13 through S02-T15 remain unauthorized. No real business relationship resolver or business module has been installed.
+Sprint 02 remains under controlled implementation. S02-T00 through S02-T08 and S02-T12 are complete. S02-T08 was merged through PR #13; its final reviewed implementation head is `d746e655496699fec3eb11b525f20d4f675cd892`, and its canonical merge/main SHA is `6402bd8c5ea6ca16ba76e2750c648506011b5cea`. S02-T09 through S02-T11 and S02-T13 through S02-T15 remain unauthorized. No real business relationship resolver or business module has been installed.
 
 ## Start here
 

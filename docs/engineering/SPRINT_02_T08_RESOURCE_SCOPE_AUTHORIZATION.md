@@ -1,12 +1,34 @@
 # Sprint 02 T08 Resource & Scope Authorization Foundation
 
+## Closure status
+
+**Implementation status: COMPLETED — CLOSED — MERGED.** S02-T08 was merged
+through PR #13 at canonical merge/main SHA
+`6402bd8c5ea6ca16ba76e2750c648506011b5cea` from final reviewed implementation
+head `d746e655496699fec3eb11b525f20d4f675cd892`. The implementation introduced
+no schema change or migration. S02-T09 through S02-T11 and S02-T13 through
+S02-T15 remain deferred and unauthorized; this closure grants no authority to
+begin them.
+
+Final closure evidence:
+
+- all 8/8 scope contracts are implemented and verified;
+- the resolver registry and duplicate-ownership handling fail closed
+  deterministically through the production Nest DI resolver seam;
+- resolver metric dimensions and emission rate are bounded;
+- no real business relationship resolver is installed;
+- the permission registry remains 31/31;
+- 256 unit tests and 134 integration tests passed; the PostgreSQL suites
+  actually ran;
+- all seven existing migrations apply with zero drift, with no new migration
+  and no schema change; and
+- no S02-T09+ implementation was introduced.
+
 ## Status and boundary
 
-**S02-T08 is authorized and its implementation is under review.** The work is
-based on canonical main SHA `6cba2996d0e737dce019930cb6d409512511db61`.
-It adds no Prisma schema change or migration, no permission key, no business
-table, no authorization-check endpoint, and no real business relationship
-resolver. S02-T09 and later tickets remain unauthorized.
+S02-T08 adds no Prisma schema change or migration, no permission key, no
+business table, no authorization-check endpoint, and no real business
+relationship resolver.
 
 The T07 `AuthorizationService` remains the only component that can produce a
 final authorization decision. A scope resolver answers only whether one trusted
