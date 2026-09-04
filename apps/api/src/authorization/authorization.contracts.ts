@@ -6,8 +6,8 @@ export const AUTHORIZATION_CLOCK = Symbol('AUTHORIZATION_CLOCK');
 export const AUTHORIZATION_GRANT_REPOSITORY = Symbol('AUTHORIZATION_GRANT_REPOSITORY');
 export const AUTHORIZATION_METRICS_PORT = Symbol('AUTHORIZATION_METRICS_PORT');
 export const AUTHORIZATION_SCOPE_RESOLVERS = Symbol('AUTHORIZATION_SCOPE_RESOLVERS');
-export const AUTHORIZATION_TEMPORARY_ACCESS_PORT = Symbol('AUTHORIZATION_TEMPORARY_ACCESS_PORT');
-export const AUTHORIZATION_EMERGENCY_ACCESS_PORT = Symbol('AUTHORIZATION_EMERGENCY_ACCESS_PORT');
+export const AUTHORIZATION_TEMPORARY_GRANT_SOURCE = Symbol('AUTHORIZATION_TEMPORARY_GRANT_SOURCE');
+export const AUTHORIZATION_EMERGENCY_GRANT_SOURCE = Symbol('AUTHORIZATION_EMERGENCY_GRANT_SOURCE');
 export const AUTHORIZATION_POLICY_EVALUATOR = Symbol('AUTHORIZATION_POLICY_EVALUATOR');
 
 export const AUTHORIZATION_RESOURCE_TYPES = [
@@ -114,35 +114,23 @@ export interface AuthorizationMetricsPort {
   }): void;
 }
 
-export interface TemporaryAccessEvaluationInput {
+export interface AuthorizationAlternateGrantSourceInput {
   readonly actor: AuthorizationActor;
   readonly action: string;
   readonly resource: AuthorizationResource;
   readonly context: AuthorizationContext;
 }
 
-export interface TemporaryAccessEvaluationResult {
-  readonly granted: boolean;
+/**
+ * Deferred T10/T11 boundary. A source can contribute descriptors only; the
+ * central engine remains the sole evaluator that can produce an allow.
+ */
+export interface AuthorizationAlternateGrantSource {
+  listGrants(input: AuthorizationAlternateGrantSourceInput): Promise<readonly AuthorizationGrant[]>;
 }
 
-export interface AuthorizationTemporaryAccessPort {
-  evaluate(input: TemporaryAccessEvaluationInput): Promise<TemporaryAccessEvaluationResult>;
-}
-
-export interface EmergencyAccessEvaluationInput {
-  readonly actor: AuthorizationActor;
-  readonly action: string;
-  readonly resource: AuthorizationResource;
-  readonly context: AuthorizationContext;
-}
-
-export interface EmergencyAccessEvaluationResult {
-  readonly granted: boolean;
-}
-
-export interface AuthorizationEmergencyAccessPort {
-  evaluate(input: EmergencyAccessEvaluationInput): Promise<EmergencyAccessEvaluationResult>;
-}
+export type AuthorizationTemporaryGrantSource = AuthorizationAlternateGrantSource;
+export type AuthorizationEmergencyGrantSource = AuthorizationAlternateGrantSource;
 
 export interface AuthorizationPolicyInput {
   readonly actor: AuthorizationActor;
@@ -154,10 +142,10 @@ export interface AuthorizationPolicyInput {
 
 export interface AuthorizationPolicyResult {
   readonly allowed: boolean;
-  readonly reasonCode?: AuthorizationReasonCode | undefined;
+  readonly reasonCode?: AuthorizationReasonCode;
 }
 
+/** Deferred T09 seam. The T07 default permits a descriptor already validated centrally. */
 export interface AuthorizationPolicyEvaluator {
   evaluatePolicy(input: AuthorizationPolicyInput): Promise<AuthorizationPolicyResult>;
 }
-

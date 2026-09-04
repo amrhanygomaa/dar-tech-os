@@ -41,8 +41,8 @@ export interface AppModuleRegistrationOptions {
   readonly roleTestAdapters?: RoleTestAdapters;
   readonly permissionTestAdapters?: PermissionTestAdapters;
   readonly sessionTestAdapters?: SessionTestAdapters;
-  readonly authorizationTestAdapters?: AuthorizationTestAdapters | undefined;
-  readonly authorizationExtensions?: AuthorizationModuleExtensions | undefined;
+  readonly authorizationTestAdapters?: AuthorizationTestAdapters;
+  readonly authorizationExtensions?: AuthorizationModuleExtensions;
 }
 
 @Module({})
@@ -86,8 +86,12 @@ export class AppModule {
         RoleModule.register(config.appEnvironment, options.roleTestAdapters),
         PermissionModule.register(config.appEnvironment, options.permissionTestAdapters),
         AuthorizationModule.register(config.appEnvironment, {
-          extensions: options.authorizationExtensions,
-          testAdapters: options.authorizationTestAdapters,
+          ...(options.authorizationExtensions
+            ? { extensions: options.authorizationExtensions }
+            : {}),
+          ...(options.authorizationTestAdapters
+            ? { testAdapters: options.authorizationTestAdapters }
+            : {}),
         }),
         ApiFallbackModule,
       ],

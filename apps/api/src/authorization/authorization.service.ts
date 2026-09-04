@@ -1,19 +1,19 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { canonicalPermissionDefinition } from '../permissions/permission-manifest.js';
-import type { ScopeType } from '../permissions/permission.contracts.js';
+import { SCOPE_TYPES, type ScopeType } from '../permissions/permission.contracts.js';
 import {
-  AUTHORIZATION_EMERGENCY_ACCESS_PORT,
+  AUTHORIZATION_EMERGENCY_GRANT_SOURCE,
   AUTHORIZATION_GRANT_REPOSITORY,
   AUTHORIZATION_METRICS_PORT,
   AUTHORIZATION_POLICY_EVALUATOR,
   AUTHORIZATION_RESOURCE_TYPES,
   AUTHORIZATION_SCOPE_RESOLVERS,
-  AUTHORIZATION_TEMPORARY_ACCESS_PORT,
+  AUTHORIZATION_TEMPORARY_GRANT_SOURCE,
   EXTENSION_SCOPE_TYPES,
   type AuthorizationActor,
   type AuthorizationContext,
   type AuthorizationDecision,
-  type AuthorizationEmergencyAccessPort,
+  type AuthorizationEmergencyGrantSource,
   type AuthorizationGrant,
   type AuthorizationGrantRepository,
   type AuthorizationMetricsPort,
@@ -22,16 +22,32 @@ import {
   type AuthorizationReasonCode,
   type AuthorizationResource,
   type AuthorizationScopeResolver,
-  type AuthorizationTemporaryAccessPort,
+  type AuthorizationTemporaryGrantSource,
   type ExtensionScopeType,
 } from './authorization.contracts.js';
 import {
-  DefaultAuthorizationEmergencyAccessAdapter,
+  DefaultAuthorizationEmergencyGrantSource,
   DefaultAuthorizationPolicyEvaluator,
-  DefaultAuthorizationTemporaryAccessAdapter,
+  DefaultAuthorizationTemporaryGrantSource,
 } from './authorization-extensions.js';
 
 type ScopeEvaluation = 'MATCH' | 'NO_MATCH' | 'RESOLVER_UNAVAILABLE';
+type GrantEvaluation =
+  | { readonly allowedGrant: AuthorizationGrant }
+  | { readonly reasonCode: AuthorizationReasonCode }
+  | undefined;
+const POLICY_DENIAL_REASON_CODES: ReadonlySet<AuthorizationReasonCode> = new Set([
+  'AUTHENTICATION_REQUIRED',
+  'ORGANIZATION_MISMATCH',
+  'PERMISSION_INVALID',
+  'PERMISSION_NOT_GRANTED',
+  'RESOURCE_INVALID',
+  'SCOPE_NOT_SATISFIED',
+  'SCOPE_RESOLVER_UNAVAILABLE',
+  'AUTHORIZATION_DEPENDENCY_FAILED',
+]);
+const SCOPE_BINDING_TYPE_PATTERN = /^[a-z][a-z0-9._-]*$/u;
+const SCOPE_BINDING_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/u;
 
 @Injectable()
 export class AuthorizationService {
@@ -43,11 +59,11 @@ export class AuthorizationService {
     @Inject(AUTHORIZATION_METRICS_PORT)
     private readonly metrics: AuthorizationMetricsPort,
     @Optional()
-    @Inject(AUTHORIZATION_TEMPORARY_ACCESS_PORT)
-    private readonly temporaryAccess: AuthorizationTemporaryAccessPort = new DefaultAuthorizationTemporaryAccessAdapter(),
+    @Inject(AUTHORIZATION_TEMPORARY_GRANT_SOURCE)
+    private readonly temporaryGrants: AuthorizationTemporaryGrantSource = new DefaultAuthorizationTemporaryGrantSource(),
     @Optional()
-    @Inject(AUTHORIZATION_EMERGENCY_ACCESS_PORT)
-    private readonly emergencyAccess: AuthorizationEmergencyAccessPort = new DefaultAuthorizationEmergencyAccessAdapter(),
+    @Inject(AUTHORIZATION_EMERGENCY_GRANT_SOURCE)
+    private readonly emergencyGrants: AuthorizationEmergencyGrantSource = new DefaultAuthorizationEmergencyGrantSource(),
     @Optional()
     @Inject(AUTHORIZATION_POLICY_EVALUATOR)
     private readonly policyEvaluator: AuthorizationPolicyEvaluator = new DefaultAuthorizationPolicyEvaluator(),
@@ -83,49 +99,90 @@ export class AuthorizationService {
       return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
     }
 
-    const matching = currentGrants.filter((grant) => grant.permissionKey === action);
-    if (matching.length === 0) {
-      try {
-        await this.temporaryAccess.evaluate({ actor, action, resource, context });
-        await this.emergencyAccess.evaluate({ actor, action, resource, context });
-      } catch {
-        return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
-      }
-      return this.decision(false, 'PERMISSION_NOT_GRANTED', action);
+    const normal = await this.evaluateGrants(
+      actor,
+      action,
+      resource,
+      context,
+      currentGrants.filter((grant) => grant.permissionKey === action),
+    );
+    if (normal && 'allowedGrant' in normal) {
+      return this.decision(true, 'AUTHORIZED', action, normal.allowedGrant);
+    }
+    if (normal?.reasonCode === 'AUTHORIZATION_DEPENDENCY_FAILED') {
+      return this.decision(false, normal.reasonCode, action);
     }
 
-    let missingResolver = false;
-    for (const grant of matching) {
-      const scope = await this.evaluateScope(actor, grant, resource, context);
-      if (scope === 'MATCH') {
-        let policyResult: AuthorizationPolicyResult;
-        try {
-          policyResult = await this.policyEvaluator.evaluatePolicy({
-            actor,
-            action,
-            resource,
-            context,
-            grant,
-          });
-        } catch {
-          return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
-        }
-        if (!policyResult.allowed) {
-          return this.decision(
-            false,
-            policyResult.reasonCode ?? 'SCOPE_NOT_SATISFIED',
-            action,
-          );
-        }
-        return this.decision(true, 'AUTHORIZED', action, grant);
-      }
-      missingResolver ||= scope === 'RESOLVER_UNAVAILABLE';
+    let alternateGrants: readonly AuthorizationGrant[];
+    try {
+      const input = { actor, action, resource, context };
+      const [temporary, emergency] = await Promise.all([
+        this.temporaryGrants.listGrants(input),
+        this.emergencyGrants.listGrants(input),
+      ]);
+      alternateGrants = [...temporary, ...emergency].filter((grant) =>
+        this.validAlternateGrant(grant, action),
+      );
+    } catch {
+      return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
+    }
+
+    const alternate = await this.evaluateGrants(actor, action, resource, context, alternateGrants);
+    if (alternate && 'allowedGrant' in alternate) {
+      return this.decision(true, 'AUTHORIZED', action, alternate.allowedGrant);
+    }
+    if (alternate?.reasonCode === 'AUTHORIZATION_DEPENDENCY_FAILED') {
+      return this.decision(false, alternate.reasonCode, action);
     }
     return this.decision(
       false,
-      missingResolver ? 'SCOPE_RESOLVER_UNAVAILABLE' : 'SCOPE_NOT_SATISFIED',
+      alternate?.reasonCode ?? normal?.reasonCode ?? 'PERMISSION_NOT_GRANTED',
       action,
     );
+  }
+
+  private async evaluateGrants(
+    actor: AuthorizationActor,
+    action: string,
+    resource: AuthorizationResource,
+    context: AuthorizationContext,
+    grants: readonly AuthorizationGrant[],
+  ): Promise<GrantEvaluation> {
+    if (grants.length === 0) return undefined;
+    let reasonCode: AuthorizationReasonCode = 'SCOPE_NOT_SATISFIED';
+    for (const grant of grants) {
+      const scope = await this.evaluateScope(actor, grant, resource, context);
+      if (scope !== 'MATCH') {
+        if (scope === 'RESOLVER_UNAVAILABLE') reasonCode = 'SCOPE_RESOLVER_UNAVAILABLE';
+        continue;
+      }
+      try {
+        const policyResult: AuthorizationPolicyResult = await this.policyEvaluator.evaluatePolicy({
+          actor,
+          action,
+          resource,
+          context,
+          grant,
+        });
+        if (!policyResult || typeof policyResult !== 'object') {
+          return { reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED' };
+        }
+        if (policyResult.allowed === true) return { allowedGrant: grant };
+        if (policyResult.allowed !== false) {
+          return { reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED' };
+        }
+        if (
+          policyResult.reasonCode !== undefined &&
+          !POLICY_DENIAL_REASON_CODES.has(policyResult.reasonCode)
+        ) {
+          return { reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED' };
+        }
+        reasonCode = policyResult.reasonCode ?? 'SCOPE_NOT_SATISFIED';
+      } catch {
+        return { reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED' };
+      }
+    }
+    return { reasonCode };
   }
 
   private async evaluateScope(
@@ -192,6 +249,39 @@ export class AuthorizationService {
       resource.organizationId.length > 0 &&
       (resource.id === undefined || (resource.id.length > 0 && resource.id.length <= 160))
     );
+  }
+
+  private validAlternateGrant(grant: AuthorizationGrant, action: string): boolean {
+    const definition = canonicalPermissionDefinition(action);
+    if (
+      !definition ||
+      !grant ||
+      grant.permissionKey !== action ||
+      grant.riskClassification !== definition.riskClassification ||
+      !SCOPE_TYPES.includes(grant.scopeType)
+    ) {
+      return false;
+    }
+    const hasType =
+      typeof grant.scopeBindingType === 'string' &&
+      grant.scopeBindingType.length <= 80 &&
+      SCOPE_BINDING_TYPE_PATTERN.test(grant.scopeBindingType);
+    const hasId =
+      typeof grant.scopeBindingId === 'string' &&
+      grant.scopeBindingId.length <= 128 &&
+      SCOPE_BINDING_ID_PATTERN.test(grant.scopeBindingId);
+    if (hasType !== hasId) return false;
+    if (grant.scopeType === 'EXPLICIT') {
+      return (
+        hasType &&
+        hasId &&
+        AUTHORIZATION_RESOURCE_TYPES.includes(grant.scopeBindingType as AuthorizationResource['type'])
+      );
+    }
+    if (grant.scopeType === 'SELF' || grant.scopeType === 'ORGANIZATION') {
+      return grant.scopeBindingType === null && grant.scopeBindingId === null;
+    }
+    return (grant.scopeBindingType === null && grant.scopeBindingId === null) || (hasType && hasId);
   }
 
   private validContext(context: AuthorizationContext): boolean {

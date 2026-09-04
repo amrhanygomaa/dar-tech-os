@@ -1,21 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SessionPrincipal } from '../sessions/session.contracts.js';
-import {
-  EXTENSION_SCOPE_TYPES,
-  type AuthorizationActor,
-  type AuthorizationEmergencyAccessPort,
-  type AuthorizationGrant,
-  type AuthorizationGrantRepository,
-  type AuthorizationMetricsPort,
-  type AuthorizationPolicyEvaluator,
-  type AuthorizationResource,
-  type AuthorizationScopeResolver,
-  type AuthorizationTemporaryAccessPort,
+import type {
+  AuthorizationActor,
+  AuthorizationEmergencyGrantSource,
+  AuthorizationGrant,
+  AuthorizationGrantRepository,
+  AuthorizationMetricsPort,
+  AuthorizationPolicyEvaluator,
+  AuthorizationResource,
+  AuthorizationScopeResolver,
+  AuthorizationTemporaryGrantSource,
 } from './authorization.contracts.js';
+import { EXTENSION_SCOPE_TYPES } from './authorization.contracts.js';
 import {
-  DefaultAuthorizationEmergencyAccessAdapter,
-  DefaultAuthorizationPolicyEvaluator,
-  DefaultAuthorizationTemporaryAccessAdapter,
+  DefaultAuthorizationEmergencyGrantSource,
+  DefaultAuthorizationTemporaryGrantSource,
 } from './authorization-extensions.js';
 import { AuthorizationService } from './authorization.service.js';
 
@@ -51,11 +50,11 @@ const organizationGrant: AuthorizationGrant = {
 function harness(
   initialGrants: readonly AuthorizationGrant[] = [],
   resolvers: readonly AuthorizationScopeResolver[] = [],
-  options?: {
-    temporaryAccess?: AuthorizationTemporaryAccessPort;
-    emergencyAccess?: AuthorizationEmergencyAccessPort;
-    policyEvaluator?: AuthorizationPolicyEvaluator;
-  },
+  options: {
+    readonly temporaryGrantSource?: AuthorizationTemporaryGrantSource;
+    readonly emergencyGrantSource?: AuthorizationEmergencyGrantSource;
+    readonly policyEvaluator?: AuthorizationPolicyEvaluator;
+  } = {},
 ) {
   let grants = initialGrants;
   const repository: AuthorizationGrantRepository = {
@@ -66,9 +65,9 @@ function harness(
     repository,
     resolvers,
     metrics,
-    options?.temporaryAccess,
-    options?.emergencyAccess,
-    options?.policyEvaluator,
+    options.temporaryGrantSource,
+    options.emergencyGrantSource,
+    options.policyEvaluator,
   );
   return { service, repository, metrics, setGrants: (next: readonly AuthorizationGrant[]) => { grants = next; } };
 }
@@ -163,180 +162,297 @@ describe('S02-T07 canonical authorization service', () => {
     expect(JSON.stringify(vi.mocked(test.metrics.record).mock.calls)).not.toContain(resource.id);
   });
 
-  it('denies all extension scopes (TEAM, ASSIGNED, DEPARTMENT, PROJECT, CUSTOMER) in default production configuration', async () => {
-    for (const scopeType of EXTENSION_SCOPE_TYPES) {
-      const extensionGrant: AuthorizationGrant = {
-        ...organizationGrant,
-        scopeType,
+  it('gives the default temporary and emergency grant sources no authority', async () => {
+    const input = { actor, action: organizationGrant.permissionKey, resource, context: { at: now, source: 'test' as const } };
+    await expect(new DefaultAuthorizationTemporaryGrantSource().listGrants(input)).resolves.toEqual([]);
+    await expect(new DefaultAuthorizationEmergencyGrantSource().listGrants(input)).resolves.toEqual([]);
+    await expect(harness().service.authorize(actor, input.action, resource, input.context))
+      .resolves.toMatchObject({ allowed: false, reasonCode: 'PERMISSION_NOT_GRANTED' });
+  });
+
+  it('routes temporary grants through ORGANIZATION, SELF, and exact EXPLICIT scope evaluation', async () => {
+    const ownResource: AuthorizationResource = {
+      type: 'user-account',
+      organizationId: actor.organizationId,
+      id: actor.userAccountId,
+      ownerEmployeeId: actor.employeeId,
+      ownerUserAccountId: actor.userAccountId,
+    };
+    const cases = [
+      { action: 'admin.employee.read', target: resource, grant: organizationGrant },
+      {
+        action: 'identity.account.read_self',
+        target: ownResource,
+        grant: { ...organizationGrant, permissionKey: 'identity.account.read_self', scopeType: 'SELF' as const },
+      },
+      {
+        action: 'admin.employee.read',
+        target: resource,
+        grant: { ...organizationGrant, scopeType: 'EXPLICIT' as const, scopeBindingType: 'employee', scopeBindingId: resource.id! },
+      },
+    ];
+    for (const scenario of cases) {
+      const temporaryGrantSource: AuthorizationTemporaryGrantSource = {
+        listGrants: vi.fn(async () => [scenario.grant]),
       };
-      const test = harness([extensionGrant], []);
-      const decision = await test.service.authorize(
+      await expect(
+        harness([], [], { temporaryGrantSource }).service.authorize(
+          actor,
+          scenario.action,
+          scenario.target,
+          { at: now, source: 'test' },
+        ),
+      ).resolves.toMatchObject({ allowed: true, matchedGrant: { scopeType: scenario.grant.scopeType } });
+    }
+  });
+
+  it('routes emergency grants through ORGANIZATION, SELF, and exact EXPLICIT scope evaluation', async () => {
+    const ownResource: AuthorizationResource = {
+      type: 'user-account',
+      organizationId: actor.organizationId,
+      id: actor.userAccountId,
+      ownerEmployeeId: actor.employeeId,
+      ownerUserAccountId: actor.userAccountId,
+    };
+    const cases = [
+      { action: 'admin.employee.read', target: resource, grant: organizationGrant },
+      {
+        action: 'identity.account.read_self',
+        target: ownResource,
+        grant: { ...organizationGrant, permissionKey: 'identity.account.read_self', scopeType: 'SELF' as const },
+      },
+      {
+        action: 'admin.employee.read',
+        target: resource,
+        grant: { ...organizationGrant, scopeType: 'EXPLICIT' as const, scopeBindingType: 'employee', scopeBindingId: resource.id! },
+      },
+    ];
+    for (const scenario of cases) {
+      const emergencyGrantSource: AuthorizationEmergencyGrantSource = {
+        listGrants: vi.fn(async () => [scenario.grant]),
+      };
+      await expect(
+        harness([], [], { emergencyGrantSource }).service.authorize(
+          actor,
+          scenario.action,
+          scenario.target,
+          { at: now, source: 'test' },
+        ),
+      ).resolves.toMatchObject({ allowed: true, matchedGrant: { scopeType: scenario.grant.scopeType } });
+    }
+  });
+
+  it('rejects temporary and emergency grants with the wrong permission, risk, or scope binding', async () => {
+    const variants: readonly AuthorizationGrant[] = [
+      { ...organizationGrant, permissionKey: 'admin.role.read' },
+      { ...organizationGrant, riskClassification: 'CRITICAL' },
+      { ...organizationGrant, scopeType: 'EXPLICIT', scopeBindingType: 'employee', scopeBindingId: 'employee-c' },
+    ];
+    for (const candidate of variants) {
+      for (const source of ['temporary', 'emergency'] as const) {
+        const grantSource = { listGrants: async () => [candidate] };
+        const options = source === 'temporary'
+          ? { temporaryGrantSource: grantSource }
+          : { emergencyGrantSource: grantSource };
+        await expect(
+          harness([], [], options).service.authorize(
+            actor,
+            organizationGrant.permissionKey,
+            resource,
+            { at: now, source: 'test' },
+          ),
+        ).resolves.toMatchObject({ allowed: false });
+      }
+    }
+  });
+
+  it('cannot bypass organization, canonical permission, or policy through an alternate source', async () => {
+    const temporaryGrantSource: AuthorizationTemporaryGrantSource = {
+      listGrants: vi.fn(async () => [organizationGrant]),
+    };
+    const denyingPolicy: AuthorizationPolicyEvaluator = {
+      evaluatePolicy: vi.fn(async () => ({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' })),
+    };
+    await expect(
+      harness([], [], { temporaryGrantSource }).service.authorize(
         actor,
-        extensionGrant.permissionKey,
+        organizationGrant.permissionKey,
+        { ...resource, organizationId: 'organization-b' },
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'ORGANIZATION_MISMATCH' });
+    expect(temporaryGrantSource.listGrants).not.toHaveBeenCalled();
+
+    await expect(
+      harness([], [], { temporaryGrantSource }).service.authorize(
+        actor,
+        'admin.employee.unknown',
         resource,
         { at: now, source: 'test' },
-      );
-      expect(decision).toMatchObject({
+      ),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'PERMISSION_INVALID' });
+
+    const emergencyBoundarySource: AuthorizationEmergencyGrantSource = {
+      listGrants: vi.fn(async () => [organizationGrant]),
+    };
+    await expect(
+      harness([], [], { emergencyGrantSource: emergencyBoundarySource }).service.authorize(
+        actor,
+        organizationGrant.permissionKey,
+        { ...resource, organizationId: 'organization-b' },
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'ORGANIZATION_MISMATCH' });
+    expect(emergencyBoundarySource.listGrants).not.toHaveBeenCalled();
+    await expect(
+      harness([], [], { emergencyGrantSource: emergencyBoundarySource }).service.authorize(
+        actor,
+        'admin.employee.unknown',
+        resource,
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'PERMISSION_INVALID' });
+
+    await expect(
+      harness([], [], { temporaryGrantSource, policyEvaluator: denyingPolicy }).service.authorize(
+        actor,
+        organizationGrant.permissionKey,
+        resource,
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' });
+    expect(denyingPolicy.evaluatePolicy).toHaveBeenCalledWith(expect.objectContaining({ grant: organizationGrant }));
+
+    const emergencyGrantSource: AuthorizationEmergencyGrantSource = {
+      listGrants: async () => [organizationGrant],
+    };
+    await expect(
+      harness([], [], { emergencyGrantSource, policyEvaluator: denyingPolicy }).service.authorize(
+        actor,
+        organizationGrant.permissionKey,
+        resource,
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' });
+  });
+
+  it('fails closed when either alternate grant source or the shared policy throws', async () => {
+    for (const options of [
+      { temporaryGrantSource: { listGrants: async () => { throw new Error('temporary unavailable'); } } },
+      { emergencyGrantSource: { listGrants: async () => { throw new Error('emergency unavailable'); } } },
+      {
+        temporaryGrantSource: { listGrants: async () => [organizationGrant] },
+        policyEvaluator: { evaluatePolicy: async () => { throw new Error('policy unavailable'); } },
+      },
+    ] satisfies Array<{
+      temporaryGrantSource?: AuthorizationTemporaryGrantSource;
+      emergencyGrantSource?: AuthorizationEmergencyGrantSource;
+      policyEvaluator?: AuthorizationPolicyEvaluator;
+    }>) {
+      await expect(
+        harness([], [], options).service.authorize(actor, organizationGrant.permissionKey, resource, {
+          at: now,
+          source: 'test',
+        }),
+      ).resolves.toMatchObject({ allowed: false, reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED' });
+    }
+  });
+
+  it('does not consult alternate sources after a normal grant authorizes', async () => {
+    const temporaryGrantSource: AuthorizationTemporaryGrantSource = { listGrants: vi.fn(async () => []) };
+    const emergencyGrantSource: AuthorizationEmergencyGrantSource = { listGrants: vi.fn(async () => []) };
+    await expect(
+      harness([organizationGrant], [], { temporaryGrantSource, emergencyGrantSource }).service.authorize(
+        actor,
+        organizationGrant.permissionKey,
+        resource,
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({ allowed: true });
+    expect(temporaryGrantSource.listGrants).not.toHaveBeenCalled();
+    expect(emergencyGrantSource.listGrants).not.toHaveBeenCalled();
+  });
+
+  it('denies every unresolved extension scope in the default configuration', async () => {
+    for (const scopeType of EXTENSION_SCOPE_TYPES) {
+      await expect(
+        harness([{ ...organizationGrant, scopeType }]).service.authorize(
+          actor,
+          organizationGrant.permissionKey,
+          resource,
+          { at: now, source: 'test' },
+        ),
+      ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_RESOLVER_UNAVAILABLE' });
+    }
+  });
+
+  it('routes normal grants through the same policy evaluator', async () => {
+    const policyEvaluator: AuthorizationPolicyEvaluator = {
+      evaluatePolicy: vi.fn(async () => ({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' })),
+    };
+    await expect(
+      harness([organizationGrant], [], { policyEvaluator }).service.authorize(
+        actor,
+        organizationGrant.permissionKey,
+        resource,
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' });
+    expect(policyEvaluator.evaluatePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({ grant: organizationGrant }),
+    );
+  });
+
+  it('fails closed when policy evaluation of a normal grant throws', async () => {
+    const policyEvaluator: AuthorizationPolicyEvaluator = {
+      evaluatePolicy: async () => { throw new Error('policy unavailable'); },
+    };
+    await expect(
+      harness([organizationGrant], [], { policyEvaluator }).service.authorize(
+        actor,
+        organizationGrant.permissionKey,
+        resource,
+        { at: now, source: 'test' },
+      ),
+    ).resolves.toMatchObject({
+      allowed: false,
+      reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED',
+    });
+  });
+
+  it('fails closed when a policy adapter returns a malformed result', async () => {
+    for (const result of [{ allowed: 'yes' }, null]) {
+      const policyEvaluator = {
+        evaluatePolicy: async () => result,
+      } as unknown as AuthorizationPolicyEvaluator;
+      await expect(
+        harness([], [], {
+          temporaryGrantSource: { listGrants: async () => [organizationGrant] },
+          policyEvaluator,
+        }).service.authorize(actor, organizationGrant.permissionKey, resource, {
+          at: now,
+          source: 'test',
+        }),
+      ).resolves.toMatchObject({
         allowed: false,
-        reasonCode: 'SCOPE_RESOLVER_UNAVAILABLE',
+        reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED',
       });
     }
   });
 
-  it('proves default temporary-access port contributes no authority', async () => {
-    const defaultTempPort = new DefaultAuthorizationTemporaryAccessAdapter();
-    const result = await defaultTempPort.evaluate({
-      actor,
-      action: organizationGrant.permissionKey,
-      resource,
-      context: { at: now, source: 'test' },
-    });
-    expect(result).toEqual({ granted: false });
-
-    // In AuthorizationService, with no matching grant, default temporary port cannot grant authority
-    const test = harness([], [], { temporaryAccess: defaultTempPort });
-    const decision = await test.service.authorize(
-      actor,
-      organizationGrant.permissionKey,
-      resource,
-      { at: now, source: 'test' },
-    );
-    expect(decision).toMatchObject({
-      allowed: false,
-      reasonCode: 'PERMISSION_NOT_GRANTED',
-    });
-  });
-
-  it('proves default emergency-access port contributes no authority and provides no bypass', async () => {
-    const defaultEmergencyPort = new DefaultAuthorizationEmergencyAccessAdapter();
-    const result = await defaultEmergencyPort.evaluate({
-      actor,
-      action: organizationGrant.permissionKey,
-      resource,
-      context: { at: now, source: 'test' },
-    });
-    expect(result).toEqual({ granted: false });
-
-    // Even with founder / super admin identity, emergency port provides no universal bypass
-    const founderActor = { ...actor, founder: true } as AuthorizationActor;
-    const test = harness([], [], { emergencyAccess: defaultEmergencyPort });
-    const decision = await test.service.authorize(
-      founderActor,
-      organizationGrant.permissionKey,
-      resource,
-      { at: now, source: 'test' },
-    );
-    expect(decision).toMatchObject({
-      allowed: false,
-      reasonCode: 'PERMISSION_NOT_GRANTED',
-    });
-  });
-
-  it('proves default policy evaluator preserves role-permission authorization without inventing approval/step-up', async () => {
-    const defaultPolicy = new DefaultAuthorizationPolicyEvaluator();
-    const policyResult = await defaultPolicy.evaluatePolicy({
-      actor,
-      action: organizationGrant.permissionKey,
-      resource,
-      context: { at: now, source: 'test' },
-      grant: organizationGrant,
-    });
-    expect(policyResult).toEqual({ allowed: true });
-
-    const test = harness([organizationGrant], [], { policyEvaluator: defaultPolicy });
-    const decision = await test.service.authorize(
-      actor,
-      organizationGrant.permissionKey,
-      resource,
-      { at: now, source: 'test' },
-    );
-    expect(decision).toMatchObject({
-      allowed: true,
-      reasonCode: 'AUTHORIZED',
-    });
-  });
-
-  it('fails closed when policy evaluator denies or throws', async () => {
-    const denyingPolicy: AuthorizationPolicyEvaluator = {
-      evaluatePolicy: vi.fn(() =>
-        Promise.resolve({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' }),
-      ),
-    };
-    const testDenying = harness([organizationGrant], [], { policyEvaluator: denyingPolicy });
-    await expect(
-      testDenying.service.authorize(actor, organizationGrant.permissionKey, resource, {
-        at: now,
-        source: 'test',
-      }),
-    ).resolves.toMatchObject({
-      allowed: false,
-      reasonCode: 'SCOPE_NOT_SATISFIED',
-    });
-
-    const throwingPolicy: AuthorizationPolicyEvaluator = {
-      evaluatePolicy: vi.fn(() => Promise.reject(new Error('Policy evaluation failure'))),
-    };
-    const testThrowing = harness([organizationGrant], [], { policyEvaluator: throwingPolicy });
-    await expect(
-      testThrowing.service.authorize(actor, organizationGrant.permissionKey, resource, {
-        at: now,
-        source: 'test',
-      }),
-    ).resolves.toMatchObject({
-      allowed: false,
-      reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED',
-    });
-  });
-
-  it('fails closed when temporary access or emergency access ports throw', async () => {
-    const throwingTemp: AuthorizationTemporaryAccessPort = {
-      evaluate: vi.fn(() => Promise.reject(new Error('Temporary access service down'))),
-    };
-    const testTemp = harness([], [], { temporaryAccess: throwingTemp });
-    await expect(
-      testTemp.service.authorize(actor, organizationGrant.permissionKey, resource, {
-        at: now,
-        source: 'test',
-      }),
-    ).resolves.toMatchObject({
-      allowed: false,
-      reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED',
-    });
-
-    const throwingEmergency: AuthorizationEmergencyAccessPort = {
-      evaluate: vi.fn(() => Promise.reject(new Error('Emergency access service down'))),
-    };
-    const testEmergency = harness([], [], { emergencyAccess: throwingEmergency });
-    await expect(
-      testEmergency.service.authorize(actor, organizationGrant.permissionKey, resource, {
-        at: now,
-        source: 'test',
-      }),
-    ).resolves.toMatchObject({
-      allowed: false,
-      reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED',
-    });
-  });
-
-  it('ensures metric adapter exceptions never alter the authorization decision', async () => {
+  it('keeps authorization decisions independent from metric sink failures', async () => {
     const repository: AuthorizationGrantRepository = {
-      listEffectivePermissionGrantsForEmployee: vi.fn(() => Promise.resolve([organizationGrant])),
+      listEffectivePermissionGrantsForEmployee: async () => [organizationGrant],
     };
-    const throwingMetrics: AuthorizationMetricsPort = {
-      record: vi.fn(() => {
-        throw new Error('Metrics sink failure');
+    const metrics: AuthorizationMetricsPort = {
+      record: () => { throw new Error('metrics unavailable'); },
+    };
+    const service = new AuthorizationService(repository, [], metrics);
+    await expect(
+      service.authorize(actor, organizationGrant.permissionKey, resource, {
+        at: now,
+        source: 'test',
       }),
-    };
-    const service = new AuthorizationService(repository, [], throwingMetrics);
-
-    const decision = await service.authorize(actor, organizationGrant.permissionKey, resource, {
-      at: now,
-      source: 'test',
-    });
-    expect(decision).toMatchObject({
-      allowed: true,
-      reasonCode: 'AUTHORIZED',
-    });
+    ).resolves.toMatchObject({ allowed: true, reasonCode: 'AUTHORIZED' });
   });
 });
-
