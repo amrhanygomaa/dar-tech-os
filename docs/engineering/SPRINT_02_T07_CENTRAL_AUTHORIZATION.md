@@ -1,5 +1,9 @@
 # Sprint 02 T07 Central Authorization Service
 
+## Closure status
+
+**Implementation status: CLOSED.** S02-T07 was merged through PR #11 at canonical merge/main SHA `0164fa03883f78847429bc46458316c9bafd75e8` from final reviewed implementation head `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`. The implementation introduced no schema change or migration. S02-T08 through S02-T11 and S02-T13 through S02-T15 remain deferred and unauthorized; this closure grants no authority to begin them.
+
 ## Status and boundary
 
 S02-T07 implements the one canonical server-side `authorize(actor, action, resource, context)` decision engine and connects every current Sprint 02 protected application service to it. T04 remains the authority for session authentication and lifecycle validity; T05/T06 remain the authorities for effective role assignments and canonical permission-grant descriptors.
