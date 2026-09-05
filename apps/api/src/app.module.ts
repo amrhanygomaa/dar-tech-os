@@ -30,6 +30,8 @@ import {
   type AuthorizationModuleExtensions,
   type AuthorizationTestAdapters,
 } from './authorization/authorization.module.js';
+import { ApprovalModule } from './approvals/approval.module.js';
+import type { ApprovalApproverResolver } from './approvals/approval.contracts.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
@@ -43,6 +45,7 @@ export interface AppModuleRegistrationOptions {
   readonly sessionTestAdapters?: SessionTestAdapters;
   readonly authorizationTestAdapters?: AuthorizationTestAdapters;
   readonly authorizationExtensions?: AuthorizationModuleExtensions;
+  readonly approvalApproverTestAdapter?: ApprovalApproverResolver;
 }
 
 @Module({})
@@ -93,6 +96,7 @@ export class AppModule {
             ? { testAdapters: options.authorizationTestAdapters }
             : {}),
         }),
+        ApprovalModule.register(config.appEnvironment, options.approvalApproverTestAdapter),
         ApiFallbackModule,
       ],
       controllers: [AppController],

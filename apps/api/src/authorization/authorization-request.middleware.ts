@@ -6,7 +6,7 @@ import { SessionService } from '../sessions/session.service.js';
 import { AuthorizationActorContext } from './authorization-context.js';
 import type { AuthorizationActor } from './authorization.contracts.js';
 
-const protectedPath = /^\/(?:me(?:\/|$)|employees(?:\/|$)|invitations(?:\/|$)|roles(?:\/|$)|permissions(?:\/|$)|audit-events(?:\/|$)|security-events(?:\/|$)|admin\/sessions(?:\/|$))/u;
+const protectedPath = /^\/(?:me(?:\/|$)|employees(?:\/|$)|invitations(?:\/|$)|roles(?:\/|$)|permissions(?:\/|$)|approvals(?:\/|$)|audit-events(?:\/|$)|security-events(?:\/|$)|admin\/sessions(?:\/|$))/u;
 
 function applicationPath(request: Request): string {
   return request.path.replace(/^\/api\/v1(?=\/|$)/u, '') || '/';

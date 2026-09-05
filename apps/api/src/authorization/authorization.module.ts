@@ -33,7 +33,6 @@ import {
 } from './authorization.contracts.js';
 import {
   DefaultAuthorizationEmergencyGrantSource,
-  DefaultAuthorizationPolicyEvaluator,
   DefaultAuthorizationTemporaryGrantSource,
 } from './authorization-extensions.js';
 import {
@@ -43,6 +42,16 @@ import {
 import { AuthorizationRequestMiddleware } from './authorization-request.middleware.js';
 import { AuthorizationScopeResolverRegistry } from './authorization-scope-resolver.registry.js';
 import { AuthorizationService } from './authorization.service.js';
+import {
+  APPROVAL_POLICY_RESOLVER,
+  STEP_UP_EVIDENCE_EVALUATOR,
+  type ApprovalPolicyResolver,
+} from '../approvals/approval.contracts.js';
+import {
+  CompatibilityApprovalPolicyResolver,
+  TrustedSessionStepUpEvidenceEvaluator,
+} from '../approvals/approval-policy.js';
+import { ApprovalAuthorizationPolicyEvaluator } from '../approvals/approval-authorization-policy.js';
 
 export interface AuthorizationTestAdapters {
   readonly clock?: AuthorizationClock;
@@ -53,12 +62,14 @@ export interface AuthorizationTestAdapters {
   readonly temporaryGrantSource?: AuthorizationTemporaryGrantSource;
   readonly emergencyGrantSource?: AuthorizationEmergencyGrantSource;
   readonly policyEvaluator?: AuthorizationPolicyEvaluator;
+  readonly approvalPolicyResolver?: ApprovalPolicyResolver;
 }
 
 export interface AuthorizationModuleExtensions {
   readonly temporaryGrantSource?: AuthorizationTemporaryGrantSource;
   readonly emergencyGrantSource?: AuthorizationEmergencyGrantSource;
   readonly policyEvaluator?: AuthorizationPolicyEvaluator;
+  readonly approvalPolicyResolver?: ApprovalPolicyResolver;
 }
 
 export interface AuthorizationModuleRegistrationOptions {
@@ -86,6 +97,15 @@ export class AuthorizationModule {
       global: true,
       imports: [DiscoveryModule],
       providers: [
+        CompatibilityApprovalPolicyResolver,
+        selectedProvider(
+          APPROVAL_POLICY_RESOLVER,
+          testAdapters?.approvalPolicyResolver ?? extensions?.approvalPolicyResolver,
+          { provide: APPROVAL_POLICY_RESOLVER, useExisting: CompatibilityApprovalPolicyResolver },
+        ),
+        TrustedSessionStepUpEvidenceEvaluator,
+        { provide: STEP_UP_EVIDENCE_EVALUATOR, useExisting: TrustedSessionStepUpEvidenceEvaluator },
+        ApprovalAuthorizationPolicyEvaluator,
         AuthorizationActorContext,
         selectedProvider(AUTHORIZATION_CLOCK, testAdapters?.clock, {
           provide: AUTHORIZATION_CLOCK,
@@ -133,7 +153,7 @@ export class AuthorizationModule {
           testAdapters?.policyEvaluator ?? extensions?.policyEvaluator,
           {
             provide: AUTHORIZATION_POLICY_EVALUATOR,
-            useClass: DefaultAuthorizationPolicyEvaluator,
+            useExisting: ApprovalAuthorizationPolicyEvaluator,
           },
         ),
         AuthorizationService,
@@ -152,6 +172,8 @@ export class AuthorizationModule {
         AUTHORIZATION_TEMPORARY_GRANT_SOURCE,
         AUTHORIZATION_EMERGENCY_GRANT_SOURCE,
         AUTHORIZATION_POLICY_EVALUATOR,
+        APPROVAL_POLICY_RESOLVER,
+        STEP_UP_EVIDENCE_EVALUATOR,
         AuthorizationActorContext,
         AuthorizationService,
         AuthorizationRequestMiddleware,

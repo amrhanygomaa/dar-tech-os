@@ -29,6 +29,9 @@ export const API_ERROR_CODES = {
   permissionNotRegistered: 'PERMISSION_NOT_REGISTERED',
   permissionUnavailable: 'PERMISSION_UNAVAILABLE',
   rolePermissionConflict: 'ROLE_PERMISSION_CONFLICT',
+  approvalInputInvalid: 'APPROVAL_INPUT_INVALID',
+  stepUpRequired: 'STEP_UP_REQUIRED',
+  approvalStateConflict: 'APPROVAL_STATE_CONFLICT',
   internalError: 'INTERNAL_ERROR',
 } as const;
 

@@ -26,6 +26,7 @@ export const AUTHORIZATION_RESOURCE_TYPES = [
   'employee-sessions',
   'audit-event',
   'security-event',
+  'approval-request',
 ] as const;
 
 export type AuthorizationResourceType = (typeof AUTHORIZATION_RESOURCE_TYPES)[number];
@@ -45,6 +46,8 @@ export interface AuthorizationResource {
 export interface AuthorizationContext {
   readonly at: Date;
   readonly source: 'http' | 'application' | 'test';
+  readonly approvalReference?: string;
+  readonly approvalContext?: Readonly<Record<string, string | number | boolean | null>>;
 }
 
 export type AuthorizationReasonCode =
@@ -56,6 +59,9 @@ export type AuthorizationReasonCode =
   | 'RESOURCE_INVALID'
   | 'SCOPE_NOT_SATISFIED'
   | 'SCOPE_RESOLVER_UNAVAILABLE'
+  | 'APPROVAL_REQUIRED'
+  | 'STEP_UP_REQUIRED'
+  | 'APPROVAL_INVALID_OR_STALE'
   | 'AUTHORIZATION_DEPENDENCY_FAILED';
 
 export interface AuthorizationDecision {

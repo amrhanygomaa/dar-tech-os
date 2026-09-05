@@ -56,7 +56,7 @@ const config: ApiConfig = {
 
 async function clearData(client: DatabaseClient): Promise<void> {
   await client.$executeRawUnsafe(
-    'TRUNCATE TABLE "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
+    'TRUNCATE TABLE "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
   );
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
@@ -407,6 +407,11 @@ describe.skipIf(!databaseUrl)('S02-T07 central authorization PostgreSQL integrat
     // --- 2. VALID SESSION + MISSING ORIGIN ---
     const sessionBeforeMissing = await client.session.findUniqueOrThrow({ where: { id: sessionId } });
     await request(app.getHttpServer()).patch('/api/v1/me').set('Cookie', `dartech_session=${credential}`).send({ displayName: 'Blocked Missing' }).expect(403);
+    await request(app.getHttpServer())
+      .post('/api/v1/approvals/018f53d4-2f68-7c52-a399-3df2364df099/approve')
+      .set('Cookie', `dartech_session=${credential}`)
+      .send({ stepId: '018f53d4-2f68-7c52-a399-3df2364df098', expectedVersion: 1 })
+      .expect(403);
     const sessionAfterMissing = await client.session.findUniqueOrThrow({ where: { id: sessionId } });
     expect(sessionAfterMissing.lastSeenAt.getTime()).toBe(sessionBeforeMissing.lastSeenAt.getTime());
     expect(sessionAfterMissing.idleExpiresAt.getTime()).toBe(sessionBeforeMissing.idleExpiresAt.getTime());

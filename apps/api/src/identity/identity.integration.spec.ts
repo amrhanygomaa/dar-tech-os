@@ -35,7 +35,7 @@ const actor: TrustedActor = {
 };
 
 async function clearIdentityData(client: DatabaseClient): Promise<void> {
-  await client.$executeRawUnsafe('TRUNCATE TABLE "audit_events", "security_events"');
+  await client.$executeRawUnsafe('TRUNCATE TABLE "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
   await client.session.deleteMany();
   await client.sSOIdentity.deleteMany();
   await client.userAccount.deleteMany();

@@ -12,7 +12,7 @@ This directory is the implementation documentation set for Dar Tech OS.
 
 - Sprint 01 specification: `../SPRINT_01_ENGINEERING_FOUNDATION.md`
 - Sprint 01 closure: `execution/SPRINT_01_CLOSURE.md`
-- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **CONTROLLED IMPLEMENTATION; S02-T00–T08/T12 COMPLETE; S02-T09–T11/T13–T15 UNAUTHORIZED**. S02-T08 merged through PR #13 from reviewed head `d746e655496699fec3eb11b525f20d4f675cd892` at canonical merge/main SHA `6402bd8c5ea6ca16ba76e2750c648506011b5cea`.
+- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **CONTROLLED IMPLEMENTATION; S02-T09 AUTHORIZED — IMPLEMENTATION UNDER REVIEW; S02-T10/T11/T13–T15 UNAUTHORIZED**.
 
 ### Source-of-truth rules
 
@@ -31,6 +31,7 @@ This directory is the implementation documentation set for Dar Tech OS.
 - `engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md`
 - `engineering/SPRINT_02_T07_CENTRAL_AUTHORIZATION.md`
 - `engineering/SPRINT_02_T08_RESOURCE_SCOPE_AUTHORIZATION.md`
+- `engineering/SPRINT_02_T09_APPROVAL_ENGINE.md`
 - `engineering/SPRINT_02_T12_AUDIT_SECURITY_EVENTS.md`
 - Accepted architecture decisions: `decisions/README.md`
 
