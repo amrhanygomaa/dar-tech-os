@@ -1,6 +1,10 @@
-import { type DynamicModule, Module } from '@nestjs/common';
-import type { WorkerConfig } from '@dar-tech/config';
-import { DATABASE_CLIENT, DatabaseModule, type DatabaseClient } from '@dar-tech/database';
+import { type DynamicModule, Module } from "@nestjs/common";
+import type { WorkerConfig } from "@dar-tech/config";
+import {
+  DATABASE_CLIENT,
+  DatabaseModule,
+  type DatabaseClient,
+} from "@dar-tech/database";
 import {
   OutboxConsumerRegistry,
   OutboxDeliveryJobHandler,
@@ -9,7 +13,7 @@ import {
   PostgresOutboxStore,
   REFERENCE_OUTBOX_ROUTE,
   ReferenceOutboxConsumer,
-} from '@dar-tech/outbox';
+} from "@dar-tech/outbox";
 import {
   ObservabilityModule,
   REQUEST_CONTEXT_STORE,
@@ -17,7 +21,7 @@ import {
   type ObservabilityRegistration,
   type RequestContextStore,
   type StructuredLogger,
-} from '@dar-tech/observability';
+} from "@dar-tech/observability";
 import {
   CappedExponentialRetryPolicy,
   JobHandlerRegistry,
@@ -26,22 +30,26 @@ import {
   RetryProbeJobHandler,
   systemClock,
   type JobQueuePort,
-} from '@dar-tech/queue';
-import { WorkerRuntimeService } from './worker-runtime.service.js';
+} from "@dar-tech/queue";
+import { WorkerRuntimeService } from "./worker-runtime.service.js";
 import {
   JOB_PROCESSOR,
   JOB_QUEUE,
   OUTBOX_DISPATCHER,
   WORKER_CONFIG,
-} from './worker.tokens.js';
+} from "./worker.tokens.js";
 import {
   IDENTITY_OUTBOX_CONSUMERS,
   IDENTITY_OUTBOX_ROUTES,
-} from './identity-outbox-events.js';
+} from "./identity-outbox-events.js";
+import { TemporaryAccessExpiryReconciler } from "./temporary-access-expiry.reconciler.js";
 
 @Module({})
 export class WorkerModule {
-  static register(config: WorkerConfig, observability: ObservabilityRegistration): DynamicModule {
+  static register(
+    config: WorkerConfig,
+    observability: ObservabilityRegistration,
+  ): DynamicModule {
     return {
       module: WorkerModule,
       imports: [
@@ -51,14 +59,16 @@ export class WorkerModule {
           poolMax: config.databasePoolMax,
           connectTimeoutMs: config.databaseConnectTimeoutMs,
           idleTimeoutMs: config.databaseIdleTimeoutMs,
-          errorFormat: config.appEnvironment === 'production' ? 'minimal' : 'pretty',
+          errorFormat:
+            config.appEnvironment === "production" ? "minimal" : "pretty",
         }),
       ],
       providers: [
         { provide: WORKER_CONFIG, useValue: config },
         {
           provide: JOB_QUEUE,
-          useFactory: (client: DatabaseClient): JobQueuePort => new PostgresJobQueue(client),
+          useFactory: (client: DatabaseClient): JobQueuePort =>
+            new PostgresJobQueue(client),
           inject: [DATABASE_CLIENT],
         },
         {
@@ -79,7 +89,10 @@ export class WorkerModule {
             );
             return new JobProcessor(
               queue,
-              new JobHandlerRegistry([new RetryProbeJobHandler(), deliveryHandler]),
+              new JobHandlerRegistry([
+                new RetryProbeJobHandler(),
+                deliveryHandler,
+              ]),
               contextStore,
               logger,
               new CappedExponentialRetryPolicy({
@@ -89,7 +102,12 @@ export class WorkerModule {
               systemClock,
             );
           },
-          inject: [DATABASE_CLIENT, JOB_QUEUE, REQUEST_CONTEXT_STORE, STRUCTURED_LOGGER],
+          inject: [
+            DATABASE_CLIENT,
+            JOB_QUEUE,
+            REQUEST_CONTEXT_STORE,
+            STRUCTURED_LOGGER,
+          ],
         },
         {
           provide: OUTBOX_DISPATCHER,
@@ -102,7 +120,10 @@ export class WorkerModule {
             new OutboxDispatcher(
               new PostgresOutboxStore(client),
               queue,
-              new OutboxRouteRegistry([REFERENCE_OUTBOX_ROUTE, ...IDENTITY_OUTBOX_ROUTES]),
+              new OutboxRouteRegistry([
+                REFERENCE_OUTBOX_ROUTE,
+                ...IDENTITY_OUTBOX_ROUTES,
+              ]),
               contextStore,
               logger,
               new CappedExponentialRetryPolicy({
@@ -111,8 +132,14 @@ export class WorkerModule {
               }),
               systemClock,
             ),
-          inject: [DATABASE_CLIENT, JOB_QUEUE, REQUEST_CONTEXT_STORE, STRUCTURED_LOGGER],
+          inject: [
+            DATABASE_CLIENT,
+            JOB_QUEUE,
+            REQUEST_CONTEXT_STORE,
+            STRUCTURED_LOGGER,
+          ],
         },
+        TemporaryAccessExpiryReconciler,
         WorkerRuntimeService,
       ],
     };

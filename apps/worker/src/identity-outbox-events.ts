@@ -31,6 +31,10 @@ const eventTypes = [
   "identity.approval-completed",
   "identity.approved-action-executed",
   "identity.approved-action-execution-failed",
+  "identity.temporary-access-requested",
+  "identity.temporary-access-granted",
+  "identity.temporary-access-revoked",
+  "identity.temporary-access-expired",
 ] as const;
 
 const consumerName = "identity.lifecycle-history";

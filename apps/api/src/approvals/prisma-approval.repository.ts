@@ -190,6 +190,7 @@ export class PrismaApprovalRepository implements ApprovalRepositoryPort {
   async prepare(
     input: PrepareApprovalInput,
     policy: ValidatedApprovalPolicy,
+    transaction?: DatabaseTransaction,
   ): Promise<ApprovalRequestView> {
     validatePrepareApprovalInput(input);
     const contextFingerprint = approvalFingerprint(input.safeContext);
@@ -204,7 +205,7 @@ export class PrismaApprovalRepository implements ApprovalRepositoryPort {
       policy.fingerprint,
     );
     try {
-      return await runInTransaction(this.client, async (transaction) => {
+      const work = async (transaction: DatabaseTransaction) => {
         if (!(await this.currentActor(input.actor, input.at, transaction)))
           throw new Error("Approval actor is not current");
         const existing = await transaction.approvalRequest.findUnique({
@@ -304,7 +305,8 @@ export class PrismaApprovalRepository implements ApprovalRepositoryPort {
           },
         });
         return requestView(request);
-      });
+      };
+      return await (transaction ? work(transaction) : runInTransaction(this.client, work));
     } catch (error) {
       if (
         error &&

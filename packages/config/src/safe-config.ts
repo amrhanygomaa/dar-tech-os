@@ -1,6 +1,6 @@
-import type { ApiConfig, WebConfig, WorkerConfig } from './runtime-config.js';
+import type { ApiConfig, WebConfig, WorkerConfig } from "./runtime-config.js";
 
-export const REDACTED_VALUE = '[REDACTED]' as const;
+export const REDACTED_VALUE = "[REDACTED]" as const;
 
 export const SENSITIVE_KEY_PATTERNS = [
   /authorization/i,
@@ -13,7 +13,7 @@ export const SENSITIVE_KEY_PATTERNS = [
 ] as const;
 
 export interface SafeConfigSummary {
-  readonly runtime: 'api' | 'web' | 'worker';
+  readonly runtime: "api" | "web" | "worker";
   readonly appEnvironment: string;
   readonly nodeEnvironment: string;
   readonly logLevel: string;
@@ -25,7 +25,7 @@ function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(key));
 }
 
-export function redactSensitiveValues(value: unknown, key = ''): unknown {
+export function redactSensitiveValues(value: unknown, key = ""): unknown {
   if (isSensitiveKey(key)) {
     return REDACTED_VALUE;
   }
@@ -34,7 +34,7 @@ export function redactSensitiveValues(value: unknown, key = ''): unknown {
     return value.map((item) => redactSensitiveValues(item));
   }
 
-  if (value && typeof value === 'object') {
+  if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value).map(([nestedKey, nestedValue]) => [
         nestedKey,
@@ -49,13 +49,14 @@ export function redactSensitiveValues(value: unknown, key = ''): unknown {
 export function toSafeConfigSummary(
   config: ApiConfig | WebConfig | WorkerConfig,
 ): SafeConfigSummary {
-  const port = 'port' in config ? { port: config.port } : {};
+  const port = "port" in config ? { port: config.port } : {};
   return {
     runtime: config.runtime,
     appEnvironment: config.appEnvironment,
     nodeEnvironment: config.nodeEnvironment,
     logLevel: config.logLevel,
     ...port,
-    databaseConfigured: 'databaseUrl' in config && config.databaseUrl.length > 0,
+    databaseConfigured:
+      "databaseUrl" in config && config.databaseUrl.length > 0,
   };
 }

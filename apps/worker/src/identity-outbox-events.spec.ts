@@ -35,6 +35,10 @@ describe("Sprint 02 identity outbox routing", () => {
       "identity.approval-completed",
       "identity.approved-action-executed",
       "identity.approved-action-execution-failed",
+      "identity.temporary-access-requested",
+      "identity.temporary-access-granted",
+      "identity.temporary-access-revoked",
+      "identity.temporary-access-expired",
     ]);
     for (const route of IDENTITY_OUTBOX_ROUTES) {
       expect(routes.resolve(route.eventType, route.eventVersion)).toEqual(

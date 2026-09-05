@@ -120,6 +120,7 @@ export class ApprovalService implements ApprovalExecutionLifecyclePort {
   /** Internal application port. No HTTP controller exposes request creation. */
   async prepareApprovalForAction(
     input: PrepareApprovalInput,
+    transaction?: DatabaseTransaction,
   ): Promise<PrepareApprovalResult> {
     input = {
       ...input,
@@ -186,7 +187,7 @@ export class ApprovalService implements ApprovalExecutionLifecyclePort {
       return { outcome: "STEP_UP_SATISFIED", policy };
     return {
       outcome: "APPROVAL_REQUIRED",
-      request: await this.repository.prepare(input, policy),
+      request: await this.repository.prepare(input, policy, transaction),
     };
   }
 

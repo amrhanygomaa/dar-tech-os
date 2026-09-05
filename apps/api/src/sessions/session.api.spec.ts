@@ -37,6 +37,7 @@ const config: ApiConfig = {
   authentication: { allowedRedirectUris: [], localProviderEnabled: false, localIdentities: [], transactionTtlSeconds: 300 },
   invitation: { ttlSeconds: 300, rateLimitMaxRequests: 30, rateLimitWindowSeconds: 60 },
   session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
+  temporaryAccess: { maxDurationSeconds: 604800 },
 };
 
 describe('S02-T04 session API boundary', () => {

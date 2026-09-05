@@ -1,7 +1,7 @@
-import type { DatabaseClient } from './client.js';
+import type { DatabaseClient } from "./client.js";
 
 export interface DatabaseHealthResult {
-  readonly status: 'up' | 'down';
+  readonly status: "up" | "down";
   readonly latencyMs: number;
 }
 
@@ -16,13 +16,22 @@ export async function checkDatabaseHealth(
     await Promise.race([
       client.$queryRaw`SELECT 1`,
       new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => reject(new Error('Database health check timed out')), timeoutMs);
+        timeout = setTimeout(
+          () => reject(new Error("Database health check timed out")),
+          timeoutMs,
+        );
       }),
     ]);
 
-    return { status: 'up', latencyMs: Math.round(performance.now() - startedAt) };
+    return {
+      status: "up",
+      latencyMs: Math.round(performance.now() - startedAt),
+    };
   } catch {
-    return { status: 'down', latencyMs: Math.round(performance.now() - startedAt) };
+    return {
+      status: "down",
+      latencyMs: Math.round(performance.now() - startedAt),
+    };
   } finally {
     if (timeout) {
       clearTimeout(timeout);

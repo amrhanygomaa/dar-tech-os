@@ -146,61 +146,75 @@ enum ApprovalSeparationRule {
   @@map("approval_separation_rule")
 }
 
+enum TemporaryAccessGrantStatus {
+  PENDING_APPROVAL
+  GRANTED
+  REVOKED
+  EXPIRED
+
+  @@map("temporary_access_grant_status")
+}
+
 model Organization {
-  id               String                 @id @default(uuid()) @db.Uuid
-  displayName      String                 @map("display_name") @db.VarChar(160)
-  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  employees        Employee[]
-  userAccounts     UserAccount[]
-  ssoIdentities    SSOIdentity[]
-  auditEvents      AuditEvent[]
-  securityEvents   SecurityEvent[]
-  invitations      Invitation[]
-  roles            Role[]
-  employeeRoles    EmployeeRole[]
-  rolePermissions  RolePermission[]
-  sessions         Session[]
-  approvalRequests ApprovalRequest[]
-  approvalSteps    ApprovalStep[]
-  approvalHistory  ApprovalHistoryEntry[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  displayName             String                   @map("display_name") @db.VarChar(160)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employees               Employee[]
+  userAccounts            UserAccount[]
+  ssoIdentities           SSOIdentity[]
+  auditEvents             AuditEvent[]
+  securityEvents          SecurityEvent[]
+  invitations             Invitation[]
+  roles                   Role[]
+  employeeRoles           EmployeeRole[]
+  rolePermissions         RolePermission[]
+  sessions                Session[]
+  approvalRequests        ApprovalRequest[]
+  approvalSteps           ApprovalStep[]
+  approvalHistory         ApprovalHistoryEntry[]
+  temporaryAccessGrants   TemporaryAccessGrant[]
+  temporaryAccessBindings TemporaryAccessBinding[]
 
   @@map("organizations")
 }
 
 model Employee {
-  id                     String                  @id @default(uuid()) @db.Uuid
-  organizationId         String                  @map("organization_id") @db.Uuid
-  employeeCode           String                  @map("employee_code") @db.VarChar(64)
-  firstName              String                  @map("first_name") @db.VarChar(100)
-  lastName               String                  @map("last_name") @db.VarChar(100)
-  displayName            String                  @map("display_name") @db.VarChar(160)
-  workEmail              String                  @map("work_email") @db.VarChar(320)
-  lifecycleStatus        EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
-  invitedAt              DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
-  activatedAt            DateTime?               @map("activated_at") @db.Timestamptz(3)
-  suspendedAt            DateTime?               @map("suspended_at") @db.Timestamptz(3)
-  offboardingAt          DateTime?               @map("offboarding_at") @db.Timestamptz(3)
-  archivedAt             DateTime?               @map("archived_at") @db.Timestamptz(3)
-  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  userAccount            UserAccount?
-  authoredAuditEvents    AuditEvent[]            @relation("AuditEventActor")
-  securityEvents         SecurityEvent[]         @relation("SecurityEventActor")
-  invitations            Invitation[]            @relation("InvitationEmployee")
-  issuedInvitations      Invitation[]            @relation("InvitationIssuer")
-  revokedInvitations     Invitation[]            @relation("InvitationRevoker")
-  roleAssignments        EmployeeRole[]          @relation("EmployeeRoleEmployee")
-  assignedRoles          EmployeeRole[]          @relation("EmployeeRoleAssigner")
-  removedRoles           EmployeeRole[]          @relation("EmployeeRoleRemover")
-  grantedPermissions     RolePermission[]        @relation("RolePermissionGrantor")
-  removedPermissions     RolePermission[]        @relation("RolePermissionRemover")
-  sessions               Session[]               @relation("SessionEmployee")
-  revokedSessions        Session[]               @relation("SessionRevoker")
-  requestedApprovals     ApprovalRequest[]       @relation("ApprovalRequester")
-  decidedApprovalSteps   ApprovalStep[]          @relation("ApprovalStepDecider")
-  approvalHistoryEntries ApprovalHistoryEntry[]  @relation("ApprovalHistoryActor")
+  id                      String                  @id @default(uuid()) @db.Uuid
+  organizationId          String                  @map("organization_id") @db.Uuid
+  employeeCode            String                  @map("employee_code") @db.VarChar(64)
+  firstName               String                  @map("first_name") @db.VarChar(100)
+  lastName                String                  @map("last_name") @db.VarChar(100)
+  displayName             String                  @map("display_name") @db.VarChar(160)
+  workEmail               String                  @map("work_email") @db.VarChar(320)
+  lifecycleStatus         EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
+  invitedAt               DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
+  activatedAt             DateTime?               @map("activated_at") @db.Timestamptz(3)
+  suspendedAt             DateTime?               @map("suspended_at") @db.Timestamptz(3)
+  offboardingAt           DateTime?               @map("offboarding_at") @db.Timestamptz(3)
+  archivedAt              DateTime?               @map("archived_at") @db.Timestamptz(3)
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userAccount             UserAccount?
+  authoredAuditEvents     AuditEvent[]            @relation("AuditEventActor")
+  securityEvents          SecurityEvent[]         @relation("SecurityEventActor")
+  invitations             Invitation[]            @relation("InvitationEmployee")
+  issuedInvitations       Invitation[]            @relation("InvitationIssuer")
+  revokedInvitations      Invitation[]            @relation("InvitationRevoker")
+  roleAssignments         EmployeeRole[]          @relation("EmployeeRoleEmployee")
+  assignedRoles           EmployeeRole[]          @relation("EmployeeRoleAssigner")
+  removedRoles            EmployeeRole[]          @relation("EmployeeRoleRemover")
+  grantedPermissions      RolePermission[]        @relation("RolePermissionGrantor")
+  removedPermissions      RolePermission[]        @relation("RolePermissionRemover")
+  sessions                Session[]               @relation("SessionEmployee")
+  revokedSessions         Session[]               @relation("SessionRevoker")
+  requestedApprovals      ApprovalRequest[]       @relation("ApprovalRequester")
+  decidedApprovalSteps    ApprovalStep[]          @relation("ApprovalStepDecider")
+  approvalHistoryEntries  ApprovalHistoryEntry[]  @relation("ApprovalHistoryActor")
+  issuedTemporaryAccess   TemporaryAccessGrant[]  @relation("TemporaryAccessIssuer")
+  receivedTemporaryAccess TemporaryAccessGrant[]  @relation("TemporaryAccessRecipient")
+  revokedTemporaryAccess  TemporaryAccessGrant[]  @relation("TemporaryAccessRevoker")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
@@ -260,22 +274,23 @@ model EmployeeRole {
 }
 
 model Permission {
-  id                       String           @id @default(uuid()) @db.Uuid
-  key                      String           @unique(map: "permissions_key_key") @db.VarChar(160)
-  domain                   String           @db.VarChar(64)
-  resource                 String           @db.VarChar(64)
-  action                   String           @db.VarChar(64)
-  description              String           @db.VarChar(500)
-  riskClassification       EventRisk        @map("risk_classification")
-  active                   Boolean          @default(true)
-  deprecatedAt             DateTime?        @map("deprecated_at") @db.Timestamptz(3)
-  replacementPermissionKey String?          @map("replacement_permission_key") @db.VarChar(160)
-  definitionVersion        Int              @map("definition_version")
-  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  replacementPermission    Permission?      @relation("PermissionReplacement", fields: [replacementPermissionKey], references: [key], onDelete: Restrict, onUpdate: Restrict)
-  replacedPermissions      Permission[]     @relation("PermissionReplacement")
+  id                       String                   @id @default(uuid()) @db.Uuid
+  key                      String                   @unique(map: "permissions_key_key") @db.VarChar(160)
+  domain                   String                   @db.VarChar(64)
+  resource                 String                   @db.VarChar(64)
+  action                   String                   @db.VarChar(64)
+  description              String                   @db.VarChar(500)
+  riskClassification       EventRisk                @map("risk_classification")
+  active                   Boolean                  @default(true)
+  deprecatedAt             DateTime?                @map("deprecated_at") @db.Timestamptz(3)
+  replacementPermissionKey String?                  @map("replacement_permission_key") @db.VarChar(160)
+  definitionVersion        Int                      @map("definition_version")
+  createdAt                DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  replacementPermission    Permission?              @relation("PermissionReplacement", fields: [replacementPermissionKey], references: [key], onDelete: Restrict, onUpdate: Restrict)
+  replacedPermissions      Permission[]             @relation("PermissionReplacement")
   rolePermissions          RolePermission[]
+  temporaryAccessBindings  TemporaryAccessBinding[]
 
   @@index([domain, resource, action], map: "permissions_domain_resource_action_idx")
   @@index([active, deprecatedAt], map: "permissions_active_deprecated_idx")
@@ -524,6 +539,7 @@ model ApprovalRequest {
   requesterEmployee        Employee               @relation("ApprovalRequester", fields: [organizationId, requesterEmployeeId], references: [organizationId, id], onDelete: Restrict)
   steps                    ApprovalStep[]
   history                  ApprovalHistoryEntry[]
+  temporaryAccessGrants    TemporaryAccessGrant[]
 
   @@unique([organizationId, id], map: "approval_requests_organization_id_id_key")
   @@unique([organizationId, idempotencyDigest], map: "approval_requests_organization_idempotency_key")
@@ -531,6 +547,66 @@ model ApprovalRequest {
   @@index([organizationId, requesterEmployeeId, createdAt], map: "approval_requests_organization_requester_created_idx")
   @@index([organizationId, executionState, updatedAt], map: "approval_requests_organization_execution_updated_idx")
   @@map("approval_requests")
+}
+
+model TemporaryAccessGrant {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  organizationId      String                     @map("organization_id") @db.Uuid
+  issuerEmployeeId    String                     @map("issuer_employee_id") @db.Uuid
+  recipientEmployeeId String                     @map("recipient_employee_id") @db.Uuid
+  issuerSnapshot      Json                       @map("issuer_snapshot") @db.JsonB
+  recipientSnapshot   Json                       @map("recipient_snapshot") @db.JsonB
+  safeReason          String                     @map("safe_reason") @db.VarChar(500)
+  startsAt            DateTime                   @map("starts_at") @db.Timestamptz(3)
+  expiresAt           DateTime                   @map("expires_at") @db.Timestamptz(3)
+  status              TemporaryAccessGrantStatus @default(PENDING_APPROVAL)
+  approvalReference   String?                    @map("approval_reference") @db.Uuid
+  idempotencyDigest   String                     @map("idempotency_digest") @db.Char(64)
+  requestFingerprint  String                     @map("request_fingerprint") @db.Char(64)
+  contextFingerprint  String                     @map("context_fingerprint") @db.Char(64)
+  requestedAt         DateTime                   @map("requested_at") @db.Timestamptz(3)
+  grantedAt           DateTime?                  @map("granted_at") @db.Timestamptz(3)
+  revokedAt           DateTime?                  @map("revoked_at") @db.Timestamptz(3)
+  revokedByEmployeeId String?                    @map("revoked_by_employee_id") @db.Uuid
+  version             Int                        @default(1)
+  createdAt           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  issuerEmployee      Employee                   @relation("TemporaryAccessIssuer", fields: [organizationId, issuerEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  recipientEmployee   Employee                   @relation("TemporaryAccessRecipient", fields: [organizationId, recipientEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  revokedByEmployee   Employee?                  @relation("TemporaryAccessRevoker", fields: [organizationId, revokedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  approval            ApprovalRequest?           @relation(fields: [organizationId, approvalReference], references: [organizationId, id], onDelete: Restrict)
+  bindings            TemporaryAccessBinding[]
+
+  @@unique([organizationId, id], map: "temporary_access_grants_organization_id_id_key")
+  @@unique([organizationId, idempotencyDigest], map: "temporary_access_grants_organization_idempotency_key")
+  @@index([organizationId, recipientEmployeeId, status, startsAt, expiresAt], map: "temporary_access_grants_recipient_effective_idx")
+  @@index([organizationId, issuerEmployeeId, createdAt], map: "temporary_access_grants_issuer_created_idx")
+  @@index([status, expiresAt, id], map: "temporary_access_grants_expiry_idx")
+  @@index([organizationId, approvalReference], map: "temporary_access_grants_approval_idx")
+  @@map("temporary_access_grants")
+}
+
+model TemporaryAccessBinding {
+  id                     String               @id @default(uuid()) @db.Uuid
+  organizationId         String               @map("organization_id") @db.Uuid
+  temporaryAccessGrantId String               @map("temporary_access_grant_id") @db.Uuid
+  permissionKey          String               @map("permission_key") @db.VarChar(160)
+  permissionRiskSnapshot EventRisk            @map("permission_risk_snapshot")
+  scopeType              ScopeType            @map("scope_type")
+  scopeBindingType       String?              @map("scope_binding_type") @db.VarChar(80)
+  scopeBindingId         String?              @map("scope_binding_id") @db.VarChar(128)
+  resourceType           String               @map("resource_type") @db.VarChar(80)
+  resourceId             String?              @map("resource_id") @db.VarChar(128)
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  grant                  TemporaryAccessGrant @relation(fields: [organizationId, temporaryAccessGrantId], references: [organizationId, id], onDelete: Restrict)
+  permission             Permission           @relation(fields: [permissionKey], references: [key], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, temporaryAccessGrantId, permissionKey, scopeType, scopeBindingType, scopeBindingId, resourceType, resourceId], map: "temporary_access_bindings_unique_key")
+  @@index([organizationId, temporaryAccessGrantId], map: "temporary_access_bindings_grant_idx")
+  @@index([organizationId, permissionKey, scopeType], map: "temporary_access_bindings_permission_scope_idx")
+  @@map("temporary_access_bindings")
 }
 
 model ApprovalStep {

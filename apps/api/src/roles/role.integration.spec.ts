@@ -57,10 +57,11 @@ const config: ApiConfig = {
   },
   invitation: { ttlSeconds: 300, rateLimitMaxRequests: 100, rateLimitWindowSeconds: 60 },
   session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
+  temporaryAccess: { maxDurationSeconds: 604800 },
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
-  await client.$executeRawUnsafe('TRUNCATE TABLE "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
+  await client.$executeRawUnsafe('TRUNCATE TABLE "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
   await client.queueJob.deleteMany();

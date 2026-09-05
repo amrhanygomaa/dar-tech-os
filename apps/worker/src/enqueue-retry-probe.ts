@@ -1,8 +1,8 @@
-import 'dotenv/config';
-import { randomUUID } from 'node:crypto';
-import { loadWorkerConfig } from '@dar-tech/config';
-import { createPrismaClient } from '@dar-tech/database';
-import { PostgresJobQueue, createRetryProbeJob } from '@dar-tech/queue';
+import "dotenv/config";
+import { randomUUID } from "node:crypto";
+import { loadWorkerConfig } from "@dar-tech/config";
+import { createPrismaClient } from "@dar-tech/database";
+import { PostgresJobQueue, createRetryProbeJob } from "@dar-tech/queue";
 
 const config = loadWorkerConfig(process.env);
 const client = createPrismaClient({
@@ -10,7 +10,7 @@ const client = createPrismaClient({
   poolMax: config.databasePoolMax,
   connectTimeoutMs: config.databaseConnectTimeoutMs,
   idleTimeoutMs: config.databaseIdleTimeoutMs,
-  errorFormat: config.appEnvironment === 'production' ? 'minimal' : 'pretty',
+  errorFormat: config.appEnvironment === "production" ? "minimal" : "pretty",
 });
 
 async function enqueueRetryProbe(): Promise<void> {
@@ -18,12 +18,12 @@ async function enqueueRetryProbe(): Promise<void> {
   const successfulProbeId = randomUUID();
   const successfulCorrelationId = randomUUID();
   const successfulInput = createRetryProbeJob({
-      probeId: successfulProbeId,
-      failuresBeforeSuccess: 2,
-      correlationId: successfulCorrelationId,
-      deduplicationKey: `retry-probe:${successfulProbeId}`,
-      maxAttempts: Math.max(3, config.jobMaxAttempts),
-    });
+    probeId: successfulProbeId,
+    failuresBeforeSuccess: 2,
+    correlationId: successfulCorrelationId,
+    deduplicationKey: `retry-probe:${successfulProbeId}`,
+    maxAttempts: Math.max(3, config.jobMaxAttempts),
+  });
   const retryToSuccess = await queue.enqueue(successfulInput);
   const duplicate = await queue.enqueue(successfulInput);
 
@@ -58,7 +58,7 @@ async function enqueueRetryProbe(): Promise<void> {
 
 void enqueueRetryProbe()
   .catch(() => {
-    process.stderr.write('Retry probe enqueue failed safely\n');
+    process.stderr.write("Retry probe enqueue failed safely\n");
     process.exitCode = 1;
   })
   .finally(async () => {
