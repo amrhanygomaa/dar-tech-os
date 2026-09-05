@@ -28,7 +28,7 @@ Sprint 01 is closed. S02-T00 through S02-T09 and S02-T12 are completed. S02-T10 
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside the completed tickets;
+- implement any Sprint 02 application behavior outside the completed tickets and authorized S02-T10;
 - add production provider adapters, real business relationship resolvers, production approval policies or approver bindings, emergency access behavior, offboarding, seeds, or bootstrap commands;
 - mark S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
@@ -93,35 +93,35 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 
 ## Ticket execution record
 
-| Ticket                              | Status                                   | Evidence                                                                                                                                                                                                                                                |
-| ----------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S02-T00                             | COMPLETED                                | PR #3; merge commit `e3f0cab99469334058657e73015c1667c562a3e5`                                                                                                                                                                                          |
-| S02-T01                             | COMPLETED                                | PR #4; merge commit `188dd268a3bfbace0d5341a069fc403d4ff111d4`                                                                                                                                                                                          |
-| S02-T03                             | COMPLETED                                | PR #5; merge commit `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec`                                                                                                                                                                                          |
-| S02-T12                             | COMPLETED                                | PR #6; merge commit `81dc731123d95ecc8376867b27efe1c23e7b8119`                                                                                                                                                                                          |
-| S02-T02                             | COMPLETED                                | PR #7; merge commit `9f27434a292c557d18254eea0b84355c1c1693a2`                                                                                                                                                                                          |
-| S02-T05                             | COMPLETED                                | Implemented before the explicit S02-T06 authorization; see `docs/engineering/SPRINT_02_T05_ROLE_MODEL.md`                                                                                                                                               |
-| S02-T06                             | COMPLETED                                | PR #9; merge commit `48f5327928cedd8cb1c7a531e9a3cb0c40f5599c`; evidence in `docs/engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md`                                                                                                                     |
-| S02-T04                             | COMPLETED                                | PR #10; merge commit `2e7d5bbc8e4bddfeb85b8c5be18582f26eded996`; evidence in `docs/engineering/SPRINT_02_T04_SESSION_MANAGEMENT.md`                                                                                                                     |
-| S02-T07                             | COMPLETED — CLOSED — MERGED              | PR #11; final reviewed implementation head `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`; merge commit `0164fa03883f78847429bc46458316c9bafd75e8`; evidence in `docs/engineering/SPRINT_02_T07_CENTRAL_AUTHORIZATION.md`                                   |
-| S02-T08                             | COMPLETED — CLOSED — MERGED              | PR #13; final reviewed implementation head `d746e655496699fec3eb11b525f20d4f675cd892`; merge commit `6402bd8c5ea6ca16ba76e2750c648506011b5cea`; evidence in `docs/engineering/SPRINT_02_T08_RESOURCE_SCOPE_AUTHORIZATION.md`                            |
-| S02-T09                             | COMPLETED — CLOSED — MERGED              | PR #15; final reviewed implementation head `fc10a8e87a74421bbcc920fffc3f9f7c4e9e382f`; merge SHA `b65f2090643608a48a99fedc9ddd3c96fd2c3cfb`; evidence in `docs/engineering/SPRINT_02_T09_APPROVAL_ENGINE.md`; no production policy or approver bindings |
-| S02-T10                             | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | Temporary/delegated access only; no merge or successor-ticket authorization implied.                                                                                                                                                                    |
-| S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED                           | No implementation may begin without a later explicit supervisor authorization                                                                                                                                                                           |
+| Ticket | Status | Evidence |
+| --- | --- | --- |
+| S02-T00 | COMPLETED | PR #3; merge commit `e3f0cab99469334058657e73015c1667c562a3e5` |
+| S02-T01 | COMPLETED | PR #4; merge commit `188dd268a3bfbace0d5341a069fc403d4ff111d4` |
+| S02-T03 | COMPLETED | PR #5; merge commit `fbbe0e1cf65f4ca274d4c97bc3eeaad241c64aec` |
+| S02-T12 | COMPLETED | PR #6; merge commit `81dc731123d95ecc8376867b27efe1c23e7b8119` |
+| S02-T02 | COMPLETED | PR #7; merge commit `9f27434a292c557d18254eea0b84355c1c1693a2` |
+| S02-T05 | COMPLETED | Implemented before the explicit S02-T06 authorization; see `docs/engineering/SPRINT_02_T05_ROLE_MODEL.md` |
+| S02-T06 | COMPLETED | PR #9; merge commit `48f5327928cedd8cb1c7a531e9a3cb0c40f5599c`; evidence in `docs/engineering/SPRINT_02_T06_PERMISSION_REGISTRY.md` |
+| S02-T04 | COMPLETED | PR #10; merge commit `2e7d5bbc8e4bddfeb85b8c5be18582f26eded996`; evidence in `docs/engineering/SPRINT_02_T04_SESSION_MANAGEMENT.md` |
+| S02-T07 | COMPLETED — CLOSED — MERGED | PR #11; final reviewed implementation head `b16bcd534bb4c4c7ce288cc1d2b4c7570a3c3cda`; merge commit `0164fa03883f78847429bc46458316c9bafd75e8`; evidence in `docs/engineering/SPRINT_02_T07_CENTRAL_AUTHORIZATION.md` |
+| S02-T08 | COMPLETED — CLOSED — MERGED | PR #13; final reviewed implementation head `d746e655496699fec3eb11b525f20d4f675cd892`; merge commit `6402bd8c5ea6ca16ba76e2750c648506011b5cea`; evidence in `docs/engineering/SPRINT_02_T08_RESOURCE_SCOPE_AUTHORIZATION.md` |
+| S02-T09 | COMPLETED — CLOSED — MERGED | PR #15; final reviewed implementation head `fc10a8e87a74421bbcc920fffc3f9f7c4e9e382f`; merge SHA `b65f2090643608a48a99fedc9ddd3c96fd2c3cfb`; evidence in `docs/engineering/SPRINT_02_T09_APPROVAL_ENGINE.md`; no production policy or approver bindings |
+| S02-T10 | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | Temporary/delegated access only; no merge or successor-ticket authorization implied. |
+| S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 
 The following is the maximum Sprint 02 entity scope. Exact column names and indexes may be refined during an authorized ticket without changing the business policy in this specification.
 
-| Area                       | Planned entities/value types                                                       | Boundary                                                                                    |
-| -------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Identity                   | `Organization`, `Employee`, `UserAccount`, `SSOIdentity`, `Invitation`             | Internal employees only; all mutable identity records are organization-scoped.              |
-| Sessions                   | `Session`                                                                          | Opaque/hashed session identifiers, metadata minimization, expiry and revocation.            |
-| Roles                      | `Role`, `EmployeeRole`                                                             | Customizable roles and historical multi-role assignments.                                   |
-| Permissions/scopes         | `Permission`, `RolePermission`, `ScopeType`, explicit scope bindings where needed  | Permission definitions are a product registry; grants and bindings are organization-scoped. |
-| Approval                   | `ApprovalRequest`, `ApprovalStep`, append-only approval history/execution metadata | Generic identity/security foundation only; no business-domain thresholds.                   |
-| Temporary/emergency access | `TemporaryAccessGrant`, grant permission/scope bindings, `EmergencyAccessGrant`    | Explicit, time-bounded, revocable, reasoned, fully audited access.                          |
-| Security/audit             | `SecurityEvent`, `AuditEvent`                                                      | Historical actor/context snapshots without secrets or token material.                       |
+| Area | Planned entities/value types | Boundary |
+| --- | --- | --- |
+| Identity | `Organization`, `Employee`, `UserAccount`, `SSOIdentity`, `Invitation` | Internal employees only; all mutable identity records are organization-scoped. |
+| Sessions | `Session` | Opaque/hashed session identifiers, metadata minimization, expiry and revocation. |
+| Roles | `Role`, `EmployeeRole` | Customizable roles and historical multi-role assignments. |
+| Permissions/scopes | `Permission`, `RolePermission`, `ScopeType`, explicit scope bindings where needed | Permission definitions are a product registry; grants and bindings are organization-scoped. |
+| Approval | `ApprovalRequest`, `ApprovalStep`, append-only approval history/execution metadata | Generic identity/security foundation only; no business-domain thresholds. |
+| Temporary/emergency access | `TemporaryAccessGrant`, grant permission/scope bindings, `EmergencyAccessGrant` | Explicit, time-bounded, revocable, reasoned, fully audited access. |
+| Security/audit | `SecurityEvent`, `AuditEvent` | Historical actor/context snapshots without secrets or token material. |
 
 Every organization-owned table must carry `organization_id`, use an organization-consistent relation strategy, and have cross-organization negative tests. The `Permission` registry may be product-global because its stable keys describe application capabilities rather than tenant-owned data; `Role`, `RolePermission`, assignments, grants, approvals, sessions, and events remain organization-scoped.
 

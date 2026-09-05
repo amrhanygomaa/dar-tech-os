@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import {
   DATABASE_CLIENT,
-  Prisma,
+  type Prisma,
   runInTransaction,
   type DatabaseClient,
 } from "@dar-tech/database";

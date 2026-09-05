@@ -16,6 +16,11 @@ const forbiddenContextKeyPattern =
 const allowedChangedFields = new Set([
   'action',
   'active',
+  'bindings',
+  'startsAt',
+  'status',
+  'grantedAt',
+  'revokedByEmployeeId',
   'archivedAt',
   'definitionVersion',
   'description',

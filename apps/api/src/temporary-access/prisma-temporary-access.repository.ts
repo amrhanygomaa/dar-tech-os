@@ -1,8 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import {
   DATABASE_CLIENT,
-  Prisma,
+  type Prisma,
   runInTransaction,
   type DatabaseClient,
   type DatabaseTransaction,
@@ -20,6 +19,8 @@ import {
 import { TEMPORARY_ACCESS_EVENTS } from "./temporary-access.events.js";
 import type {
   TemporaryAccessCreateData,
+  TemporaryAccessRecipient,
+  TemporaryAccessPage,
   TemporaryAccessEffectiveStatus,
   TemporaryAccessGrantView,
   TemporaryAccessRepositoryPort,
@@ -128,7 +129,7 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
     transaction: DatabaseTransaction,
     digest: string,
   ): Promise<void> {
-    await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${digest}, 0))`;
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${digest}, 0))`;
   }
 
   async findRecipient(
@@ -136,7 +137,7 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
     employeeId: string,
     transaction: DatabaseTransaction = this.client,
   ): Promise<
-    import("./temporary-access.contracts.js").TemporaryAccessRecipient | null
+    TemporaryAccessRecipient | null
   > {
     const employee = await transaction.employee.findFirst({
       where: { organizationId, id: employeeId },
@@ -219,7 +220,6 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
         grantedAt: input.granted ? input.at : null,
         bindings: {
           create: input.bindings.map((binding) => ({
-            organizationId: input.actor.organizationId,
             permissionKey: binding.permissionKey,
             permissionRiskSnapshot: binding.riskClassification,
             scopeType: binding.scopeType,
@@ -295,7 +295,7 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
     readonly status?: TemporaryAccessEffectiveStatus;
     readonly recipientEmployeeId?: string;
     readonly at: Date;
-  }): Promise<import("./temporary-access.contracts.js").TemporaryAccessPage> {
+  }): Promise<TemporaryAccessPage> {
     const where: Prisma.TemporaryAccessGrantWhereInput = {
       organizationId: input.organizationId,
       ...(input.recipientEmployeeId
@@ -420,7 +420,7 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
         organizationId: grant.organizationId,
         actionKey: AUDIT_ACTION_KEYS.temporaryAccessRequested,
         actorEmployeeId: grant.issuerEmployeeId,
-        actorSnapshot: snapshot(grant.issuerSnapshot) as never,
+        actorSnapshot: { type: "employee", ...snapshot(grant.issuerSnapshot) },
         targetType: "temporary-access-grant",
         targetId: grant.id,
         targetSnapshot: snapshot(grant.recipientSnapshot),
@@ -456,7 +456,7 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
         organizationId: grant.organizationId,
         actionKey: AUDIT_ACTION_KEYS.temporaryAccessGranted,
         actorEmployeeId: grant.issuerEmployeeId,
-        actorSnapshot: snapshot(grant.issuerSnapshot) as never,
+        actorSnapshot: { type: "employee", ...snapshot(grant.issuerSnapshot) },
         targetType: "temporary-access-grant",
         targetId: grant.id,
         targetSnapshot: snapshot(grant.recipientSnapshot),

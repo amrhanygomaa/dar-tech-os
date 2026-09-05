@@ -1,49 +1,41 @@
-import { type DynamicModule, Module } from "@nestjs/common";
-import type { ApiConfig } from "@dar-tech/config";
-import { DatabaseModule } from "@dar-tech/database";
-import {
-  ObservabilityModule,
-  type ObservabilityRegistration,
-} from "@dar-tech/observability";
-import { AppController } from "./app.controller.js";
-import { AppService } from "./app.service.js";
-import { HealthModule } from "./health/health.module.js";
-import {
-  IdentityModule,
-  type IdentityTestAdapters,
-} from "./identity/identity.module.js";
-import { ApiFallbackModule } from "./platform/api-fallback.module.js";
+import { type DynamicModule, Module } from '@nestjs/common';
+import type { ApiConfig } from '@dar-tech/config';
+import { DatabaseModule } from '@dar-tech/database';
+import { ObservabilityModule, type ObservabilityRegistration } from '@dar-tech/observability';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { HealthModule } from './health/health.module.js';
+import { IdentityModule, type IdentityTestAdapters } from './identity/identity.module.js';
+import { ApiFallbackModule } from './platform/api-fallback.module.js';
 import {
   AuthenticationModule,
   type AuthenticationTestAdapters,
-} from "./auth/auth.module.js";
+} from './auth/auth.module.js';
 import {
   EventHistoryModule,
   type EventHistoryTestAdapters,
-} from "./event-history/event-history.module.js";
+} from './event-history/event-history.module.js';
 import {
   InvitationModule,
   type InvitationTestAdapters,
-} from "./invitations/invitation.module.js";
-import { RoleModule, type RoleTestAdapters } from "./roles/role.module.js";
+} from './invitations/invitation.module.js';
+import { RoleModule, type RoleTestAdapters } from './roles/role.module.js';
 import {
   PermissionModule,
   type PermissionTestAdapters,
-} from "./permissions/permission.module.js";
-import {
-  SessionModule,
-  type SessionTestAdapters,
-} from "./sessions/session.module.js";
+} from './permissions/permission.module.js';
+import { SessionModule, type SessionTestAdapters } from './sessions/session.module.js';
 import {
   AuthorizationModule,
   type AuthorizationModuleExtensions,
   type AuthorizationTestAdapters,
-} from "./authorization/authorization.module.js";
-import { ApprovalModule } from "./approvals/approval.module.js";
-import type { ApprovalApproverResolver } from "./approvals/approval.contracts.js";
-import { TemporaryAccessModule } from "./temporary-access/temporary-access.module.js";
+} from './authorization/authorization.module.js';
+import { ApprovalModule } from './approvals/approval.module.js';
+import type { ApprovalApproverResolver } from './approvals/approval.contracts.js';
 
-export const API_CONFIG = Symbol("API_CONFIG");
+import { TemporaryAccessModule } from './temporary-access/temporary-access.module.js';
+
+export const API_CONFIG = Symbol('API_CONFIG');
 
 export interface AppModuleRegistrationOptions {
   readonly authenticationTestAdapters?: AuthenticationTestAdapters;
@@ -70,10 +62,7 @@ export class AppModule {
       poolMax: config.databasePoolMax,
       connectTimeoutMs: config.databaseConnectTimeoutMs,
       idleTimeoutMs: config.databaseIdleTimeoutMs,
-      errorFormat:
-        config.appEnvironment === "production"
-          ? ("minimal" as const)
-          : ("pretty" as const),
+      errorFormat: config.appEnvironment === 'production' ? ('minimal' as const) : ('pretty' as const),
     };
     return {
       module: AppModule,
@@ -81,10 +70,7 @@ export class AppModule {
         ObservabilityModule.register(observability),
         DatabaseModule.register(databaseOptions),
         HealthModule,
-        EventHistoryModule.register(
-          config.appEnvironment,
-          options.eventHistoryTestAdapters,
-        ),
+        EventHistoryModule.register(config.appEnvironment, options.eventHistoryTestAdapters),
         SessionModule.register(
           config.appEnvironment,
           config.session,
@@ -101,15 +87,9 @@ export class AppModule {
           config.invitation,
           options.invitationTestAdapters,
         ),
-        IdentityModule.register(
-          config.appEnvironment,
-          options.identityTestAdapters,
-        ),
+        IdentityModule.register(config.appEnvironment, options.identityTestAdapters),
         RoleModule.register(config.appEnvironment, options.roleTestAdapters),
-        PermissionModule.register(
-          config.appEnvironment,
-          options.permissionTestAdapters,
-        ),
+        PermissionModule.register(config.appEnvironment, options.permissionTestAdapters),
         AuthorizationModule.register(config.appEnvironment, {
           ...(options.authorizationExtensions
             ? { extensions: options.authorizationExtensions }
@@ -118,10 +98,7 @@ export class AppModule {
             ? { testAdapters: options.authorizationTestAdapters }
             : {}),
         }),
-        ApprovalModule.register(
-          config.appEnvironment,
-          options.approvalApproverTestAdapter,
-        ),
+        ApprovalModule.register(config.appEnvironment, options.approvalApproverTestAdapter),
         TemporaryAccessModule.register(config.temporaryAccess),
         ApiFallbackModule,
       ],

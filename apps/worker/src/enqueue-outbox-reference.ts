@@ -1,8 +1,8 @@
-import "dotenv/config";
-import { randomUUID } from "node:crypto";
-import { loadWorkerConfig } from "@dar-tech/config";
-import { createPrismaClient, runInTransaction } from "@dar-tech/database";
-import { createReferenceOutboxEvent } from "@dar-tech/outbox";
+import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
+import { loadWorkerConfig } from '@dar-tech/config';
+import { createPrismaClient, runInTransaction } from '@dar-tech/database';
+import { createReferenceOutboxEvent } from '@dar-tech/outbox';
 
 const config = loadWorkerConfig(process.env);
 const client = createPrismaClient({
@@ -10,7 +10,7 @@ const client = createPrismaClient({
   poolMax: config.databasePoolMax,
   connectTimeoutMs: config.databaseConnectTimeoutMs,
   idleTimeoutMs: config.databaseIdleTimeoutMs,
-  errorFormat: config.appEnvironment === "production" ? "minimal" : "pretty",
+  errorFormat: config.appEnvironment === 'production' ? 'minimal' : 'pretty',
 });
 
 async function enqueueReferenceOutboxEvent(): Promise<void> {
@@ -23,14 +23,12 @@ async function enqueueReferenceOutboxEvent(): Promise<void> {
       correlationId,
     }),
   );
-  process.stdout.write(
-    `${JSON.stringify({ ...result, correlationId, referenceId })}\n`,
-  );
+  process.stdout.write(`${JSON.stringify({ ...result, correlationId, referenceId })}\n`);
 }
 
 void enqueueReferenceOutboxEvent()
   .catch(() => {
-    process.stderr.write("Reference outbox enqueue failed safely\n");
+    process.stderr.write('Reference outbox enqueue failed safely\n');
     process.exitCode = 1;
   })
   .finally(async () => {

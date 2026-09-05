@@ -1,20 +1,22 @@
-import { Injectable, Optional } from "@nestjs/common";
-import { ModuleRef } from "@nestjs/core";
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { AUTHORIZATION_TEMPORARY_GRANT_LOOKUP } from './authorization.contracts.js';
 import type {
+  AuthorizationGrant,
   AuthorizationEmergencyGrantSource,
   AuthorizationPolicyEvaluator,
   AuthorizationPolicyInput,
   AuthorizationPolicyResult,
-  AuthorizationGrant,
   AuthorizationTemporaryGrantSource,
   AuthorizationAlternateGrantSourceInput,
-} from "./authorization.contracts.js";
-import { AUTHORIZATION_TEMPORARY_GRANT_LOOKUP } from "./authorization.contracts.js";
+} from './authorization.contracts.js';
 
 /** T10 owns any real temporary-access lookup; T07 contributes no grants. */
 @Injectable()
-export class DefaultAuthorizationTemporaryGrantSource implements AuthorizationTemporaryGrantSource {
-  constructor(@Optional() private readonly moduleRef?: ModuleRef) {}
+export class DefaultAuthorizationTemporaryGrantSource
+  implements AuthorizationTemporaryGrantSource
+{
+  constructor(@Optional() @Inject(ModuleRef) private readonly moduleRef?: ModuleRef) {}
 
   async listGrants(
     input: AuthorizationAlternateGrantSourceInput,
@@ -26,17 +28,18 @@ export class DefaultAuthorizationTemporaryGrantSource implements AuthorizationTe
         { strict: false },
       );
     } catch {
-      // T07 may be used without T10; absence is deliberately an empty source.
+      // T07 can run without T10; an absent lookup contributes no descriptors.
       return [];
     }
-
     return lookup ? lookup.listGrants(input) : [];
   }
 }
 
 /** T11 owns any real emergency-access lookup; T07 contributes no grants. */
 @Injectable()
-export class DefaultAuthorizationEmergencyGrantSource implements AuthorizationEmergencyGrantSource {
+export class DefaultAuthorizationEmergencyGrantSource
+  implements AuthorizationEmergencyGrantSource
+{
   async listGrants(
     _input: AuthorizationAlternateGrantSourceInput,
   ): Promise<readonly []> {
@@ -47,9 +50,7 @@ export class DefaultAuthorizationEmergencyGrantSource implements AuthorizationEm
 /** T09 will own policy outcomes; the T07 default adds no new policy behavior. */
 @Injectable()
 export class DefaultAuthorizationPolicyEvaluator implements AuthorizationPolicyEvaluator {
-  async evaluatePolicy(
-    _input: AuthorizationPolicyInput,
-  ): Promise<AuthorizationPolicyResult> {
+  async evaluatePolicy(_input: AuthorizationPolicyInput): Promise<AuthorizationPolicyResult> {
     return { allowed: true };
   }
 }

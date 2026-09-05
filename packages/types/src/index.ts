@@ -1,45 +1,43 @@
-export type RuntimeName = "api" | "web" | "worker";
+export type RuntimeName = 'api' | 'web' | 'worker';
 
 export interface FoundationDescriptor {
-  readonly name: "dar-tech-os";
+  readonly name: 'dar-tech-os';
   readonly runtime: RuntimeName;
-  readonly apiVersion: "v1";
+  readonly apiVersion: 'v1';
 }
 
 export const API_ERROR_CODES = {
-  invalidRequest: "INVALID_REQUEST",
-  notFound: "NOT_FOUND",
-  serviceUnavailable: "SERVICE_UNAVAILABLE",
-  authenticationRequired: "AUTHENTICATION_REQUIRED",
-  authenticationFailed: "AUTHENTICATION_FAILED",
-  invitationInvalid: "INVITATION_INVALID",
-  invitationIssuanceConflict: "INVITATION_ISSUANCE_CONFLICT",
-  invitationStateConflict: "INVITATION_STATE_CONFLICT",
-  onboardingFailed: "ONBOARDING_FAILED",
-  rateLimitExceeded: "RATE_LIMIT_EXCEEDED",
-  authorizationDenied: "AUTHORIZATION_DENIED",
-  identityLifecycleMutationNotAllowed:
-    "IDENTITY_LIFECYCLE_MUTATION_NOT_ALLOWED",
-  identityUpdateInvalid: "IDENTITY_UPDATE_INVALID",
-  roleInputInvalid: "ROLE_INPUT_INVALID",
-  roleKeyImmutable: "ROLE_KEY_IMMUTABLE",
-  roleConflict: "ROLE_CONFLICT",
-  roleArchived: "ROLE_ARCHIVED",
-  roleAssignmentConflict: "EMPLOYEE_ROLE_ASSIGNMENT_CONFLICT",
-  permissionInputInvalid: "PERMISSION_INPUT_INVALID",
-  permissionNotRegistered: "PERMISSION_NOT_REGISTERED",
-  permissionUnavailable: "PERMISSION_UNAVAILABLE",
-  rolePermissionConflict: "ROLE_PERMISSION_CONFLICT",
-  approvalInputInvalid: "APPROVAL_INPUT_INVALID",
-  stepUpRequired: "STEP_UP_REQUIRED",
-  approvalStateConflict: "APPROVAL_STATE_CONFLICT",
-  temporaryAccessInputInvalid: "TEMPORARY_ACCESS_INPUT_INVALID",
-  temporaryAccessConflict: "TEMPORARY_ACCESS_CONFLICT",
-  internalError: "INTERNAL_ERROR",
+  invalidRequest: 'INVALID_REQUEST',
+  notFound: 'NOT_FOUND',
+  serviceUnavailable: 'SERVICE_UNAVAILABLE',
+  authenticationRequired: 'AUTHENTICATION_REQUIRED',
+  authenticationFailed: 'AUTHENTICATION_FAILED',
+  invitationInvalid: 'INVITATION_INVALID',
+  invitationIssuanceConflict: 'INVITATION_ISSUANCE_CONFLICT',
+  invitationStateConflict: 'INVITATION_STATE_CONFLICT',
+  onboardingFailed: 'ONBOARDING_FAILED',
+  rateLimitExceeded: 'RATE_LIMIT_EXCEEDED',
+  authorizationDenied: 'AUTHORIZATION_DENIED',
+  identityLifecycleMutationNotAllowed: 'IDENTITY_LIFECYCLE_MUTATION_NOT_ALLOWED',
+  identityUpdateInvalid: 'IDENTITY_UPDATE_INVALID',
+  roleInputInvalid: 'ROLE_INPUT_INVALID',
+  roleKeyImmutable: 'ROLE_KEY_IMMUTABLE',
+  roleConflict: 'ROLE_CONFLICT',
+  roleArchived: 'ROLE_ARCHIVED',
+  roleAssignmentConflict: 'EMPLOYEE_ROLE_ASSIGNMENT_CONFLICT',
+  permissionInputInvalid: 'PERMISSION_INPUT_INVALID',
+  permissionNotRegistered: 'PERMISSION_NOT_REGISTERED',
+  permissionUnavailable: 'PERMISSION_UNAVAILABLE',
+  rolePermissionConflict: 'ROLE_PERMISSION_CONFLICT',
+  approvalInputInvalid: 'APPROVAL_INPUT_INVALID',
+  stepUpRequired: 'STEP_UP_REQUIRED',
+  approvalStateConflict: 'APPROVAL_STATE_CONFLICT',
+  temporaryAccessInputInvalid: 'TEMPORARY_ACCESS_INPUT_INVALID',
+  temporaryAccessConflict: 'TEMPORARY_ACCESS_CONFLICT',
+  internalError: 'INTERNAL_ERROR',
 } as const;
 
-export type ApiErrorCode =
-  (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];
+export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];
 
 export interface ApiResponseMeta {
   readonly requestId: string;

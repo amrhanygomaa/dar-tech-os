@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { DatabaseTransaction } from "@dar-tech/database";
 import { Inject, Injectable } from "@nestjs/common";
 import {
   REQUEST_CONTEXT_STORE,
@@ -381,7 +382,7 @@ export class TemporaryAccessService {
       readonly riskClassification: EventRisk;
     })[],
     at: Date,
-    transaction: import("@dar-tech/database").DatabaseTransaction,
+    transaction: DatabaseTransaction,
   ): Promise<void> {
     const recipient = await this.repository.findRecipient(
       actor.organizationId,
@@ -400,7 +401,7 @@ export class TemporaryAccessService {
     safeContext: Readonly<Record<string, string>>,
     correlationId: string,
     at: Date,
-    transaction: import("@dar-tech/database").DatabaseTransaction,
+    transaction: DatabaseTransaction,
   ): Promise<TemporaryAccessGrantView> {
     const claim = await this.approvals.claimApprovedAction(
       {
@@ -492,7 +493,7 @@ export class TemporaryAccessService {
 
   private async existingFingerprint(
     id: string,
-    transaction: import("@dar-tech/database").DatabaseTransaction,
+    transaction: DatabaseTransaction,
   ): Promise<string> {
     const row = await transaction.temporaryAccessGrant.findUnique({
       where: { id },

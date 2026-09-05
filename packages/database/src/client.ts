@@ -1,17 +1,15 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/prisma/client.js";
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from './generated/prisma/client.js';
 
 export interface DatabaseClientOptions {
   readonly databaseUrl: string;
   readonly poolMax?: number;
   readonly connectTimeoutMs?: number;
   readonly idleTimeoutMs?: number;
-  readonly errorFormat?: "minimal" | "pretty";
+  readonly errorFormat?: 'minimal' | 'pretty';
 }
 
-export function createPrismaClient(
-  options: DatabaseClientOptions,
-): PrismaClient {
+export function createPrismaClient(options: DatabaseClientOptions): PrismaClient {
   const adapter = new PrismaPg({
     connectionString: options.databaseUrl,
     max: options.poolMax ?? 10,
@@ -21,7 +19,7 @@ export function createPrismaClient(
 
   return new PrismaClient({
     adapter,
-    errorFormat: options.errorFormat ?? "minimal",
+    errorFormat: options.errorFormat ?? 'minimal',
   });
 }
 

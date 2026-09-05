@@ -46,7 +46,7 @@ the grant and takes effect immediately. Repeated revocation is idempotent.
 ## Persistence, evidence, and operations
 
 The additive migration `20260905180000_sprint_02_t10_temporary_access` creates
-`temporary_access_grants` and immutable-per-grant permission/scope binding
+`temporary_access_grants` and command-immutable permission/scope binding
 snapshots, organization boundaries, foreign keys, status/time checks, indexes,
 and one idempotency digest per issuer/organization. Writes use advisory-key and
 row locks to serialize duplicate creation, approval activation, revocation, and
@@ -62,12 +62,33 @@ The API exposes only list, create/request, detail, and revoke routes under the
 existing `admin.access.temporary` and `admin.access.revoke` permissions. The
 admin page renders status, exact bindings, time bounds, reason, approval state,
 and a revoke action where authorized. Runtime configuration bounds a request to
-`TEMPORARY_ACCESS_MAX_DURATION_SECONDS` (default seven days).
+`TEMPORARY_ACCESS_MAX_DURATION_SECONDS` (required; the Compose/example value is seven days).
 
 ## Verification record
 
 Focused unit coverage exercises strict input validation, no credential fields,
 wildcard/unknown permission rejection, duplicate binding rejection, duration
-bounds, and authorization-source active/revocation/expiry filters. The full
-repository quality gate remains required before this implementation is claimed
-complete or submitted for review.
+bounds, and authorization-source active/revocation/expiry filters.
+
+The PostgreSQL suite `temporary-access.integration.spec.ts` uses the real
+AppModule, T04 session resolution, T07 final authorization engine, T09 approval
+service, and persisted grants. Its regression matrix covers:
+
+| Requirement | Evidence |
+| --- | --- |
+| Before start, active interval, exact/after expiry | Injected-clock checks, including the final active millisecond; stored status remains GRANTED without a worker |
+| Revoked, inactive/disabled recipient, removed permission, revoked session | Previously trusted principal loses access on the next central decision |
+| Wrong organization/resource/type | Exact descriptor negative tests |
+| Issuer delegation containment | Explicit issuer cannot issue an organization grant; removed issuer authority denies creation |
+| T09 approval | Pending grant denies access; a different approver approves; exact command replay consumes one approval and emits one grant event |
+| Idempotency and no renewal | Concurrent creation produces one grant; changed expiry with the same key conflicts |
+| Revoke/expiry races | Simultaneous revoke and reconciliation produce one terminal event; later reconciliation cannot change a revoked grant |
+| Mandatory audit/outbox | All lifecycle event counts asserted; forced audit/outbox failure rolls back grant, bindings and approval |
+| Bounded input and trusted requests | Required reason/start/expiry, wildcard/client-policy rejection, cookie authentication and CSRF |
+
+The CI amendment removes formatting-only changes from existing files and fixes
+runtime defects revealed by these tests: explicit Nest lookup injection,
+PostgreSQL advisory-lock execution, inherited organization ownership in nested
+binding creation, and T12 actor/change-field validation. Prisma relation names
+map to the unchanged additive migration's foreign keys, eliminating naming drift.
+No permission keys, policy rules, or emergency-access behavior are added.

@@ -1,20 +1,8 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-const appEnvironmentSchema = z.enum([
-  "development",
-  "test",
-  "staging",
-  "production",
-]);
-const nodeEnvironmentSchema = z.enum(["development", "test", "production"]);
-const logLevelSchema = z.enum([
-  "fatal",
-  "error",
-  "warn",
-  "info",
-  "debug",
-  "trace",
-]);
+const appEnvironmentSchema = z.enum(['development', 'test', 'staging', 'production']);
+const nodeEnvironmentSchema = z.enum(['development', 'test', 'production']);
+const logLevelSchema = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']);
 const portSchema = z.coerce.number().int().min(1).max(65_535);
 const positiveIntegerSchema = z.coerce.number().int().positive();
 const workerIdentifierSchema = z
@@ -22,7 +10,7 @@ const workerIdentifierSchema = z
   .trim()
   .max(128)
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u)
-  .or(z.literal(""));
+  .or(z.literal(''));
 const queueNameSchema = z
   .string()
   .trim()
@@ -30,41 +18,39 @@ const queueNameSchema = z
   .max(64)
   .regex(/^[a-z][a-z0-9._-]*$/u);
 const booleanStringSchema = z
-  .enum(["true", "false"])
-  .default("false")
-  .transform((value) => value === "true");
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
 const localAuthenticationIdentitiesSchema = z
   .string()
   .trim()
-  .default("[]")
+  .default('[]')
   .transform((value, context) => {
     try {
       return JSON.parse(value) as unknown;
     } catch {
-      context.addIssue({ code: "custom", message: "must be valid JSON" });
+      context.addIssue({ code: 'custom', message: 'must be valid JSON' });
       return z.NEVER;
     }
   })
   .pipe(
-    z
-      .array(
-        z
-          .object({
-            loginHint: z.string().trim().min(1).max(160),
-            providerSubject: z.string().trim().min(1).max(255),
-            verifiedEmail: z.string().trim().email().max(320).optional(),
-          })
-          .strict(),
-      )
-      .max(100),
+    z.array(
+      z
+        .object({
+          loginHint: z.string().trim().min(1).max(160),
+          providerSubject: z.string().trim().min(1).max(255),
+          verifiedEmail: z.string().trim().email().max(320).optional(),
+        })
+        .strict(),
+    ).max(100),
   );
 const redirectAllowlistSchema = z
   .string()
   .trim()
-  .default("")
+  .default('')
   .transform((value, context) => {
     const redirects = value
-      .split(",")
+      .split(',')
       .map((entry) => entry.trim())
       .filter(Boolean);
     const uniqueRedirects = [...new Set(redirects)];
@@ -72,18 +58,15 @@ const redirectAllowlistSchema = z
       try {
         const parsed = new URL(redirect);
         if (
-          !["http:", "https:"].includes(parsed.protocol) ||
+          !['http:', 'https:'].includes(parsed.protocol) ||
           parsed.username.length > 0 ||
           parsed.password.length > 0 ||
           parsed.hash.length > 0
         ) {
-          throw new Error("unsafe redirect");
+          throw new Error('unsafe redirect');
         }
       } catch {
-        context.addIssue({
-          code: "custom",
-          message: "must contain safe absolute HTTP(S) URLs",
-        });
+        context.addIssue({ code: 'custom', message: 'must contain safe absolute HTTP(S) URLs' });
         return z.NEVER;
       }
     }
@@ -94,7 +77,7 @@ const originAllowlistSchema = z
   .trim()
   .transform((value, context) => {
     const origins = value
-      .split(",")
+      .split(',')
       .map((entry) => entry.trim())
       .filter(Boolean);
     const uniqueOrigins = [...new Set(origins)];
@@ -102,64 +85,55 @@ const originAllowlistSchema = z
       try {
         const parsed = new URL(origin);
         if (
-          !["http:", "https:"].includes(parsed.protocol) ||
+          !['http:', 'https:'].includes(parsed.protocol) ||
           parsed.origin !== origin ||
           parsed.username.length > 0 ||
           parsed.password.length > 0 ||
-          origin.includes("*")
+          origin.includes('*')
         ) {
-          throw new Error("unsafe origin");
+          throw new Error('unsafe origin');
         }
       } catch {
-        context.addIssue({
-          code: "custom",
-          message: "must contain exact HTTP(S) origins",
-        });
+        context.addIssue({ code: 'custom', message: 'must contain exact HTTP(S) origins' });
         return z.NEVER;
       }
     }
     return uniqueOrigins;
   });
 
-const databaseUrlSchema = z
-  .string()
-  .min(1)
-  .superRefine((value, context) => {
-    try {
-      const parsed = new URL(value);
-      if (
-        parsed.protocol !== "postgresql:" &&
-        parsed.protocol !== "postgres:"
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: "must use the PostgreSQL protocol",
-        });
-      }
-    } catch {
+const databaseUrlSchema = z.string().min(1).superRefine((value, context) => {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'postgresql:' && parsed.protocol !== 'postgres:') {
       context.addIssue({
-        code: "custom",
-        message: "must be a valid PostgreSQL connection URL",
+        code: 'custom',
+        message: 'must use the PostgreSQL protocol',
       });
     }
-  });
+  } catch {
+    context.addIssue({
+      code: 'custom',
+      message: 'must be a valid PostgreSQL connection URL',
+    });
+  }
+});
 
 const commonRuntimeSchema = z
   .object({
     APP_ENV: appEnvironmentSchema,
     NODE_ENV: nodeEnvironmentSchema,
-    LOG_LEVEL: logLevelSchema.default("info"),
+    LOG_LEVEL: logLevelSchema.default('info'),
   })
   .superRefine((value, context) => {
     const requiredNodeEnvironment =
-      value.APP_ENV === "staging" || value.APP_ENV === "production"
-        ? "production"
+      value.APP_ENV === 'staging' || value.APP_ENV === 'production'
+        ? 'production'
         : value.APP_ENV;
 
     if (value.NODE_ENV !== requiredNodeEnvironment) {
       context.addIssue({
-        code: "custom",
-        path: ["NODE_ENV"],
+        code: 'custom',
+        path: ['NODE_ENV'],
         message: `must be ${requiredNodeEnvironment} when APP_ENV is ${value.APP_ENV}`,
       });
     }
@@ -169,24 +143,20 @@ const databaseRuntimeSchema = commonRuntimeSchema
   .safeExtend({
     DATABASE_URL: databaseUrlSchema,
     DATABASE_POOL_MAX: positiveIntegerSchema.max(100).default(10),
-    DATABASE_CONNECT_TIMEOUT_MS: positiveIntegerSchema
-      .max(60_000)
-      .default(5_000),
-    DATABASE_IDLE_TIMEOUT_MS: positiveIntegerSchema
-      .max(300_000)
-      .default(30_000),
+    DATABASE_CONNECT_TIMEOUT_MS: positiveIntegerSchema.max(60_000).default(5_000),
+    DATABASE_IDLE_TIMEOUT_MS: positiveIntegerSchema.max(300_000).default(30_000),
   })
   .superRefine((value, context) => {
-    if (value.APP_ENV !== "staging" && value.APP_ENV !== "production") {
+    if (value.APP_ENV !== 'staging' && value.APP_ENV !== 'production') {
       return;
     }
 
     const parsed = new URL(value.DATABASE_URL);
-    if (parsed.username === "dartech" && parsed.password === "dartech") {
+    if (parsed.username === 'dartech' && parsed.password === 'dartech') {
       context.addIssue({
-        code: "custom",
-        path: ["DATABASE_URL"],
-        message: "must not use the documented local-development credentials",
+        code: 'custom',
+        path: ['DATABASE_URL'],
+        message: 'must not use the documented local-development credentials',
       });
     }
   });
@@ -197,115 +167,94 @@ const apiEnvironmentSchema = databaseRuntimeSchema
     AUTH_ALLOWED_REDIRECT_URIS: redirectAllowlistSchema,
     AUTH_LOCAL_IDENTITIES_JSON: localAuthenticationIdentitiesSchema,
     AUTH_LOCAL_PROVIDER_ENABLED: booleanStringSchema,
-    AUTH_TRANSACTION_TTL_SECONDS: positiveIntegerSchema
-      .min(60)
-      .max(900)
-      .default(300),
+    AUTH_TRANSACTION_TTL_SECONDS: positiveIntegerSchema.min(60).max(900).default(300),
     INVITATION_TTL_SECONDS: positiveIntegerSchema.min(60).max(2_592_000),
-    ONBOARDING_RATE_LIMIT_MAX_REQUESTS: positiveIntegerSchema
-      .min(1)
-      .max(1_000)
-      .default(30),
-    ONBOARDING_RATE_LIMIT_WINDOW_SECONDS: positiveIntegerSchema
-      .min(1)
-      .max(3_600)
-      .default(60),
+    ONBOARDING_RATE_LIMIT_MAX_REQUESTS: positiveIntegerSchema.min(1).max(1_000).default(30),
+    ONBOARDING_RATE_LIMIT_WINDOW_SECONDS: positiveIntegerSchema.min(1).max(3_600).default(60),
     SESSION_IDLE_TTL_SECONDS: positiveIntegerSchema.min(60).max(86_400),
     SESSION_ABSOLUTE_TTL_SECONDS: positiveIntegerSchema.min(300).max(2_678_400),
     SESSION_ALLOWED_ORIGINS: originAllowlistSchema,
-    TEMPORARY_ACCESS_MAX_DURATION_SECONDS: positiveIntegerSchema
-      .min(60)
-      .max(7_776_000),
+    TEMPORARY_ACCESS_MAX_DURATION_SECONDS: positiveIntegerSchema.min(60).max(7_776_000),
   })
   .superRefine((value, context) => {
     if (
       value.AUTH_LOCAL_PROVIDER_ENABLED &&
-      (value.APP_ENV === "staging" || value.APP_ENV === "production")
+      (value.APP_ENV === 'staging' || value.APP_ENV === 'production')
     ) {
       context.addIssue({
-        code: "custom",
-        path: ["AUTH_LOCAL_PROVIDER_ENABLED"],
-        message: "must be false in staging and production",
+        code: 'custom',
+        path: ['AUTH_LOCAL_PROVIDER_ENABLED'],
+        message: 'must be false in staging and production',
+      });
+    }
+
+    if (value.AUTH_LOCAL_PROVIDER_ENABLED && value.AUTH_ALLOWED_REDIRECT_URIS.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_ALLOWED_REDIRECT_URIS'],
+        message: 'must contain at least one URI when local authentication is enabled',
       });
     }
 
     if (
       value.AUTH_LOCAL_PROVIDER_ENABLED &&
-      value.AUTH_ALLOWED_REDIRECT_URIS.length === 0
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["AUTH_ALLOWED_REDIRECT_URIS"],
-        message:
-          "must contain at least one URI when local authentication is enabled",
-      });
-    }
-
-    if (
-      value.AUTH_LOCAL_PROVIDER_ENABLED &&
-      value.APP_ENV === "development" &&
+      value.APP_ENV === 'development' &&
       value.AUTH_LOCAL_IDENTITIES_JSON.length === 0
     ) {
       context.addIssue({
-        code: "custom",
-        path: ["AUTH_LOCAL_IDENTITIES_JSON"],
-        message: "must contain at least one identity in development",
+        code: 'custom',
+        path: ['AUTH_LOCAL_IDENTITIES_JSON'],
+        message: 'must contain at least one identity in development',
       });
     }
 
-    const localLoginHints = value.AUTH_LOCAL_IDENTITIES_JSON.map(
-      ({ loginHint }) => loginHint,
-    );
+    const localLoginHints = value.AUTH_LOCAL_IDENTITIES_JSON.map(({ loginHint }) => loginHint);
     const localSubjects = value.AUTH_LOCAL_IDENTITIES_JSON.map(
       ({ providerSubject }) => providerSubject,
     );
     if (new Set(localLoginHints).size !== localLoginHints.length) {
       context.addIssue({
-        code: "custom",
-        path: ["AUTH_LOCAL_IDENTITIES_JSON"],
-        message: "must not contain duplicate login hints",
+        code: 'custom',
+        path: ['AUTH_LOCAL_IDENTITIES_JSON'],
+        message: 'must not contain duplicate login hints',
       });
     }
     if (new Set(localSubjects).size !== localSubjects.length) {
       context.addIssue({
-        code: "custom",
-        path: ["AUTH_LOCAL_IDENTITIES_JSON"],
-        message: "must not contain duplicate provider subjects",
+        code: 'custom',
+        path: ['AUTH_LOCAL_IDENTITIES_JSON'],
+        message: 'must not contain duplicate provider subjects',
       });
     }
     if (value.SESSION_IDLE_TTL_SECONDS > value.SESSION_ABSOLUTE_TTL_SECONDS) {
       context.addIssue({
-        code: "custom",
-        path: ["SESSION_IDLE_TTL_SECONDS"],
-        message: "must be less than or equal to SESSION_ABSOLUTE_TTL_SECONDS",
+        code: 'custom',
+        path: ['SESSION_IDLE_TTL_SECONDS'],
+        message: 'must be less than or equal to SESSION_ABSOLUTE_TTL_SECONDS',
       });
     }
     if (
-      (value.APP_ENV === "staging" || value.APP_ENV === "production") &&
+      (value.APP_ENV === 'staging' || value.APP_ENV === 'production') &&
       value.SESSION_ALLOWED_ORIGINS.length === 0
     ) {
       context.addIssue({
-        code: "custom",
-        path: ["SESSION_ALLOWED_ORIGINS"],
-        message:
-          "must contain at least one exact origin in staging and production",
+        code: 'custom',
+        path: ['SESSION_ALLOWED_ORIGINS'],
+        message: 'must contain at least one exact origin in staging and production',
       });
     }
   });
 
 const workerEnvironmentSchema = databaseRuntimeSchema
   .safeExtend({
-    WORKER_HEALTH_FILE: z.string().trim().default(""),
+    WORKER_HEALTH_FILE: z.string().trim().default(''),
     WORKER_HEARTBEAT_INTERVAL_MS: positiveIntegerSchema
       .min(1_000)
       .max(60_000)
       .default(10_000),
-    WORKER_ID: workerIdentifierSchema.default(""),
-    WORKER_QUEUE: queueNameSchema.default("foundation"),
-    WORKER_POLL_INTERVAL_MS: positiveIntegerSchema
-      .min(100)
-      .max(60_000)
-      .default(1_000),
+    WORKER_ID: workerIdentifierSchema.default(''),
+    WORKER_QUEUE: queueNameSchema.default('foundation'),
+    WORKER_POLL_INTERVAL_MS: positiveIntegerSchema.min(100).max(60_000).default(1_000),
     WORKER_LEASE_DURATION_MS: positiveIntegerSchema
       .min(1_000)
       .max(3_600_000)
@@ -323,9 +272,9 @@ const workerEnvironmentSchema = databaseRuntimeSchema
   .superRefine((value, context) => {
     if (value.WORKER_RETRY_MAX_DELAY_MS < value.WORKER_RETRY_BASE_DELAY_MS) {
       context.addIssue({
-        code: "custom",
-        path: ["WORKER_RETRY_MAX_DELAY_MS"],
-        message: "must be greater than or equal to WORKER_RETRY_BASE_DELAY_MS",
+        code: 'custom',
+        path: ['WORKER_RETRY_MAX_DELAY_MS'],
+        message: 'must be greater than or equal to WORKER_RETRY_BASE_DELAY_MS',
       });
     }
   });
@@ -338,9 +287,9 @@ export type AppEnvironment = z.infer<typeof appEnvironmentSchema>;
 export type LogLevel = z.infer<typeof logLevelSchema>;
 
 export interface ApiConfig {
-  readonly runtime: "api";
+  readonly runtime: 'api';
   readonly appEnvironment: AppEnvironment;
-  readonly nodeEnvironment: "development" | "test" | "production";
+  readonly nodeEnvironment: 'development' | 'test' | 'production';
   readonly logLevel: LogLevel;
   readonly port: number;
   readonly databaseUrl: string;
@@ -384,9 +333,9 @@ export interface TemporaryAccessConfig {
 }
 
 export interface WorkerConfig {
-  readonly runtime: "worker";
+  readonly runtime: 'worker';
   readonly appEnvironment: AppEnvironment;
-  readonly nodeEnvironment: "development" | "test" | "production";
+  readonly nodeEnvironment: 'development' | 'test' | 'production';
   readonly logLevel: LogLevel;
   readonly databaseUrl: string;
   readonly databasePoolMax: number;
@@ -404,9 +353,9 @@ export interface WorkerConfig {
 }
 
 export interface WebConfig {
-  readonly runtime: "web";
+  readonly runtime: 'web';
   readonly appEnvironment: AppEnvironment;
-  readonly nodeEnvironment: "development" | "test" | "production";
+  readonly nodeEnvironment: 'development' | 'test' | 'production';
   readonly logLevel: LogLevel;
   readonly port: number;
 }
@@ -415,19 +364,14 @@ export class ConfigValidationError extends Error {
   readonly fields: readonly string[];
 
   constructor(issues: readonly z.core.$ZodIssue[]) {
-    const fields = [
-      ...new Set(issues.map((issue) => issue.path.join(".") || "environment")),
-    ];
-    super(`Invalid environment configuration: ${fields.join(", ")}`);
-    this.name = "ConfigValidationError";
+    const fields = [...new Set(issues.map((issue) => issue.path.join('.') || 'environment'))];
+    super(`Invalid environment configuration: ${fields.join(', ')}`);
+    this.name = 'ConfigValidationError';
     this.fields = fields;
   }
 }
 
-function parseEnvironment<T>(
-  schema: z.ZodType<T>,
-  environment: NodeJS.ProcessEnv,
-): T {
+function parseEnvironment<T>(schema: z.ZodType<T>, environment: NodeJS.ProcessEnv): T {
   const result = schema.safeParse(environment);
   if (!result.success) {
     throw new ConfigValidationError(result.error.issues);
@@ -439,7 +383,7 @@ function parseEnvironment<T>(
 export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   const parsed = parseEnvironment(apiEnvironmentSchema, environment);
   return {
-    runtime: "api",
+    runtime: 'api',
     appEnvironment: parsed.APP_ENV,
     nodeEnvironment: parsed.NODE_ENV,
     logLevel: parsed.LOG_LEVEL,
@@ -469,8 +413,7 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       idleTtlSeconds: parsed.SESSION_IDLE_TTL_SECONDS,
       absoluteTtlSeconds: parsed.SESSION_ABSOLUTE_TTL_SECONDS,
       allowedOrigins: parsed.SESSION_ALLOWED_ORIGINS,
-      secureCookie:
-        parsed.APP_ENV === "staging" || parsed.APP_ENV === "production",
+      secureCookie: parsed.APP_ENV === 'staging' || parsed.APP_ENV === 'production',
     },
     temporaryAccess: {
       maxDurationSeconds: parsed.TEMPORARY_ACCESS_MAX_DURATION_SECONDS,
@@ -481,7 +424,7 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
 export function loadWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig {
   const parsed = parseEnvironment(workerEnvironmentSchema, environment);
   return {
-    runtime: "worker",
+    runtime: 'worker',
     appEnvironment: parsed.APP_ENV,
     nodeEnvironment: parsed.NODE_ENV,
     logLevel: parsed.LOG_LEVEL,
@@ -504,7 +447,7 @@ export function loadWorkerConfig(environment: NodeJS.ProcessEnv): WorkerConfig {
 export function loadWebConfig(environment: NodeJS.ProcessEnv): WebConfig {
   const parsed = parseEnvironment(webEnvironmentSchema, environment);
   return {
-    runtime: "web",
+    runtime: 'web',
     appEnvironment: parsed.APP_ENV,
     nodeEnvironment: parsed.NODE_ENV,
     logLevel: parsed.LOG_LEVEL,
