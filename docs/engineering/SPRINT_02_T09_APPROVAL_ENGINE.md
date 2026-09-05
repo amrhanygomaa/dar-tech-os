@@ -2,7 +2,7 @@
 
 ## Status and boundary
 
-S02-T09 is authorized and the implementation is under review. This is a generic identity/security foundation, not a production business approval matrix. The compatibility resolver returns explicit `NO_APPROVAL` where no T09 policy is configured. Resolver failure or malformed configured policy fails closed. S02-T10, S02-T11, S02-T13, S02-T14, and S02-T15 remain unauthorized.
+S02-T09 is completed, closed, and merged. This is a generic identity/security foundation, not a production business approval matrix. The compatibility resolver returns explicit `NO_APPROVAL` where no T09 policy is configured. Resolver failure or malformed configured policy fails closed. S02-T10, S02-T11, S02-T13, S02-T14, and S02-T15 remain unauthorized.
 
 No financial threshold, licensing threshold, Founder rule, management override, job-title rule, policy editor, approver configuration, temporary access, emergency access, or business module is installed. The production approver resolver denies every subject until a separately reviewed owning configuration supplies a binding.
 
@@ -63,3 +63,15 @@ Unit coverage validates all six outcomes, malformed topology/risk/step-up/separa
 The real-PostgreSQL approval suites also cover HTTP permission-versus-eligibility, action-specific UI flags, org/scoped-list non-enumeration, rejected client policy/subject/evidence fields, explicit separation, current employee lifecycle, trusted T04 step-up, plan failure rollback, duplicate/concurrent creation, exact execution binding, policy/context changes, permission/scope/role removal after approval, decision order/version/races, execution claim/finalization races, stable reauthorized replay, owning mutation rollback, six event contracts, and real T12 audit linkage.
 
 Migration evidence distinguishes canonical schema validation from workstation state: fresh and canonical seven-migration upgrade databases accepted the single additive T09 migration with zero drift. The existing local `dartech_os` runtime database has pre-existing T02 invitation drift (supersession fields/status and older indexes). T09 deployed there successfully, but this ticket does not rewrite historical migrations, reset runtime data, or claim that local database is drift-free. Repair of that unrelated runtime drift requires a separately authorized decision.
+
+## Final closure evidence
+
+- PR: #15
+- Final reviewed implementation head: `fc10a8e87a74421bbcc920fffc3f9f7c4e9e382f`
+- Canonical merge/main SHA: `b65f2090643608a48a99fedc9ddd3c96fd2c3cfb`
+- Migration: `20260905120000_sprint_02_t09_approval_engine` (destructive: **NO**)
+- Unit tests: **275 PASS**; PostgreSQL integration tests: **156 PASS**
+- GitHub quality-gate: **PASS** on the exact reviewed head; local quality gate: **PASS**; Docker runtime: **PASS**
+- Permission registry: **31/31**, zero issues; fresh migration: **PASS**; canonical upgrade migration: **PASS**; canonical migration drift: **ZERO**
+- Production approval policies: **NONE**; production approver bindings: **NONE**; new permission keys: **NONE**
+- T10/T11/T13+ implementation: **NONE**; T10+ authorization: **NO**
