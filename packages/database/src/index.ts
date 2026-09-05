@@ -11,6 +11,13 @@ export {
   type TransactionWork,
 } from './transaction.js';
 export {
+  ApprovalApproverSubjectType,
+  ApprovalExecutionState,
+  ApprovalHistoryCategory,
+  ApprovalPolicyOutcome,
+  ApprovalRequestStatus,
+  ApprovalSeparationRule,
+  ApprovalStepStatus,
   EmployeeLifecycleStatus,
   EventRisk,
   InvitationStatus,

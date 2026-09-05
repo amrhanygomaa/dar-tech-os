@@ -80,7 +80,7 @@ const config: ApiConfig = {
 
 async function clearData(client: DatabaseClient): Promise<void> {
   await client.$executeRawUnsafe(
-    'TRUNCATE TABLE "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
+    'TRUNCATE TABLE "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
   );
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();

@@ -78,55 +78,129 @@ enum SessionClientKind {
   @@map("session_client_kind")
 }
 
+enum ApprovalPolicyOutcome {
+  NO_APPROVAL
+  SINGLE_APPROVER
+  SEQUENTIAL_APPROVAL
+  PARALLEL_APPROVAL
+  STEP_UP_ONLY
+  STEP_UP_AND_APPROVAL
+
+  @@map("approval_policy_outcome")
+}
+
+enum ApprovalRequestStatus {
+  DRAFT
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+
+  @@map("approval_request_status")
+}
+
+enum ApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("approval_step_status")
+}
+
+enum ApprovalExecutionState {
+  NOT_READY
+  READY
+  EXECUTING
+  SUCCEEDED
+  FAILED
+
+  @@map("approval_execution_state")
+}
+
+enum ApprovalHistoryCategory {
+  REQUESTED
+  STEP_APPROVED
+  REQUEST_REJECTED
+  APPROVAL_COMPLETED
+  EXECUTION_STARTED
+  EXECUTION_SUCCEEDED
+  EXECUTION_FAILED
+
+  @@map("approval_history_category")
+}
+
+enum ApprovalApproverSubjectType {
+  EMPLOYEE
+  ROLE
+  RELATIONSHIP
+
+  @@map("approval_approver_subject_type")
+}
+
+enum ApprovalSeparationRule {
+  NONE
+  REQUESTER_DIFFERENT_EMPLOYEE
+
+  @@map("approval_separation_rule")
+}
+
 model Organization {
-  id              String           @id @default(uuid()) @db.Uuid
-  displayName     String           @map("display_name") @db.VarChar(160)
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  employees       Employee[]
-  userAccounts    UserAccount[]
-  ssoIdentities   SSOIdentity[]
-  auditEvents     AuditEvent[]
-  securityEvents  SecurityEvent[]
-  invitations     Invitation[]
-  roles           Role[]
-  employeeRoles   EmployeeRole[]
-  rolePermissions RolePermission[]
-  sessions        Session[]
+  id               String                 @id @default(uuid()) @db.Uuid
+  displayName      String                 @map("display_name") @db.VarChar(160)
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employees        Employee[]
+  userAccounts     UserAccount[]
+  ssoIdentities    SSOIdentity[]
+  auditEvents      AuditEvent[]
+  securityEvents   SecurityEvent[]
+  invitations      Invitation[]
+  roles            Role[]
+  employeeRoles    EmployeeRole[]
+  rolePermissions  RolePermission[]
+  sessions         Session[]
+  approvalRequests ApprovalRequest[]
+  approvalSteps    ApprovalStep[]
+  approvalHistory  ApprovalHistoryEntry[]
 
   @@map("organizations")
 }
 
 model Employee {
-  id                  String                  @id @default(uuid()) @db.Uuid
-  organizationId      String                  @map("organization_id") @db.Uuid
-  employeeCode        String                  @map("employee_code") @db.VarChar(64)
-  firstName           String                  @map("first_name") @db.VarChar(100)
-  lastName            String                  @map("last_name") @db.VarChar(100)
-  displayName         String                  @map("display_name") @db.VarChar(160)
-  workEmail           String                  @map("work_email") @db.VarChar(320)
-  lifecycleStatus     EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
-  invitedAt           DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
-  activatedAt         DateTime?               @map("activated_at") @db.Timestamptz(3)
-  suspendedAt         DateTime?               @map("suspended_at") @db.Timestamptz(3)
-  offboardingAt       DateTime?               @map("offboarding_at") @db.Timestamptz(3)
-  archivedAt          DateTime?               @map("archived_at") @db.Timestamptz(3)
-  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  userAccount         UserAccount?
-  authoredAuditEvents AuditEvent[]            @relation("AuditEventActor")
-  securityEvents      SecurityEvent[]         @relation("SecurityEventActor")
-  invitations         Invitation[]            @relation("InvitationEmployee")
-  issuedInvitations   Invitation[]            @relation("InvitationIssuer")
-  revokedInvitations  Invitation[]            @relation("InvitationRevoker")
-  roleAssignments     EmployeeRole[]          @relation("EmployeeRoleEmployee")
-  assignedRoles       EmployeeRole[]          @relation("EmployeeRoleAssigner")
-  removedRoles        EmployeeRole[]          @relation("EmployeeRoleRemover")
-  grantedPermissions  RolePermission[]        @relation("RolePermissionGrantor")
-  removedPermissions  RolePermission[]        @relation("RolePermissionRemover")
-  sessions            Session[]               @relation("SessionEmployee")
-  revokedSessions     Session[]               @relation("SessionRevoker")
+  id                     String                  @id @default(uuid()) @db.Uuid
+  organizationId         String                  @map("organization_id") @db.Uuid
+  employeeCode           String                  @map("employee_code") @db.VarChar(64)
+  firstName              String                  @map("first_name") @db.VarChar(100)
+  lastName               String                  @map("last_name") @db.VarChar(100)
+  displayName            String                  @map("display_name") @db.VarChar(160)
+  workEmail              String                  @map("work_email") @db.VarChar(320)
+  lifecycleStatus        EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
+  invitedAt              DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
+  activatedAt            DateTime?               @map("activated_at") @db.Timestamptz(3)
+  suspendedAt            DateTime?               @map("suspended_at") @db.Timestamptz(3)
+  offboardingAt          DateTime?               @map("offboarding_at") @db.Timestamptz(3)
+  archivedAt             DateTime?               @map("archived_at") @db.Timestamptz(3)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userAccount            UserAccount?
+  authoredAuditEvents    AuditEvent[]            @relation("AuditEventActor")
+  securityEvents         SecurityEvent[]         @relation("SecurityEventActor")
+  invitations            Invitation[]            @relation("InvitationEmployee")
+  issuedInvitations      Invitation[]            @relation("InvitationIssuer")
+  revokedInvitations     Invitation[]            @relation("InvitationRevoker")
+  roleAssignments        EmployeeRole[]          @relation("EmployeeRoleEmployee")
+  assignedRoles          EmployeeRole[]          @relation("EmployeeRoleAssigner")
+  removedRoles           EmployeeRole[]          @relation("EmployeeRoleRemover")
+  grantedPermissions     RolePermission[]        @relation("RolePermissionGrantor")
+  removedPermissions     RolePermission[]        @relation("RolePermissionRemover")
+  sessions               Session[]               @relation("SessionEmployee")
+  revokedSessions        Session[]               @relation("SessionRevoker")
+  requestedApprovals     ApprovalRequest[]       @relation("ApprovalRequester")
+  decidedApprovalSteps   ApprovalStep[]          @relation("ApprovalStepDecider")
+  approvalHistoryEntries ApprovalHistoryEntry[]  @relation("ApprovalHistoryActor")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
@@ -412,6 +486,100 @@ model SecurityEvent {
   @@index([organizationId, category, risk, outcome], map: "security_events_organization_classification_idx")
   @@index([occurredAt, id], map: "security_events_unresolved_occurred_at_idx")
   @@map("security_events")
+}
+
+model ApprovalRequest {
+  id                       String                 @id @default(uuid()) @db.Uuid
+  organizationId           String                 @map("organization_id") @db.Uuid
+  requesterEmployeeId      String                 @map("requester_employee_id") @db.Uuid
+  requesterSnapshot        Json                   @map("requester_snapshot") @db.JsonB
+  actionKey                String                 @map("action_key") @db.VarChar(160)
+  resourceType             String                 @map("resource_type") @db.VarChar(80)
+  resourceId               String?                @map("resource_id") @db.VarChar(128)
+  resourceSnapshot         Json?                  @map("resource_snapshot") @db.JsonB
+  serverContextSnapshot    Json                   @map("server_context_snapshot") @db.JsonB
+  contextFingerprint       String                 @map("context_fingerprint") @db.Char(64)
+  risk                     EventRisk
+  policyKey                String                 @map("policy_key") @db.VarChar(160)
+  policyVersion            Int                    @map("policy_version")
+  policyOutcome            ApprovalPolicyOutcome  @map("policy_outcome")
+  policyFingerprint        String                 @map("policy_fingerprint") @db.Char(64)
+  stepUpAssuranceLevel     String?                @map("step_up_assurance_level") @db.VarChar(80)
+  stepUpMaxAgeSeconds      Int?                   @map("step_up_max_age_seconds")
+  status                   ApprovalRequestStatus  @default(PENDING)
+  safeRequestReason        String?                @map("safe_request_reason") @db.VarChar(500)
+  correlationId            String                 @map("correlation_id") @db.VarChar(128)
+  idempotencyDigest        String                 @map("idempotency_digest") @db.Char(64)
+  executionState           ApprovalExecutionState @default(NOT_READY) @map("execution_state")
+  executionResultReference String?                @map("execution_result_reference") @db.VarChar(128)
+  executionFailureCode     String?                @map("execution_failure_code") @db.VarChar(80)
+  version                  Int                    @default(1)
+  approvedAt               DateTime?              @map("approved_at") @db.Timestamptz(3)
+  rejectedAt               DateTime?              @map("rejected_at") @db.Timestamptz(3)
+  executedAt               DateTime?              @map("executed_at") @db.Timestamptz(3)
+  failedAt                 DateTime?              @map("failed_at") @db.Timestamptz(3)
+  createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization             Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  requesterEmployee        Employee               @relation("ApprovalRequester", fields: [organizationId, requesterEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  steps                    ApprovalStep[]
+  history                  ApprovalHistoryEntry[]
+
+  @@unique([organizationId, id], map: "approval_requests_organization_id_id_key")
+  @@unique([organizationId, idempotencyDigest], map: "approval_requests_organization_idempotency_key")
+  @@index([organizationId, status, createdAt], map: "approval_requests_organization_status_created_idx")
+  @@index([organizationId, requesterEmployeeId, createdAt], map: "approval_requests_organization_requester_created_idx")
+  @@index([organizationId, executionState, updatedAt], map: "approval_requests_organization_execution_updated_idx")
+  @@map("approval_requests")
+}
+
+model ApprovalStep {
+  id                  String                      @id @default(uuid()) @db.Uuid
+  organizationId      String                      @map("organization_id") @db.Uuid
+  approvalRequestId   String                      @map("approval_request_id") @db.Uuid
+  sequence            Int
+  approverSubjectType ApprovalApproverSubjectType @map("approver_subject_type")
+  approverSubjectKey  String                      @map("approver_subject_key") @db.VarChar(160)
+  separationRule      ApprovalSeparationRule      @default(NONE) @map("separation_rule")
+  status              ApprovalStepStatus          @default(PENDING)
+  decidedByEmployeeId String?                     @map("decided_by_employee_id") @db.Uuid
+  safeDecisionReason  String?                     @map("safe_decision_reason") @db.VarChar(500)
+  decidedAt           DateTime?                   @map("decided_at") @db.Timestamptz(3)
+  version             Int                         @default(1)
+  createdAt           DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization        Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  request             ApprovalRequest             @relation(fields: [organizationId, approvalRequestId], references: [organizationId, id], onDelete: Restrict)
+  decidedByEmployee   Employee?                   @relation("ApprovalStepDecider", fields: [organizationId, decidedByEmployeeId], references: [organizationId, id], onDelete: Restrict)
+  history             ApprovalHistoryEntry[]
+
+  @@unique([organizationId, id], map: "approval_steps_organization_id_id_key")
+  @@unique([organizationId, approvalRequestId, id], map: "approval_steps_organization_request_id_key")
+  @@index([organizationId, approvalRequestId, sequence, status], map: "approval_steps_request_sequence_status_idx")
+  @@map("approval_steps")
+}
+
+model ApprovalHistoryEntry {
+  id                String                  @id @default(uuid()) @db.Uuid
+  organizationId    String                  @map("organization_id") @db.Uuid
+  approvalRequestId String                  @map("approval_request_id") @db.Uuid
+  approvalStepId    String?                 @map("approval_step_id") @db.Uuid
+  actorEmployeeId   String?                 @map("actor_employee_id") @db.Uuid
+  category          ApprovalHistoryCategory
+  requestStatus     ApprovalRequestStatus   @map("request_status")
+  executionState    ApprovalExecutionState  @map("execution_state")
+  safeReason        String?                 @map("safe_reason") @db.VarChar(500)
+  correlationId     String                  @map("correlation_id") @db.VarChar(128)
+  occurredAt        DateTime                @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  request           ApprovalRequest         @relation(fields: [organizationId, approvalRequestId], references: [organizationId, id], onDelete: Restrict, map: "approval_history_request_fkey")
+  step              ApprovalStep?           @relation(fields: [organizationId, approvalRequestId, approvalStepId], references: [organizationId, approvalRequestId, id], onDelete: Restrict, map: "approval_history_step_fkey")
+  actorEmployee     Employee?               @relation("ApprovalHistoryActor", fields: [organizationId, actorEmployeeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, approvalRequestId, occurredAt, id], map: "approval_history_request_occurred_idx")
+  @@index([organizationId, category, occurredAt], map: "approval_history_organization_category_idx")
+  @@map("approval_history_entries")
 }
 
 model QueueJob {

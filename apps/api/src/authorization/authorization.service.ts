@@ -45,6 +45,9 @@ const POLICY_DENIAL_REASON_CODES: ReadonlySet<AuthorizationReasonCode> = new Set
   'RESOURCE_INVALID',
   'SCOPE_NOT_SATISFIED',
   'SCOPE_RESOLVER_UNAVAILABLE',
+  'APPROVAL_REQUIRED',
+  'STEP_UP_REQUIRED',
+  'APPROVAL_INVALID_OR_STALE',
   'AUTHORIZATION_DEPENDENCY_FAILED',
 ]);
 const SCOPE_BINDING_TYPE_PATTERN = /^[a-z][a-z0-9._-]*$/u;
@@ -338,10 +341,20 @@ export class AuthorizationService {
   }
 
   private validContext(context: AuthorizationContext): boolean {
+    const validReference = context.approvalReference === undefined ||
+      (typeof context.approvalReference === 'string' && context.approvalReference.length > 0 && context.approvalReference.length <= 128);
+    const approvalEntries = context.approvalContext ? Object.entries(context.approvalContext) : [];
+    const validApprovalContext = approvalEntries.length <= 32 && approvalEntries.every(([key, value]) =>
+      key.length > 0 && key.length <= 64 && /^[a-z][a-zA-Z0-9._-]*$/u.test(key) &&
+      (value === null || typeof value === 'boolean' ||
+        (typeof value === 'number' && Number.isFinite(value)) ||
+        (typeof value === 'string' && value.length <= 256)),
+    );
     return (
       context.at instanceof Date &&
       Number.isFinite(context.at.getTime()) &&
-      ['http', 'application', 'test'].includes(context.source)
+      ['http', 'application', 'test'].includes(context.source) &&
+      validReference && validApprovalContext
     );
   }
 

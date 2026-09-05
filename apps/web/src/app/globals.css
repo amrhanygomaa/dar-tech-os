@@ -180,6 +180,23 @@ h2 { margin-bottom: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
 .invitation-list { display: grid; }
 .invitation-row { border-top: 1px solid #e7edf4; padding: 1rem 0; }
 .invitation-row:first-child { border-top: 0; }
+.approval-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 0;
+  border-top: 1px solid #e7edf4;
+  background: transparent;
+  padding: 1rem 0;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.approval-row:first-child { border-top: 0; }
+.approval-row span:first-child { display: grid; gap: 0.3rem; }
+.approval-row small { color: var(--muted); }
 .invitation-row strong { overflow-wrap: anywhere; }
 .invitation-row p, .muted, .empty-state { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.86rem; }
 .pill, .status-mark {

@@ -18,12 +18,12 @@ import {
 } from './authorization.contracts.js';
 import {
   DefaultAuthorizationEmergencyGrantSource,
-  DefaultAuthorizationPolicyEvaluator,
   DefaultAuthorizationTemporaryGrantSource,
 } from './authorization-extensions.js';
 import { AuthorizationModule } from './authorization.module.js';
 import { AuthorizationRequestMiddleware } from './authorization-request.middleware.js';
 import { AuthorizationScopeResolverFor } from './authorization-scope-resolver.registry.js';
+import { ApprovalAuthorizationPolicyEvaluator } from '../approvals/approval-authorization-policy.js';
 
 @Injectable()
 class FutureRelationshipRepository {
@@ -73,7 +73,9 @@ describe('AuthorizationModule extension boundaries', () => {
     expect(provider(module, AUTHORIZATION_EMERGENCY_GRANT_SOURCE)?.useClass)
       .toBe(DefaultAuthorizationEmergencyGrantSource);
     expect(provider(module, AUTHORIZATION_POLICY_EVALUATOR)?.useClass)
-      .toBe(DefaultAuthorizationPolicyEvaluator);
+      .toBeUndefined();
+    expect(provider(module, AUTHORIZATION_POLICY_EVALUATOR)?.useExisting)
+      .toBe(ApprovalAuthorizationPolicyEvaluator);
   });
 
   it('accepts typed production extension providers without implementing their business behavior', () => {

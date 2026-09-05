@@ -26,6 +26,8 @@ export const AUDIT_ACTION_KEYS = {
   sessionsRevokedSelf: 'identity.session.revoke_all_self',
   sessionRevokedAdmin: 'admin.session.revoke',
   sessionsRevokedAdmin: 'admin.session.revoke_all',
+  approvalDecision: 'approval.request.decide',
+  approvalExecution: 'approval.request.execute',
 } as const;
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
