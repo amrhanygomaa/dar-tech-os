@@ -291,6 +291,73 @@ describe.skipIf(!databaseUrl)('S02-T10 actual PostgreSQL, T04 principal, T07 aut
     expect(await client.outboxEvent.count({ where: { eventType: 'identity.temporary-access-granted' } })).toBe(1);
   });
 
+  it('denies approved activation when issuer delegation authority is removed after approval', async () => {
+    approvalRequired = true;
+    const key = randomUUID();
+    const pending = await create({}, key);
+    expect(pending.status).toBe('PENDING_APPROVAL');
+    const role = await client.role.create({ data: { organizationId: org, key: 't10-reviewer', name: 'Reviewer', normalizedName: 'reviewer' } });
+    await client.employeeRole.create({ data: { organizationId: org, employeeId: recipient, roleId: role.id, assignedByEmployeeId: issuer, assignedAt: start, effectiveAt: start } });
+    await grant('approval.request.approve', role.id);
+    const approval = await client.approvalRequest.findUniqueOrThrow({ where: { id: pending.approvalReference! }, include: { steps: true } });
+    const accepted = await post('/approvals/' + approval.id + '/approve', 1).send({ stepId: approval.steps[0]!.id, expectedVersion: 1 });
+    expect(accepted.status, JSON.stringify(accepted.body)).toBe(200);
+
+    const delegatedPermission = await client.permission.findUniqueOrThrow({ where: { key: read } });
+    await client.rolePermission.updateMany({ where: { roleId, permissionId: delegatedPermission.id }, data: {
+      removedAt: now, removedByEmployeeId: issuer,
+    } });
+    const denied = await post('/employees/' + recipient + '/temporary-access').set('Idempotency-Key', key)
+      .send({ ...body(), approvalReference: approval.id });
+    expect(denied.status, JSON.stringify(denied.body)).toBe(403);
+
+    const grantAfter = await client.temporaryAccessGrant.findUniqueOrThrow({ where: { id: pending.id } });
+    const approvalAfter = await client.approvalRequest.findUniqueOrThrow({ where: { id: approval.id } });
+    expect(grantAfter.status).toBe('PENDING_APPROVAL');
+    expect(grantAfter.grantedAt).toBeNull();
+    expect(approvalAfter.status).toBe('APPROVED');
+    expect(approvalAfter.executionState).toBe('READY');
+    expect(approvalAfter.executedAt).toBeNull();
+    expect(approvalAfter.executionResultReference).toBeNull();
+    expect(await client.approvalHistoryEntry.count({ where: {
+      approvalRequestId: approval.id, category: { in: ['EXECUTION_STARTED', 'EXECUTION_SUCCEEDED'] },
+    } })).toBe(0);
+    expect(await client.outboxEvent.count({ where: { eventType: 'identity.temporary-access-granted' } })).toBe(0);
+    expect(await client.auditEvent.count({ where: { targetId: pending.id, actionKey: 'admin.access.temporary.grant' } })).toBe(0);
+    expect((await authorize()).allowed).toBe(false);
+  });
+
+  it('keeps issued temporary authority after ordinary recipient and issuer authority removal until revocation', async () => {
+    const permission = await client.permission.findUniqueOrThrow({ where: { key: read } });
+    const recipientRole = await client.role.create({ data: {
+      organizationId: org, key: 't10-recipient-reader', name: 'Recipient reader', normalizedName: 'recipient reader',
+    } });
+    const recipientAssignment = await client.employeeRole.create({ data: {
+      organizationId: org, employeeId: recipient, roleId: recipientRole.id,
+      assignedByEmployeeId: issuer, assignedAt: start, effectiveAt: start,
+    } });
+    await grant(read, recipientRole.id);
+    expect((await authorize()).allowed).toBe(true);
+
+    const temporary = await create();
+    expect(temporary.status).toBe('ACTIVE');
+    await client.employeeRole.update({ where: { id: recipientAssignment.id }, data: {
+      removedAt: now, removedByEmployeeId: issuer,
+    } });
+    expect((await authorize()).allowed).toBe(true);
+
+    await client.rolePermission.updateMany({ where: { roleId, permissionId: permission.id }, data: {
+      removedAt: now, removedByEmployeeId: issuer,
+    } });
+    expect((await client.temporaryAccessGrant.findUniqueOrThrow({ where: { id: temporary.id } })).status).toBe('GRANTED');
+    expect((await authorize()).allowed).toBe(true);
+
+    const revoked = await post('/temporary-access/' + temporary.id + '/revoke');
+    expect(revoked.status, JSON.stringify(revoked.body)).toBe(200);
+    expect(revoked.body.data.outcome).toBe('revoked');
+    expect((await authorize()).allowed).toBe(false);
+  });
+
   it('deduplicates concurrent create and rejects silent renewal with the same idempotency key', async () => {
     const key = randomUUID();
     const [a, b] = await Promise.all([create({}, key), create({}, key)]);

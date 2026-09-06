@@ -43,6 +43,29 @@ At the expiry instant access is denied directly by the authorization query; the
 worker is reconciliation and audit/outbox maintenance only. Revocation locks
 the grant and takes effect immediately. Repeated revocation is idempotent.
 
+## Issuer authority after issuance
+
+Activation rechecks the issuer's current delegation authority after approval
+and before the approved mutation claims or completes T09 execution. If that
+authority has been removed, activation is denied, the temporary grant remains
+pending, and neither approval-execution success nor grant evidence is written.
+
+Once a temporary grant has been successfully issued while the issuer was
+authorized, later loss of the issuer's own role or permission does not silently
+revoke the issued grant. The grant remains effective only while all of its own
+conditions remain valid: status `GRANTED`, `starts_at <= now < expires_at`, no
+revocation, the same organization, an active recipient employee, an
+authentication-eligible recipient account, a valid current recipient session,
+an active and valid canonical permission, an exact scope/resource match, and
+all current central policy requirements. The central `AuthorizationService`
+continues to make the final decision on every request.
+
+Ordinary recipient role authority and issued temporary authority are separate.
+Removing the recipient's ordinary role assignment or role permission does not
+remove an otherwise-valid temporary grant. That grant still ends immediately
+through its own revocation or expiry, or when another current recipient,
+permission, scope, organization, session, or policy condition fails.
+
 ## Persistence, evidence, and operations
 
 The additive migration `20260905180000_sprint_02_t10_temporary_access` creates
@@ -81,6 +104,8 @@ service, and persisted grants. Its regression matrix covers:
 | Wrong organization/resource/type | Exact descriptor negative tests |
 | Issuer delegation containment | Explicit issuer cannot issue an organization grant; removed issuer authority denies creation |
 | T09 approval | Pending grant denies access; a different approver approves; exact command replay consumes one approval and emits one grant event |
+| Post-approval authority removal | After approval, removal of the issuer's delegated permission makes exact command replay fail; the grant remains pending, T09 remains ready, no grant audit/event is written, and no alternate authority exists |
+| Authority after issuance | Removing the recipient's ordinary role assignment leaves equivalent issued temporary authority active; later issuer permission loss also leaves the issued grant active, and revoking that temporary grant then denies access |
 | Idempotency and no renewal | Concurrent creation produces one grant; changed expiry with the same key conflicts |
 | Revoke/expiry races | Simultaneous revoke and reconciliation produce one terminal event; later reconciliation cannot change a revoked grant |
 | Mandatory audit/outbox | All lifecycle event counts asserted; forced audit/outbox failure rolls back grant, bindings and approval |
