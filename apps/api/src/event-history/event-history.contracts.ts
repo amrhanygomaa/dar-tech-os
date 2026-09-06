@@ -32,6 +32,12 @@ export const AUDIT_ACTION_KEYS = {
   sessionsRevokedAdmin: 'admin.session.revoke_all',
   approvalDecision: 'approval.request.decide',
   approvalExecution: 'approval.request.execute',
+  emergencyAccessRequested: 'admin.access.emergency.request',
+  emergencyAccessActivated: 'admin.access.emergency.activate',
+  emergencyAccessDenied: 'admin.access.emergency.deny',
+  emergencyAccessUsed: 'admin.access.emergency.use',
+  emergencyAccessRevoked: 'admin.access.emergency.revoke',
+  emergencyAccessExpired: 'system.access.emergency.expire',
 } as const;
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
@@ -51,6 +57,12 @@ export const SECURITY_EVENT_TYPES = {
   sessionCreated: 'SessionCreated.v1',
   sessionRevoked: 'SessionRevoked.v1',
   allSessionsRevoked: 'AllSessionsRevoked.v1',
+  emergencyAccessRequested: 'EmergencyAccessRequested.v1',
+  emergencyAccessActivated: 'EmergencyAccessActivated.v1',
+  emergencyAccessDenied: 'EmergencyAccessDenied.v1',
+  emergencyAccessUsed: 'EmergencyAccessUsed.v1',
+  emergencyAccessRevoked: 'EmergencyAccessRevoked.v1',
+  emergencyAccessExpired: 'EmergencyAccessExpired.v1',
 } as const;
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[keyof typeof SECURITY_EVENT_TYPES];
 

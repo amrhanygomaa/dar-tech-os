@@ -12,6 +12,7 @@ const validEnvironment: NodeJS.ProcessEnv = {
   SESSION_ABSOLUTE_TTL_SECONDS: '43200',
   SESSION_ALLOWED_ORIGINS: 'http://localhost:3000',
   TEMPORARY_ACCESS_MAX_DURATION_SECONDS: '604800',
+  EMERGENCY_ACCESS_MAX_DURATION_SECONDS: '14400',
 };
 
 describe('runtime configuration', () => {
@@ -45,6 +46,9 @@ describe('runtime configuration', () => {
       },
       temporaryAccess: {
         maxDurationSeconds: 604800,
+      },
+      emergencyAccess: {
+        maxDurationSeconds: 14400,
       },
     });
   });
@@ -102,6 +106,15 @@ describe('runtime configuration', () => {
     expect(() =>
       loadApiConfig({ ...validEnvironment, TEMPORARY_ACCESS_MAX_DURATION_SECONDS: '59' }),
     ).toThrowError(/TEMPORARY_ACCESS_MAX_DURATION_SECONDS/);
+  });
+
+  it('requires an explicit bounded emergency-access maximum duration', () => {
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, EMERGENCY_ACCESS_MAX_DURATION_SECONDS: undefined }),
+    ).toThrowError(/EMERGENCY_ACCESS_MAX_DURATION_SECONDS/);
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, EMERGENCY_ACCESS_MAX_DURATION_SECONDS: '59' }),
+    ).toThrowError(/EMERGENCY_ACCESS_MAX_DURATION_SECONDS/);
   });
 
   it('rejects documented local credentials in staging without echoing the URL', () => {

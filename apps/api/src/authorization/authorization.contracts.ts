@@ -14,6 +14,8 @@ export const AUTHORIZATION_TEMPORARY_GRANT_SOURCE = Symbol('AUTHORIZATION_TEMPOR
 /** Optional T10 descriptor lookup; authorization remains central. */
 export const AUTHORIZATION_TEMPORARY_GRANT_LOOKUP = Symbol('AUTHORIZATION_TEMPORARY_GRANT_LOOKUP');
 export const AUTHORIZATION_EMERGENCY_GRANT_SOURCE = Symbol('AUTHORIZATION_EMERGENCY_GRANT_SOURCE');
+/** Optional T11 descriptor lookup; authorization remains central. */
+export const AUTHORIZATION_EMERGENCY_GRANT_LOOKUP = Symbol('AUTHORIZATION_EMERGENCY_GRANT_LOOKUP');
 export const AUTHORIZATION_POLICY_EVALUATOR = Symbol('AUTHORIZATION_POLICY_EVALUATOR');
 
 export const AUTHORIZATION_RESOURCE_TYPES = [
@@ -30,6 +32,7 @@ export const AUTHORIZATION_RESOURCE_TYPES = [
   'security-event',
   'approval-request',
   'temporary-access-grant',
+  'emergency-access-grant',
 ] as const;
 
 export type AuthorizationResourceType = (typeof AUTHORIZATION_RESOURCE_TYPES)[number];
@@ -74,6 +77,8 @@ export interface AuthorizationDecision {
   readonly matchedGrant?: {
     readonly scopeType: ScopeType;
     readonly riskClassification: EventRisk;
+    readonly source?: 'TEMPORARY' | 'EMERGENCY';
+    readonly sourceReference?: string;
   };
 }
 
@@ -87,6 +92,8 @@ export interface AuthorizationGrant {
   readonly scopeType: ScopeType;
   readonly scopeBindingType: string | null;
   readonly scopeBindingId: string | null;
+  /** Internal alternate-source reference; never accepted from an HTTP client. */
+  readonly sourceReference?: string;
 }
 
 export interface AuthorizationGrantRepository {

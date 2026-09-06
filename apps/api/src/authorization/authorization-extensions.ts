@@ -1,6 +1,9 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { AUTHORIZATION_TEMPORARY_GRANT_LOOKUP } from './authorization.contracts.js';
+import {
+  AUTHORIZATION_EMERGENCY_GRANT_LOOKUP,
+  AUTHORIZATION_TEMPORARY_GRANT_LOOKUP,
+} from './authorization.contracts.js';
 import type {
   AuthorizationGrant,
   AuthorizationEmergencyGrantSource,
@@ -40,10 +43,21 @@ export class DefaultAuthorizationTemporaryGrantSource
 export class DefaultAuthorizationEmergencyGrantSource
   implements AuthorizationEmergencyGrantSource
 {
+  constructor(@Optional() @Inject(ModuleRef) private readonly moduleRef?: ModuleRef) {}
+
   async listGrants(
-    _input: AuthorizationAlternateGrantSourceInput,
-  ): Promise<readonly []> {
-    return [];
+    input: AuthorizationAlternateGrantSourceInput,
+  ): Promise<readonly AuthorizationGrant[]> {
+    let lookup: AuthorizationEmergencyGrantSource | undefined;
+    try {
+      lookup = this.moduleRef?.get<AuthorizationEmergencyGrantSource>(
+        AUTHORIZATION_EMERGENCY_GRANT_LOOKUP,
+        { strict: false },
+      );
+    } catch {
+      return [];
+    }
+    return lookup ? lookup.listGrants(input) : [];
   }
 }
 

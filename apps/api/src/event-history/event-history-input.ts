@@ -15,6 +15,7 @@ const forbiddenContextKeyPattern =
   /(?:password|secret|token|nonce|state|authorization|email|subject|stack|raw|payload|login.?hint|code)/iu;
 const allowedChangedFields = new Set([
   'action',
+  'activatedAt',
   'active',
   'bindings',
   'startsAt',
@@ -24,6 +25,8 @@ const allowedChangedFields = new Set([
   'archivedAt',
   'definitionVersion',
   'description',
+  'denialCode',
+  'deniedAt',
   'displayName',
   'domain',
   'effectiveAt',
@@ -39,6 +42,10 @@ const allowedChangedFields = new Set([
   'roleId',
   'permissionKey',
   'riskClassification',
+  'requestedRisk',
+  'effectiveRisk',
+  'policy',
+  'stepUp',
   'scopeBindingId',
   'scopeBindingType',
   'scopeType',

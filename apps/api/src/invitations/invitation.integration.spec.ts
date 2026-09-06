@@ -50,7 +50,7 @@ const verifiedIdentity: NormalizedProviderIdentity = {
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
-  await client.$executeRawUnsafe('TRUNCATE TABLE "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
+  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
   await client.queueJob.deleteMany();
@@ -165,6 +165,7 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
     },
     session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
     temporaryAccess: { maxDurationSeconds: 604800 },
+    emergencyAccess: { maxDurationSeconds: 14400 },
   };
 
   beforeAll(async () => {

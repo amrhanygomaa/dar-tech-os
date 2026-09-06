@@ -379,7 +379,7 @@ describe('S02-T07 canonical authorization service', () => {
     ];
     for (const scenario of cases) {
       const temporaryGrantSource: AuthorizationTemporaryGrantSource = {
-        listGrants: vi.fn(async () => [scenario.grant]),
+        listGrants: vi.fn(async () => [{ ...scenario.grant, sourceReference: '10000000-0000-4000-8000-000000000011' }]),
       };
       await expect(
         harness([], [], { temporaryGrantSource }).service.authorize(
@@ -415,7 +415,7 @@ describe('S02-T07 canonical authorization service', () => {
     ];
     for (const scenario of cases) {
       const emergencyGrantSource: AuthorizationEmergencyGrantSource = {
-        listGrants: vi.fn(async () => [scenario.grant]),
+        listGrants: vi.fn(async () => [{ ...scenario.grant, sourceReference: '10000000-0000-4000-8000-000000000011' }]),
       };
       await expect(
         harness([], [], { emergencyGrantSource }).service.authorize(
@@ -510,7 +510,7 @@ describe('S02-T07 canonical authorization service', () => {
     expect(denyingPolicy.evaluatePolicy).toHaveBeenCalledWith(expect.objectContaining({ grant: organizationGrant }));
 
     const emergencyGrantSource: AuthorizationEmergencyGrantSource = {
-      listGrants: async () => [organizationGrant],
+      listGrants: async () => [{ ...organizationGrant, sourceReference: '10000000-0000-4000-8000-000000000011' }],
     };
     await expect(
       harness([], [], { emergencyGrantSource, policyEvaluator: denyingPolicy }).service.authorize(
@@ -520,6 +520,21 @@ describe('S02-T07 canonical authorization service', () => {
         { at: now, source: 'test' },
       ),
     ).resolves.toMatchObject({ allowed: false, reasonCode: 'SCOPE_NOT_SATISFIED' });
+  });
+
+  it('attributes emergency authority only when it materially supplies the match', async () => {
+    const emergencyGrant = { ...organizationGrant, sourceReference: '10000000-0000-4000-8000-000000000011' };
+    const emergencyGrantSource: AuthorizationEmergencyGrantSource = { listGrants: async () => [emergencyGrant] };
+    await expect(harness([], [], { emergencyGrantSource }).service.authorize(actor, organizationGrant.permissionKey, resource, { at: now, source: 'test' })).resolves.toMatchObject({
+      allowed: true,
+      matchedGrant: { source: 'EMERGENCY', sourceReference: emergencyGrant.sourceReference },
+    });
+    await expect(harness([organizationGrant], [], { emergencyGrantSource }).service.authorize(actor, organizationGrant.permissionKey, resource, { at: now, source: 'test' })).resolves.toMatchObject({
+      allowed: true,
+      matchedGrant: { scopeType: 'ORGANIZATION' },
+    });
+    const normal = await harness([organizationGrant], [], { emergencyGrantSource }).service.authorize(actor, organizationGrant.permissionKey, resource, { at: now, source: 'test' });
+    expect(normal.matchedGrant).not.toHaveProperty('source');
   });
 
   it('fails closed when either alternate grant source or the shared policy throws', async () => {

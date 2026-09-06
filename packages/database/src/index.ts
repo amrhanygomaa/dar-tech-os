@@ -19,6 +19,7 @@ export {
   ApprovalSeparationRule,
   ApprovalStepStatus,
   EmployeeLifecycleStatus,
+  EmergencyAccessGrantStatus,
   EventRisk,
   InvitationStatus,
   OutboxEventStatus,

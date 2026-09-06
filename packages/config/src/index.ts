@@ -11,6 +11,7 @@ export {
   type InvitationConfig,
   type SessionConfig,
   type TemporaryAccessConfig,
+  type EmergencyAccessConfig,
   type LocalAuthenticationIdentityConfig,
   type LogLevel,
   type WebConfig,
