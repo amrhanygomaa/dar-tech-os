@@ -1,9 +1,9 @@
 # Sprint 02 T11 — Emergency Access Foundation
 
-Status: **AUTHORIZED — IMPLEMENTATION UNDER REVIEW**. This record covers only
-S02-T11. S02-T13 through S02-T15, offboarding, bootstrap administration,
-production SSO selection, business modules, and business approval thresholds
-remain unauthorized. T11 is not complete before supervisor review and merge.
+Status: **COMPLETED — CLOSED — MERGED**. This record covers only S02-T11.
+S02-T13 through S02-T15, offboarding, bootstrap administration, production SSO
+selection, business modules, and business approval thresholds remain
+unauthorized.
 
 ## Security objective and boundary
 
@@ -158,8 +158,59 @@ Revoke versus expiry produces one terminal transition/event.
   production build, and Compose validation.
 - Permission registry: expected **31**, new T11 keys **none**.
 
-Exact commit SHA, PR and GitHub exact-head quality-gate evidence are recorded in
-the PR/final implementation report after those checks complete.
+## Final closure evidence
+
+- Implementation PR: **#19**.
+- Final reviewed implementation head: `7b4ec88513ac1ed22cd7cadd32ea17607ab4dd21`.
+- Canonical merge/main SHA: `ef5e71ee92f2870e28cb51948f9e4b1df230b003`.
+- Migration: `20260906120000_sprint_02_t11_emergency_access`.
+- Migration destructive: **NO**.
+- Schema: **PASS**.
+- `EmergencyAccessGrant`: **IMPLEMENTED**.
+- Explicit binding model: **PASS**.
+- Central `AuthorizationService` final authority: **PASS**.
+- Emergency descriptor-only source: **PASS**.
+- Emergency provenance: **PASS**.
+- Reason mandatory: **PASS**.
+- Risk vocabulary: `LOW` / `MEDIUM` / `HIGH` / `CRITICAL`.
+- Effective risk: server-derived maximum; the current emergency workflow makes effective risk `CRITICAL`.
+- Maximum duration configuration: `EMERGENCY_ACCESS_MAX_DURATION_SECONDS`.
+- Trusted T04 step-up: **PASS**.
+- T09 policy/approval integration: **PASS**.
+- Approval auto-activates: **NO**.
+- Explicit activation: **PASS**.
+- Activation reauthorization: **PASS**.
+- Execution at-most-once: **PASS**.
+- Exactly-at-expiry: **DENIED**.
+- Authorization depends on expiry worker: **NO**.
+- Revocation: **PASS**.
+- Expiry reconciliation: **PASS**.
+- Revoke/expiry concurrency: **PASS**.
+- Material-use exact attribution: **PASS**.
+- False `EmergencyAccessUsed` for role grant: **NO**.
+- False `EmergencyAccessUsed` for T10 grant: **NO**.
+- Owning transaction rollback consistency: **PASS**.
+- Events: **6/6 PASS**.
+- Audit linkage: **PASS**.
+- Security-event linkage: **PASS**.
+- Alert hook: **PASS** — persisted evidence is authoritative; the external adapter is best-effort.
+- OpenAPI: exactly five T11 paths.
+- Permission registry: **31/31 — zero issues**.
+- New permission keys: **NONE**.
+- Unit tests: **314/314 PASS**.
+- PostgreSQL integration: **195/195 across 13 files PASS — no skips**.
+- Focused T11 integration: **18 tests**.
+- T04/T06/T07/T08/T09/T10/T12 regression: **PASS**.
+- Fresh migration: **PASS — `dartech_os_t11_20260906_a`**.
+- Canonical T10 → T11: **PASS — sentinel preserved**.
+- Canonical drift: **ZERO**.
+- Runtime database: `dartech_os_t11_runtime_20260906_a`.
+- Docker: PostgreSQL/API/web/worker healthy; migration exited 0.
+- Local quality gate: **PASS**.
+- GitHub exact-head quality-gate: **PASS**.
+- Production build: **PASS**.
+- T13 implementation: **NONE**.
+- T13+ authorization: **NO**.
 
 ## Known limitations
 
@@ -170,6 +221,20 @@ the PR/final implementation report after those checks complete.
   business mutation must opt in within its own transaction.
 - Persisted expiry state may lag during worker downtime, while authorization
   expiry remains immediate and worker-independent.
+- Emergency authority expires directly from trusted authorization-time
+  evaluation and never depends on persisted status reconciliation. The current
+  worker reconciles expired `ACTIVE` grants only. A request that was never
+  activated may remain stored as `PENDING_APPROVAL` or `ACTIVATION_ELIGIBLE`
+  after its requested expiry window; it cannot be activated at or after expiry,
+  cannot produce an emergency authorization descriptor, grants no authority,
+  and is not a security bypass. This is a lifecycle/housekeeping limitation
+  only. Any future cleanup of never-activated expired requests requires
+  separately authorized maintenance or implementation work.
 - The preserved legacy local `dartech_os` database retains its pre-existing T02
-  invitation migration/checksum drift and is not modified or described as
-  drift-free.
+  invitation schema/checksum drift. T11 did not repair it, and it is neither
+  modified nor described as drift-free. Canonical, fresh, and T11 isolated
+  validation evidence is separate from that legacy local database.
+- Dependency installation reported one moderate and one high pre-existing npm
+  advisory. T11 introduced no dependency change to resolve them, the
+  repository-defined quality gate passed, and these advisories are not claimed
+  as remediated.
