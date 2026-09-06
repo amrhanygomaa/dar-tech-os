@@ -11,6 +11,7 @@ const validEnvironment: NodeJS.ProcessEnv = {
   SESSION_IDLE_TTL_SECONDS: '1800',
   SESSION_ABSOLUTE_TTL_SECONDS: '43200',
   SESSION_ALLOWED_ORIGINS: 'http://localhost:3000',
+  TEMPORARY_ACCESS_MAX_DURATION_SECONDS: '604800',
 };
 
 describe('runtime configuration', () => {
@@ -41,6 +42,9 @@ describe('runtime configuration', () => {
         absoluteTtlSeconds: 43200,
         allowedOrigins: ['http://localhost:3000'],
         secureCookie: false,
+      },
+      temporaryAccess: {
+        maxDurationSeconds: 604800,
       },
     });
   });
@@ -89,6 +93,15 @@ describe('runtime configuration', () => {
         SESSION_ALLOWED_ORIGINS: '',
       }),
     ).toThrowError(/SESSION_ALLOWED_ORIGINS/);
+  });
+
+  it('requires an explicit bounded temporary-access maximum duration', () => {
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, TEMPORARY_ACCESS_MAX_DURATION_SECONDS: undefined }),
+    ).toThrowError(/TEMPORARY_ACCESS_MAX_DURATION_SECONDS/);
+    expect(() =>
+      loadApiConfig({ ...validEnvironment, TEMPORARY_ACCESS_MAX_DURATION_SECONDS: '59' }),
+    ).toThrowError(/TEMPORARY_ACCESS_MAX_DURATION_SECONDS/);
   });
 
   it('rejects documented local credentials in staging without echoing the URL', () => {

@@ -10,6 +10,8 @@ import {
   WORKER_CONFIG,
 } from './worker.tokens.js';
 
+import { TemporaryAccessExpiryReconciler } from './temporary-access-expiry.reconciler.js';
+
 @Injectable()
 export class WorkerRuntimeService implements OnModuleInit, OnModuleDestroy {
   private keepAliveTimer: NodeJS.Timeout | undefined;
@@ -21,6 +23,8 @@ export class WorkerRuntimeService implements OnModuleInit, OnModuleDestroy {
     @Inject(STRUCTURED_LOGGER) private readonly logger: StructuredLogger,
     @Inject(JOB_PROCESSOR) private readonly jobProcessor: JobProcessor,
     @Inject(OUTBOX_DISPATCHER) private readonly outboxDispatcher: OutboxDispatcher,
+    @Inject(TemporaryAccessExpiryReconciler)
+    private readonly temporaryAccessExpiry: TemporaryAccessExpiryReconciler,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -63,6 +67,7 @@ export class WorkerRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async processFoundationWorkSafely(): Promise<void> {
     try {
+      await this.temporaryAccessExpiry.reconcile();
       await this.outboxDispatcher.dispatchNext({
         workerId: this.config.workerId,
         leaseDurationMs: this.config.leaseDurationMs,

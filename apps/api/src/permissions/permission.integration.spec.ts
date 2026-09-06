@@ -76,11 +76,12 @@ const config: ApiConfig = {
     rateLimitWindowSeconds: 60,
   },
   session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
+  temporaryAccess: { maxDurationSeconds: 604800 },
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
   await client.$executeRawUnsafe(
-    'TRUNCATE TABLE "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
+    'TRUNCATE TABLE "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
   );
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
@@ -973,7 +974,7 @@ describe.skipIf(!databaseUrl)(
 
     it("rolls registry registration back on mandatory audit or outbox failure", async () => {
       await client.$executeRawUnsafe(
-        'TRUNCATE TABLE "audit_events", "security_events", "role_permissions", "permissions"',
+        'TRUNCATE TABLE "temporary_access_bindings", "audit_events", "security_events", "role_permissions", "permissions"',
       );
       await client.outboxEvent.deleteMany();
       const audit = app.get<AuditEventAppendPort>(AUDIT_EVENT_APPEND_PORT);

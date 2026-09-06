@@ -25,4 +25,5 @@ export {
   Prisma,
   QueueJobStatus,
   ScopeType,
+  TemporaryAccessGrantStatus,
 } from './generated/prisma/client.js';

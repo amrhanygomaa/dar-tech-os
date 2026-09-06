@@ -4,6 +4,10 @@ export const EVENT_RISKS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export type EventRisk = (typeof EVENT_RISKS)[number];
 
 export const AUDIT_ACTION_KEYS = {
+  temporaryAccessRequested: 'admin.access.temporary.request',
+  temporaryAccessGranted: 'admin.access.temporary.grant',
+  temporaryAccessRevoked: 'admin.access.revoke',
+  temporaryAccessExpired: 'system.access.temporary.expire',
   updateSelf: 'identity.account.update_self',
   updateEmployee: 'admin.employee.update',
   invitationIssued: 'admin.employee.invite',

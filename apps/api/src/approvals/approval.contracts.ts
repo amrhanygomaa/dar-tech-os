@@ -226,6 +226,7 @@ export interface ApprovalRepositoryPort extends ApprovalReferenceEvidenceReposit
   prepare(
     input: PrepareApprovalInput,
     policy: ValidatedApprovalPolicy,
+    transaction?: DatabaseTransaction,
   ): Promise<ApprovalRequestView>;
   decide(input: {
     readonly actor: AuthorizationActor;

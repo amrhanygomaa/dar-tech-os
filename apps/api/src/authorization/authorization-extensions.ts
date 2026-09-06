@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { AUTHORIZATION_TEMPORARY_GRANT_LOOKUP } from './authorization.contracts.js';
 import type {
+  AuthorizationGrant,
   AuthorizationEmergencyGrantSource,
   AuthorizationPolicyEvaluator,
   AuthorizationPolicyInput,
@@ -13,10 +16,22 @@ import type {
 export class DefaultAuthorizationTemporaryGrantSource
   implements AuthorizationTemporaryGrantSource
 {
+  constructor(@Optional() @Inject(ModuleRef) private readonly moduleRef?: ModuleRef) {}
+
   async listGrants(
-    _input: AuthorizationAlternateGrantSourceInput,
-  ): Promise<readonly []> {
-    return [];
+    input: AuthorizationAlternateGrantSourceInput,
+  ): Promise<readonly AuthorizationGrant[]> {
+    let lookup: AuthorizationTemporaryGrantSource | undefined;
+    try {
+      lookup = this.moduleRef?.get<AuthorizationTemporaryGrantSource>(
+        AUTHORIZATION_TEMPORARY_GRANT_LOOKUP,
+        { strict: false },
+      );
+    } catch {
+      // T07 can run without T10; an absent lookup contributes no descriptors.
+      return [];
+    }
+    return lookup ? lookup.listGrants(input) : [];
   }
 }
 

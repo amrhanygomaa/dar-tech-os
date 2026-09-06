@@ -10,6 +10,7 @@ export {
   type AuthenticationConfig,
   type InvitationConfig,
   type SessionConfig,
+  type TemporaryAccessConfig,
   type LocalAuthenticationIdentityConfig,
   type LogLevel,
   type WebConfig,

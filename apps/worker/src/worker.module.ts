@@ -39,6 +39,8 @@ import {
   IDENTITY_OUTBOX_ROUTES,
 } from './identity-outbox-events.js';
 
+import { TemporaryAccessExpiryReconciler } from './temporary-access-expiry.reconciler.js';
+
 @Module({})
 export class WorkerModule {
   static register(config: WorkerConfig, observability: ObservabilityRegistration): DynamicModule {
@@ -113,6 +115,7 @@ export class WorkerModule {
             ),
           inject: [DATABASE_CLIENT, JOB_QUEUE, REQUEST_CONTEXT_STORE, STRUCTURED_LOGGER],
         },
+        TemporaryAccessExpiryReconciler,
         WorkerRuntimeService,
       ],
     };

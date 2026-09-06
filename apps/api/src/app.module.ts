@@ -33,6 +33,8 @@ import {
 import { ApprovalModule } from './approvals/approval.module.js';
 import type { ApprovalApproverResolver } from './approvals/approval.contracts.js';
 
+import { TemporaryAccessModule } from './temporary-access/temporary-access.module.js';
+
 export const API_CONFIG = Symbol('API_CONFIG');
 
 export interface AppModuleRegistrationOptions {
@@ -97,6 +99,7 @@ export class AppModule {
             : {}),
         }),
         ApprovalModule.register(config.appEnvironment, options.approvalApproverTestAdapter),
+        TemporaryAccessModule.register(config.temporaryAccess),
         ApiFallbackModule,
       ],
       controllers: [AppController],

@@ -32,6 +32,8 @@ export const API_ERROR_CODES = {
   approvalInputInvalid: 'APPROVAL_INPUT_INVALID',
   stepUpRequired: 'STEP_UP_REQUIRED',
   approvalStateConflict: 'APPROVAL_STATE_CONFLICT',
+  temporaryAccessInputInvalid: 'TEMPORARY_ACCESS_INPUT_INVALID',
+  temporaryAccessConflict: 'TEMPORARY_ACCESS_CONFLICT',
   internalError: 'INTERNAL_ERROR',
 } as const;
 

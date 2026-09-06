@@ -11,6 +11,8 @@ export const AUTHORIZATION_SCOPE_RESOLVER_REGISTRY = Symbol(
   'AUTHORIZATION_SCOPE_RESOLVER_REGISTRY',
 );
 export const AUTHORIZATION_TEMPORARY_GRANT_SOURCE = Symbol('AUTHORIZATION_TEMPORARY_GRANT_SOURCE');
+/** Optional T10 descriptor lookup; authorization remains central. */
+export const AUTHORIZATION_TEMPORARY_GRANT_LOOKUP = Symbol('AUTHORIZATION_TEMPORARY_GRANT_LOOKUP');
 export const AUTHORIZATION_EMERGENCY_GRANT_SOURCE = Symbol('AUTHORIZATION_EMERGENCY_GRANT_SOURCE');
 export const AUTHORIZATION_POLICY_EVALUATOR = Symbol('AUTHORIZATION_POLICY_EVALUATOR');
 
@@ -27,6 +29,7 @@ export const AUTHORIZATION_RESOURCE_TYPES = [
   'audit-event',
   'security-event',
   'approval-request',
+  'temporary-access-grant',
 ] as const;
 
 export type AuthorizationResourceType = (typeof AUTHORIZATION_RESOURCE_TYPES)[number];
