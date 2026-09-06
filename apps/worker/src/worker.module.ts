@@ -40,6 +40,7 @@ import {
 } from './identity-outbox-events.js';
 
 import { TemporaryAccessExpiryReconciler } from './temporary-access-expiry.reconciler.js';
+import { EmergencyAccessExpiryReconciler } from './emergency-access-expiry.reconciler.js';
 
 @Module({})
 export class WorkerModule {
@@ -116,6 +117,7 @@ export class WorkerModule {
           inject: [DATABASE_CLIENT, JOB_QUEUE, REQUEST_CONTEXT_STORE, STRUCTURED_LOGGER],
         },
         TemporaryAccessExpiryReconciler,
+        EmergencyAccessExpiryReconciler,
         WorkerRuntimeService,
       ],
     };

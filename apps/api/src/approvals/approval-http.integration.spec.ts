@@ -63,11 +63,12 @@ const config: ApiConfig = {
     secureCookie: false,
   },
   temporaryAccess: { maxDurationSeconds: 604800 },
+  emergencyAccess: { maxDurationSeconds: 14400 },
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
   await client.$executeRawUnsafe(
-    'TRUNCATE TABLE "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
+    'TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations"',
   );
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();

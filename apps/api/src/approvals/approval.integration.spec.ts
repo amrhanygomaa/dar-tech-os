@@ -27,13 +27,13 @@ describe.skipIf(!databaseUrl)("S02-T09 approval PostgreSQL constraints", () => {
   });
   afterAll(async () => {
     await client.$executeRawUnsafe(
-      'TRUNCATE TABLE "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests"',
+      'TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests"',
     );
     await client.$disconnect();
   });
   beforeEach(async () => {
     await client.$executeRawUnsafe(
-      'TRUNCATE TABLE "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations", "outbox_consumer_receipts", "outbox_events", "queue_jobs"',
+      'TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events", "sessions", "role_permissions", "employee_roles", "permissions", "roles", "invitations", "sso_identities", "user_accounts", "employees", "organizations", "outbox_consumer_receipts", "outbox_events", "queue_jobs"',
     );
     await client.organization.createMany({
       data: [

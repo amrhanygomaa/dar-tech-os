@@ -27,6 +27,7 @@ const testConfig: ApiConfig = {
   invitation: { ttlSeconds: 300, rateLimitMaxRequests: 30, rateLimitWindowSeconds: 60 },
   session: { idleTtlSeconds: 300, absoluteTtlSeconds: 3600, allowedOrigins: ['http://localhost:3000'], secureCookie: false },
   temporaryAccess: { maxDurationSeconds: 604800 },
+  emergencyAccess: { maxDurationSeconds: 14400 },
 };
 
 describe('API foundation', () => {

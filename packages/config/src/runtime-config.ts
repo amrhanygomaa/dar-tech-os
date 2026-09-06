@@ -175,6 +175,7 @@ const apiEnvironmentSchema = databaseRuntimeSchema
     SESSION_ABSOLUTE_TTL_SECONDS: positiveIntegerSchema.min(300).max(2_678_400),
     SESSION_ALLOWED_ORIGINS: originAllowlistSchema,
     TEMPORARY_ACCESS_MAX_DURATION_SECONDS: positiveIntegerSchema.min(60).max(7_776_000),
+    EMERGENCY_ACCESS_MAX_DURATION_SECONDS: positiveIntegerSchema.min(60).max(604_800),
   })
   .superRefine((value, context) => {
     if (
@@ -300,6 +301,7 @@ export interface ApiConfig {
   readonly invitation: InvitationConfig;
   readonly session: SessionConfig;
   readonly temporaryAccess: TemporaryAccessConfig;
+  readonly emergencyAccess: EmergencyAccessConfig;
 }
 
 export interface LocalAuthenticationIdentityConfig {
@@ -329,6 +331,10 @@ export interface SessionConfig {
 }
 
 export interface TemporaryAccessConfig {
+  readonly maxDurationSeconds: number;
+}
+
+export interface EmergencyAccessConfig {
   readonly maxDurationSeconds: number;
 }
 
@@ -417,6 +423,9 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     },
     temporaryAccess: {
       maxDurationSeconds: parsed.TEMPORARY_ACCESS_MAX_DURATION_SECONDS,
+    },
+    emergencyAccess: {
+      maxDurationSeconds: parsed.EMERGENCY_ACCESS_MAX_DURATION_SECONDS,
     },
   };
 }

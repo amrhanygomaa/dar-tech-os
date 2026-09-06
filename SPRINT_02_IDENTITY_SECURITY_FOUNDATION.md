@@ -2,9 +2,9 @@
 
 ## Identity & Security Foundation
 
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T10 COMPLETED — CLOSED — MERGED
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T11 AUTHORIZED — IMPLEMENTATION UNDER REVIEW
 
-> S02-T00 through S02-T10 and S02-T12 are completed. S02-T10 is completed, closed, and merged through PR #17; its final reviewed implementation head is `71e8af253c6c2e9a56f5a3d24651aa1899047b16`, and its merge/main SHA is `5f5a0dfd3ec108ebf5a062d492fcac43cecfb02c`. S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized.
+> S02-T00 through S02-T10 and S02-T12 are completed. S02-T11 is explicitly authorized and its implementation is under review. S02-T13 through S02-T15 remain planning-only and unauthorized.
 
 ## Sprint objective
 
@@ -24,13 +24,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00 through S02-T10 and S02-T12 are completed. S02-T10 is completed, closed, and merged through PR #17; its final reviewed implementation head is `71e8af253c6c2e9a56f5a3d24651aa1899047b16`, and its merge/main SHA is `5f5a0dfd3ec108ebf5a062d492fcac43cecfb02c`. S02-T11 and S02-T13 through S02-T15 remain planning-only and unauthorized.
+Sprint 01 is closed. S02-T00 through S02-T10 and S02-T12 are completed. S02-T11 is explicitly authorized and its implementation is under review. S02-T13 through S02-T15 remain planning-only and unauthorized.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside the completed tickets;
-- add production provider adapters, real business relationship resolvers, production approval policies or approver bindings, emergency access behavior, offboarding, seeds, or bootstrap commands;
-- mark S02-T11 or S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement any Sprint 02 application behavior outside the completed tickets and authorized S02-T11 scope;
+- add production provider adapters, real business relationship resolvers, production approval policies or approver bindings, offboarding, seeds, or bootstrap commands;
+- mark S02-T11 complete or mark S02-T13 through S02-T15 active, ready, or implementation-authorized; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -107,7 +107,8 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T08 | COMPLETED — CLOSED — MERGED | PR #13; final reviewed implementation head `d746e655496699fec3eb11b525f20d4f675cd892`; merge commit `6402bd8c5ea6ca16ba76e2750c648506011b5cea`; evidence in `docs/engineering/SPRINT_02_T08_RESOURCE_SCOPE_AUTHORIZATION.md` |
 | S02-T09 | COMPLETED — CLOSED — MERGED | PR #15; final reviewed implementation head `fc10a8e87a74421bbcc920fffc3f9f7c4e9e382f`; merge SHA `b65f2090643608a48a99fedc9ddd3c96fd2c3cfb`; evidence in `docs/engineering/SPRINT_02_T09_APPROVAL_ENGINE.md`; no production policy or approver bindings |
 | S02-T10 | COMPLETED — CLOSED — MERGED | PR #17; final reviewed implementation head `71e8af253c6c2e9a56f5a3d24651aa1899047b16`; merge SHA `5f5a0dfd3ec108ebf5a062d492fcac43cecfb02c`; evidence in `docs/engineering/SPRINT_02_T10_TEMPORARY_ACCESS.md` |
-| S02-T11 and S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
+| S02-T11 | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | T11-only emergency-access implementation; not complete until supervisor review and merge |
+| S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
 

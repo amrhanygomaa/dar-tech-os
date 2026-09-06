@@ -11,6 +11,7 @@ import {
 } from './worker.tokens.js';
 
 import { TemporaryAccessExpiryReconciler } from './temporary-access-expiry.reconciler.js';
+import { EmergencyAccessExpiryReconciler } from './emergency-access-expiry.reconciler.js';
 
 @Injectable()
 export class WorkerRuntimeService implements OnModuleInit, OnModuleDestroy {
@@ -25,6 +26,8 @@ export class WorkerRuntimeService implements OnModuleInit, OnModuleDestroy {
     @Inject(OUTBOX_DISPATCHER) private readonly outboxDispatcher: OutboxDispatcher,
     @Inject(TemporaryAccessExpiryReconciler)
     private readonly temporaryAccessExpiry: TemporaryAccessExpiryReconciler,
+    @Inject(EmergencyAccessExpiryReconciler)
+    private readonly emergencyAccessExpiry: EmergencyAccessExpiryReconciler,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -68,6 +71,7 @@ export class WorkerRuntimeService implements OnModuleInit, OnModuleDestroy {
   private async processFoundationWorkSafely(): Promise<void> {
     try {
       await this.temporaryAccessExpiry.reconcile();
+      await this.emergencyAccessExpiry.reconcile();
       await this.outboxDispatcher.dispatchNext({
         workerId: this.config.workerId,
         leaseDurationMs: this.config.leaseDurationMs,

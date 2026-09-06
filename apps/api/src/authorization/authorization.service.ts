@@ -33,8 +33,13 @@ import {
 } from './authorization-extensions.js';
 
 type ScopeEvaluation = 'MATCH' | 'NO_MATCH' | 'RESOLVER_UNAVAILABLE';
+type GrantSource = 'TEMPORARY' | 'EMERGENCY';
+type EvaluatedGrant = {
+  readonly grant: AuthorizationGrant;
+  readonly source?: GrantSource;
+};
 type GrantEvaluation =
-  | { readonly allowedGrant: AuthorizationGrant }
+  | { readonly allowedGrant: EvaluatedGrant }
   | { readonly reasonCode: AuthorizationReasonCode }
   | undefined;
 const POLICY_DENIAL_REASON_CODES: ReadonlySet<AuthorizationReasonCode> = new Set([
@@ -108,7 +113,9 @@ export class AuthorizationService {
       action,
       resource,
       context,
-      currentGrants.filter((grant) => this.validGrant(grant, action)),
+      currentGrants
+        .filter((grant) => this.validGrant(grant, action))
+        .map((grant) => ({ grant })),
     );
     if (normal && 'allowedGrant' in normal) {
       return this.decision(true, 'AUTHORIZED', action, normal.allowedGrant);
@@ -117,16 +124,21 @@ export class AuthorizationService {
       return this.decision(false, normal.reasonCode, action);
     }
 
-    let alternateGrants: readonly AuthorizationGrant[];
+    let alternateGrants: readonly EvaluatedGrant[];
     try {
       const input = { actor, action, resource, context };
       const [temporary, emergency] = await Promise.all([
         this.temporaryGrants.listGrants(input),
         this.emergencyGrants.listGrants(input),
       ]);
-      alternateGrants = [...temporary, ...emergency].filter((grant) =>
-        this.validGrant(grant, action),
-      );
+      alternateGrants = [
+        ...temporary
+          .filter((grant) => this.validGrant(grant, action))
+          .map((grant) => ({ grant, source: 'TEMPORARY' as const })),
+        ...emergency
+          .filter((grant) => this.validGrant(grant, action) && this.validSourceReference(grant))
+          .map((grant) => ({ grant, source: 'EMERGENCY' as const })),
+      ];
     } catch {
       return this.decision(false, 'AUTHORIZATION_DEPENDENCY_FAILED', action);
     }
@@ -150,11 +162,12 @@ export class AuthorizationService {
     action: string,
     resource: AuthorizationResource,
     context: AuthorizationContext,
-    grants: readonly AuthorizationGrant[],
+    grants: readonly EvaluatedGrant[],
   ): Promise<GrantEvaluation> {
     if (grants.length === 0) return undefined;
     let reasonCode: AuthorizationReasonCode = 'SCOPE_NOT_SATISFIED';
-    for (const grant of grants) {
+    for (const candidate of grants) {
+      const grant = candidate.grant;
       const scope = await this.evaluateScope(actor, grant, resource, context);
       if (scope !== 'MATCH') {
         if (scope === 'RESOLVER_UNAVAILABLE') reasonCode = 'SCOPE_RESOLVER_UNAVAILABLE';
@@ -171,7 +184,7 @@ export class AuthorizationService {
         if (!policyResult || typeof policyResult !== 'object') {
           return { reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED' };
         }
-        if (policyResult.allowed === true) return { allowedGrant: grant };
+        if (policyResult.allowed === true) return { allowedGrant: candidate };
         if (policyResult.allowed !== false) {
           return { reasonCode: 'AUTHORIZATION_DEPENDENCY_FAILED' };
         }
@@ -340,6 +353,15 @@ export class AuthorizationService {
     return (grant.scopeBindingType === null && grant.scopeBindingId === null) || (hasType && hasId);
   }
 
+  private validSourceReference(grant: AuthorizationGrant): boolean {
+    return (
+      typeof grant.sourceReference === 'string' &&
+      grant.sourceReference.length > 0 &&
+      grant.sourceReference.length <= 128 &&
+      SCOPE_BINDING_ID_PATTERN.test(grant.sourceReference)
+    );
+  }
+
   private validContext(context: AuthorizationContext): boolean {
     const validReference = context.approvalReference === undefined ||
       (typeof context.approvalReference === 'string' && context.approvalReference.length > 0 && context.approvalReference.length <= 128);
@@ -366,8 +388,9 @@ export class AuthorizationService {
     allowed: boolean,
     reasonCode: AuthorizationReasonCode,
     permissionKey: string,
-    grant?: AuthorizationGrant,
+    candidate?: EvaluatedGrant,
   ): AuthorizationDecision {
+    const grant = candidate?.grant;
     try {
       this.metrics.record({
         outcome: allowed ? 'allowed' : 'denied',
@@ -387,6 +410,10 @@ export class AuthorizationService {
             matchedGrant: {
               scopeType: grant.scopeType,
               riskClassification: grant.riskClassification,
+              ...(candidate?.source ? { source: candidate.source } : {}),
+              ...(candidate?.source === 'EMERGENCY' && grant.sourceReference
+                ? { sourceReference: grant.sourceReference }
+                : {}),
             },
           }
         : {}),
