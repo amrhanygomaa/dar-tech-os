@@ -1,6 +1,6 @@
 # Sprint 02 T10 — Temporary / Delegated Access
 
-Status: **AUTHORIZED — IMPLEMENTATION UNDER REVIEW**. This record covers only
+Status: **COMPLETED — CLOSED — MERGED**. This record covers only
 S02-T10. It neither implements nor authorizes emergency access (S02-T11),
 offboarding, business relationship data, bootstrap data, or later tickets.
 
@@ -117,3 +117,44 @@ PostgreSQL advisory-lock execution, inherited organization ownership in nested
 binding creation, and T12 actor/change-field validation. Prisma relation names
 map to the unchanged additive migration's foreign keys, eliminating naming drift.
 No permission keys, policy rules, or emergency-access behavior are added.
+
+## Final closure and evidence
+
+- Implementation PR: **#17**
+- Final reviewed implementation head: `71e8af253c6c2e9a56f5a3d24651aa1899047b16`
+- Merge/main SHA: `5f5a0dfd3ec108ebf5a062d492fcac43cecfb02c`
+- Migration: `20260905180000_sprint_02_t10_temporary_access`
+- Migration destructive: **NO**
+- Schema: **PASS**
+- Direct authorization-time expiry: **PASS**
+- Exactly-at-expiry: **DENIED**
+- Authorization depends on expiry worker: **NO**
+- Revocation: **PASS**
+- Revoke/expiry concurrency: **PASS**
+- Delegation boundary: **PASS**
+- Post-approval issuer-authority removal: **PASS**
+- Post-issuance issuer-authority behavior: **DOCUMENTED AND TESTED**
+- T09 approval integration: **PASS**
+- Permission registry: **31/31 — zero issues**
+- New permission keys: **NONE**
+- Unit tests: **290 — PASS**
+- PostgreSQL integration tests: **177 across 12 files — PASS — no skips**
+- Local quality gate: **PASS**
+- GitHub quality-gate: **PASS on exact reviewed head**
+- Production build: **PASS**
+- Fresh migration: **PASS**
+- Canonical T09 → T10 migration: **PASS**
+- Canonical/fresh/CI drift: **ZERO**
+- Isolated active Docker validation runtime: `dartech_os_t10_runtime_b54c35a3`
+- Isolated runtime drift: **ZERO**
+- Docker: **PostgreSQL/API/web/worker healthy; migration exited 0**
+- T11 implementation: **NONE**
+- T11+ authorization: **NO**
+
+## Legacy local database caveat
+
+The older local database named `dartech_os` was preserved unchanged. It still
+has the previously documented pre-existing T02 invitation-schema drift and
+older applied T02 checksum. It was not repaired and must not be described as
+drift-free. T10 validation instead used the isolated, drift-free database
+`dartech_os_t10_runtime_b54c35a3`.
