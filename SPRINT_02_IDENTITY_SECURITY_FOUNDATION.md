@@ -2,9 +2,9 @@
 
 ## Identity & Security Foundation
 
-### Execution status: CONTROLLED IMPLEMENTATION — S02-T11 AUTHORIZED — IMPLEMENTATION UNDER REVIEW
+### Execution status: CONTROLLED IMPLEMENTATION — S02-T11 COMPLETED — CLOSED — MERGED
 
-> S02-T00 through S02-T10 and S02-T12 are completed. S02-T11 is explicitly authorized and its implementation is under review. S02-T13 through S02-T15 remain planning-only and unauthorized.
+> The currently implemented Sprint 02 ticket set, S02-T00 through S02-T12, is complete according to the individual ticket records and recorded execution chronology. S02-T11 is completed, closed, and merged through PR #19. S02-T13 through S02-T15 remain planning-only and unauthorized.
 
 ## Sprint objective
 
@@ -24,13 +24,13 @@ Build the identity, authentication, authorization, session, approval, security-e
 
 ## Authorization gate
 
-Sprint 01 is closed. S02-T00 through S02-T10 and S02-T12 are completed. S02-T11 is explicitly authorized and its implementation is under review. S02-T13 through S02-T15 remain planning-only and unauthorized.
+Sprint 01 is closed. The currently implemented Sprint 02 tickets, S02-T00 through S02-T12 including S02-T11, are completed according to their ticket records and the execution chronology below. S02-T11 is **COMPLETED — CLOSED — MERGED** through PR #19; its final reviewed implementation head is `7b4ec88513ac1ed22cd7cadd32ea17607ab4dd21`, and its canonical merge/main SHA is `ef5e71ee92f2870e28cb51948f9e4b1df230b003`. S02-T13 through S02-T15 remain planning-only and unauthorized.
 
 Under the current authorization, agents must not:
 
-- implement any Sprint 02 application behavior outside the completed tickets and authorized S02-T11 scope;
-- add production provider adapters, real business relationship resolvers, production approval policies or approver bindings, offboarding, seeds, or bootstrap commands;
-- mark S02-T11 complete or mark S02-T13 through S02-T15 active, ready, or implementation-authorized; or
+- implement S02-T13, S02-T14, or S02-T15 without later explicit supervisor authorization;
+- add production provider adapters, real business relationship resolvers, or production approval policies or approver bindings unless separately authorized;
+- implement offboarding, seeds, bootstrap commands, or any business module; or
 - continue into CRM or any later business module.
 
 ## Sprint boundaries
@@ -107,7 +107,7 @@ Parallel work is permitted only where dependencies are satisfied and the supervi
 | S02-T08 | COMPLETED — CLOSED — MERGED | PR #13; final reviewed implementation head `d746e655496699fec3eb11b525f20d4f675cd892`; merge commit `6402bd8c5ea6ca16ba76e2750c648506011b5cea`; evidence in `docs/engineering/SPRINT_02_T08_RESOURCE_SCOPE_AUTHORIZATION.md` |
 | S02-T09 | COMPLETED — CLOSED — MERGED | PR #15; final reviewed implementation head `fc10a8e87a74421bbcc920fffc3f9f7c4e9e382f`; merge SHA `b65f2090643608a48a99fedc9ddd3c96fd2c3cfb`; evidence in `docs/engineering/SPRINT_02_T09_APPROVAL_ENGINE.md`; no production policy or approver bindings |
 | S02-T10 | COMPLETED — CLOSED — MERGED | PR #17; final reviewed implementation head `71e8af253c6c2e9a56f5a3d24651aa1899047b16`; merge SHA `5f5a0dfd3ec108ebf5a062d492fcac43cecfb02c`; evidence in `docs/engineering/SPRINT_02_T10_TEMPORARY_ACCESS.md` |
-| S02-T11 | AUTHORIZED — IMPLEMENTATION UNDER REVIEW | T11-only emergency-access implementation; not complete until supervisor review and merge |
+| S02-T11 | COMPLETED — CLOSED — MERGED | PR #19; final reviewed implementation head `7b4ec88513ac1ed22cd7cadd32ea17607ab4dd21`; merge SHA `ef5e71ee92f2870e28cb51948f9e4b1df230b003`; engineering evidence in `docs/engineering/SPRINT_02_T11_EMERGENCY_ACCESS.md` |
 | S02-T13 through S02-T15 | NOT AUTHORIZED | No implementation may begin without a later explicit supervisor authorization |
 
 ## Planned schema boundaries
@@ -1241,12 +1241,17 @@ Provide an explicit, time-limited, reason-required, risk-classified, step-up and
 
 ### Acceptance criteria
 
-- [ ] Reason, duration, risk, step-up outcome, policy/approval outcome, issuer/recipient, permission/scope, and history are mandatory and traceable.
-- [ ] Emergency access authorizes only explicit active grants through the central authorization service.
-- [ ] Expiry and revocation take effect immediately without a worker dependency.
-- [ ] Material use produces complete audit and high-priority security events.
-- [ ] No emergency path can create an unrestricted Super Admin or cross-organization bypass.
-- [ ] APIs, OpenAPI, UI, alerts/hooks, and policy/security tests are complete.
+- [x] Reason, duration, risk, step-up outcome, policy/approval outcome, issuer/recipient, permission/scope, and history are mandatory and traceable.
+- [x] Emergency access authorizes only explicit active grants through the central authorization service.
+- [x] Expiry and revocation take effect immediately without a worker dependency.
+- [x] Material use produces complete audit and high-priority security events.
+- [x] No emergency path can create an unrestricted Super Admin or cross-organization bypass.
+- [x] APIs, OpenAPI, UI, alerts/hooks, and policy/security tests are complete.
+
+### Acceptance evidence — 2026-09-06
+
+- Merged implementation PR #19; final reviewed implementation head `7b4ec88513ac1ed22cd7cadd32ea17607ab4dd21`; canonical merge/main SHA `ef5e71ee92f2870e28cb51948f9e4b1df230b003`.
+- Detailed design, security, migration, API, OpenAPI, UI, audit/security-event, worker, test, runtime, and quality-gate evidence is recorded in `docs/engineering/SPRINT_02_T11_EMERGENCY_ACCESS.md`.
 
 ### Do Not Change
 
