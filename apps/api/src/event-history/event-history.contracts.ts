@@ -4,6 +4,10 @@ export const EVENT_RISKS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export type EventRisk = (typeof EVENT_RISKS)[number];
 
 export const AUDIT_ACTION_KEYS = {
+  employeeSuspended: 'admin.employee.suspend',
+  employeeOffboardingStarted: 'admin.employee.offboard',
+  employeeOffboardingCleanup: 'system.employee.offboarding.cleanup',
+  employeeArchived: 'admin.employee.archive',
   temporaryAccessRequested: 'admin.access.temporary.request',
   temporaryAccessGranted: 'admin.access.temporary.grant',
   temporaryAccessRevoked: 'admin.access.revoke',
@@ -42,6 +46,11 @@ export const AUDIT_ACTION_KEYS = {
 export type AuditActionKey = (typeof AUDIT_ACTION_KEYS)[keyof typeof AUDIT_ACTION_KEYS];
 
 export const SECURITY_EVENT_TYPES = {
+  employeeSuspended: 'EmployeeSuspended.v1',
+  employeeOffboardingStarted: 'EmployeeOffboardingStarted.v1',
+  employeeAccessRevoked: 'EmployeeAccessRevoked.v1',
+  employeeOffboarded: 'EmployeeOffboarded.v1',
+  employeeArchived: 'EmployeeArchived.v1',
   authenticationSucceeded: 'AuthenticationSucceeded.v1',
   authenticationFailed: 'AuthenticationFailed.v1',
   invitationIssued: 'InvitationIssued.v1',

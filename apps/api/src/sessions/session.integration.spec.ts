@@ -173,8 +173,47 @@ describe.skipIf(!databaseUrl)('S02-T04 session PostgreSQL integration', () => {
   it('rechecks employee/account eligibility on every resolution and cannot revive an invalid session', async () => {
     const established = await establishA();
     const raw = established.cookie.credential as string;
+    const offboardingApproval = await client.approvalRequest.create({
+      data: {
+        organizationId: organizationA,
+        requesterEmployeeId: employeeA,
+        requesterSnapshot: { displayName: 'Actor A' },
+        actionKey: 'admin.employee.offboard',
+        resourceType: 'employee',
+        resourceId: employeeA,
+        serverContextSnapshot: { fixture: 'session-lifecycle-denial' },
+        contextFingerprint: 'a'.repeat(64),
+        risk: 'HIGH',
+        policyKey: 'test.offboarding',
+        policyVersion: 1,
+        policyOutcome: 'SINGLE_APPROVER',
+        policyFingerprint: 'b'.repeat(64),
+        correlationId: organizationA,
+        idempotencyDigest: 'c'.repeat(64),
+      },
+    });
     for (const lifecycleStatus of ['SUSPENDED', 'OFFBOARDING', 'ARCHIVED'] as const) {
-      await client.employee.update({ where: { id: employeeA }, data: { lifecycleStatus } });
+      const offboarding = lifecycleStatus === 'OFFBOARDING' || lifecycleStatus === 'ARCHIVED';
+      await client.employee.update({ where: { id: employeeA }, data: {
+        lifecycleStatus,
+        ...(offboarding ? {
+          offboardingAt: currentTime,
+          offboardingSourceLifecycle: 'ACTIVE',
+          offboardingInitiatedByEmployeeId: employeeA,
+          offboardingReason: 'Session lifecycle denial fixture',
+          offboardingApprovalReference: offboardingApproval.id,
+          offboardingCleanupStatus: lifecycleStatus === 'ARCHIVED' ? 'COMPLETED' : 'PENDING',
+          ...(lifecycleStatus === 'ARCHIVED' ? {
+            archivedAt: currentTime,
+            offboardingCleanupAttemptedAt: currentTime,
+            offboardingCleanupCompletedAt: currentTime,
+            offboardingSessionsRevokedCount: 0,
+            offboardingRolesEndedCount: 0,
+            offboardingTemporaryAccessEndedCount: 0,
+            offboardingEmergencyAccessEndedCount: 0,
+          } : {}),
+        } : {}),
+      } });
       expect((await service.resolveCookie({ status: 'present', credential: raw })).principal).toBeNull();
       await client.employee.update({ where: { id: employeeA }, data: { lifecycleStatus: 'ACTIVE' } });
     }

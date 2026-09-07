@@ -41,6 +41,11 @@ const eventTypes = [
   "identity.emergency-access-used",
   "identity.emergency-access-revoked",
   "identity.emergency-access-expired",
+  "identity.employee-suspended",
+  "identity.employee-offboarding-started",
+  "identity.employee-access-revoked",
+  "identity.employee-offboarded",
+  "identity.employee-archived",
 ] as const;
 
 const consumerName = "identity.lifecycle-history";

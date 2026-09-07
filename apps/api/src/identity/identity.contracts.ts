@@ -7,6 +7,7 @@ export const EMPLOYEE_LIFECYCLE_STATUSES = [
 ] as const;
 
 export type EmployeeLifecycleStatus = (typeof EMPLOYEE_LIFECYCLE_STATUSES)[number];
+export type OffboardingCleanupStatus = 'PENDING' | 'INCOMPLETE' | 'COMPLETED';
 
 export const IDENTITY_ACTIONS = {
   readSelf: 'identity.account.read_self',
@@ -88,6 +89,19 @@ export interface EmployeeView {
   readonly suspendedAt: Date | null;
   readonly offboardingAt: Date | null;
   readonly archivedAt: Date | null;
+  readonly lifecycleVersion: number;
+  readonly offboardingSourceLifecycle: EmployeeLifecycleStatus | null;
+  readonly offboardingInitiatedByEmployeeId: string | null;
+  readonly offboardingReason: string | null;
+  readonly offboardingApprovalReference: string | null;
+  readonly offboardingCleanupStatus: OffboardingCleanupStatus | null;
+  readonly offboardingCleanupAttemptedAt: Date | null;
+  readonly offboardingCleanupCompletedAt: Date | null;
+  readonly offboardingCleanupFailureCode: string | null;
+  readonly offboardingSessionsRevokedCount: number | null;
+  readonly offboardingRolesEndedCount: number | null;
+  readonly offboardingTemporaryAccessEndedCount: number | null;
+  readonly offboardingEmergencyAccessEndedCount: number | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

@@ -135,10 +135,14 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
   async findRecipient(
     organizationId: string,
     employeeId: string,
-    transaction: DatabaseTransaction = this.client,
+    suppliedTransaction?: DatabaseTransaction,
   ): Promise<
     TemporaryAccessRecipient | null
   > {
+    const transaction = suppliedTransaction ?? this.client;
+    if (suppliedTransaction) {
+      await suppliedTransaction.$queryRaw`SELECT id FROM employees WHERE organization_id = ${organizationId}::uuid AND id = ${employeeId}::uuid FOR UPDATE`;
+    }
     const employee = await transaction.employee.findFirst({
       where: { organizationId, id: employeeId },
       select: {
@@ -195,6 +199,13 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
     );
     if (!issuer?.active)
       throw new Error("Temporary access issuer is not current");
+    const recipient = await this.findRecipient(
+      input.actor.organizationId,
+      input.recipient.employeeId,
+      transaction,
+    );
+    if (!recipient?.active)
+      throw new Error("Temporary access recipient is not current");
     const grant = await transaction.temporaryAccessGrant.create({
       data: {
         organizationId: input.actor.organizationId,
@@ -388,6 +399,69 @@ export class PrismaTemporaryAccessRepository implements TemporaryAccessRepositor
       input.at,
     );
     return { outcome: "revoked", grant: view(revoked, input.at) };
+  }
+
+  async revokeAllForRecipient(
+    input: {
+      readonly organizationId: string;
+      readonly recipientEmployeeId: string;
+      readonly actorEmployeeId: string;
+      readonly correlationId: string;
+      readonly at: Date;
+    },
+    transaction: DatabaseTransaction,
+  ): Promise<number> {
+    const references = await transaction.temporaryAccessGrant.findMany({
+      where: {
+        organizationId: input.organizationId,
+        recipientEmployeeId: input.recipientEmployeeId,
+        status: { in: ["PENDING_APPROVAL", "GRANTED"] },
+      },
+      orderBy: { id: "asc" },
+      select: { id: true },
+    });
+    let ended = 0;
+    for (const reference of references) {
+      await transaction.$queryRaw`SELECT id FROM temporary_access_grants WHERE id = ${reference.id}::uuid AND organization_id = ${input.organizationId}::uuid FOR UPDATE`;
+      const current = await transaction.temporaryAccessGrant.findFirst({
+        where: {
+          id: reference.id,
+          organizationId: input.organizationId,
+          recipientEmployeeId: input.recipientEmployeeId,
+          status: { in: ["PENDING_APPROVAL", "GRANTED"] },
+        },
+        include,
+      });
+      if (!current) continue;
+      if (current.status === "GRANTED" && current.expiresAt <= input.at) {
+        const expired = await transaction.temporaryAccessGrant.update({
+          where: { id: current.id },
+          data: { status: "EXPIRED", version: { increment: 1 } },
+          include,
+        });
+        await this.recordExpired(transaction, expired, input.correlationId, input.at);
+      } else {
+        const revoked = await transaction.temporaryAccessGrant.update({
+          where: { id: current.id },
+          data: {
+            status: "REVOKED",
+            revokedAt: input.at,
+            revokedByEmployeeId: input.actorEmployeeId,
+            version: { increment: 1 },
+          },
+          include,
+        });
+        await this.recordRevoked(
+          transaction,
+          revoked,
+          input.actorEmployeeId,
+          input.correlationId,
+          input.at,
+        );
+      }
+      ended += 1;
+    }
+    return ended;
   }
 
   private statusWhere(

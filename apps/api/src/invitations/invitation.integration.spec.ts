@@ -50,7 +50,7 @@ const verifiedIdentity: NormalizedProviderIdentity = {
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
-  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
+  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events" CASCADE');
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
   await client.queueJob.deleteMany();
@@ -769,9 +769,50 @@ describe.skipIf(!databaseUrl)('S02-T02 invitation and onboarding PostgreSQL inte
         invitationId: issued.invitation.id,
         now,
       });
+      const offboardingApproval = ['OFFBOARDING', 'ARCHIVED'].includes(lifecycleStatus)
+        ? await client.approvalRequest.create({
+            data: {
+              organizationId: organizationAId,
+              requesterEmployeeId: actorA.employeeId,
+              requesterSnapshot: { displayName: 'Issuer A' },
+              actionKey: 'admin.employee.offboard',
+              resourceType: 'employee',
+              resourceId: issued.invitation.employeeId,
+              serverContextSnapshot: { fixture: 'invitation-lifecycle-denial' },
+              contextFingerprint: 'a'.repeat(64),
+              risk: 'HIGH',
+              policyKey: 'test.offboarding',
+              policyVersion: 1,
+              policyOutcome: 'SINGLE_APPROVER',
+              policyFingerprint: 'b'.repeat(64),
+              safeRequestReason: 'Lifecycle denial fixture',
+              correlationId: organizationAId,
+              idempotencyDigest: 'c'.repeat(64),
+            },
+          })
+        : null;
       await client.employee.update({
         where: { id: issued.invitation.employeeId },
-        data: { lifecycleStatus },
+        data: {
+          lifecycleStatus,
+          ...(offboardingApproval ? {
+            offboardingAt: now,
+            offboardingSourceLifecycle: 'ACTIVE',
+            offboardingInitiatedByEmployeeId: actorA.employeeId,
+            offboardingReason: 'Lifecycle denial fixture',
+            offboardingApprovalReference: offboardingApproval.id,
+            offboardingCleanupStatus: lifecycleStatus === 'ARCHIVED' ? 'COMPLETED' : 'PENDING',
+            ...(lifecycleStatus === 'ARCHIVED' ? {
+              archivedAt: now,
+              offboardingCleanupAttemptedAt: now,
+              offboardingCleanupCompletedAt: now,
+              offboardingSessionsRevokedCount: 0,
+              offboardingRolesEndedCount: 0,
+              offboardingTemporaryAccessEndedCount: 0,
+              offboardingEmergencyAccessEndedCount: 0,
+            } : {}),
+          } : {}),
+        },
       });
       await request(app.getHttpServer())
         .post(`/api/v1/employees/${issued.invitation.employeeId}/reinvite`)

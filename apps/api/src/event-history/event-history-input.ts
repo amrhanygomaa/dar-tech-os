@@ -14,6 +14,23 @@ const boundedKeyPattern = /^[A-Za-z][A-Za-z0-9._-]*$/u;
 const forbiddenContextKeyPattern =
   /(?:password|secret|token|nonce|state|authorization|email|subject|stack|raw|payload|login.?hint|code)/iu;
 const allowedChangedFields = new Set([
+  'authenticationEligible',
+  'disabledAt',
+  'lifecycleStatus',
+  'lifecycleVersion',
+  'offboardingApprovalReference',
+  'offboardingCleanupAttemptedAt',
+  'offboardingCleanupCompletedAt',
+  'offboardingCleanupFailureCode',
+  'offboardingCleanupStatus',
+  'offboardingEmergencyAccessEndedCount',
+  'offboardingInitiatedByEmployeeId',
+  'offboardingReason',
+  'offboardingRolesEndedCount',
+  'offboardingSessionsRevokedCount',
+  'offboardingSourceLifecycle',
+  'offboardingTemporaryAccessEndedCount',
+  'suspendedAt',
   'action',
   'activatedAt',
   'active',

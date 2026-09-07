@@ -47,7 +47,7 @@ const actor: TrustedActor = {
 };
 
 async function clearFixtures(client: DatabaseClient): Promise<void> {
-  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
+  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events" CASCADE');
   await client.session.deleteMany();
   await client.sSOIdentity.deleteMany();
   await client.userAccount.deleteMany();
@@ -520,7 +520,7 @@ describe.skipIf(!databaseUrl)('S02-T12 audit and security event PostgreSQL integ
     });
     await client.employee.update({
       where: { id: actorEmployeeId },
-      data: { displayName: 'Authentication Actor Renamed Later', lifecycleStatus: 'ARCHIVED' },
+      data: { displayName: 'Authentication Actor Renamed Later', lifecycleStatus: 'SUSPENDED' },
     });
     await expect(
       client.securityEvent.findUniqueOrThrow({ where: { id: succeeded.id } }),

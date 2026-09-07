@@ -35,7 +35,7 @@ const actor: TrustedActor = {
 };
 
 async function clearIdentityData(client: DatabaseClient): Promise<void> {
-  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
+  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events" CASCADE');
   await client.session.deleteMany();
   await client.sSOIdentity.deleteMany();
   await client.userAccount.deleteMany();
@@ -240,7 +240,13 @@ describe.skipIf(!databaseUrl)('S02-T01 identity PostgreSQL and API integration',
         AND tc.constraint_type = 'FOREIGN KEY'
         AND tc.table_name IN ('employees', 'user_accounts', 'sso_identities')
     `);
-    expect(identityForeignKeys).toHaveLength(5);
+    expect(identityForeignKeys).toHaveLength(7);
+    expect(identityForeignKeys.map(({ constraint_name }) => constraint_name)).toEqual(
+      expect.arrayContaining([
+        'employees_offboarding_initiator_fkey',
+        'employees_offboarding_approval_fkey',
+      ]),
+    );
     expect(identityForeignKeys.every(({ delete_action }) => delete_action === 'RESTRICT')).toBe(
       true,
     );

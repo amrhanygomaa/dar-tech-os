@@ -36,6 +36,9 @@ export const API_ERROR_CODES = {
   temporaryAccessConflict: 'TEMPORARY_ACCESS_CONFLICT',
   emergencyAccessInputInvalid: 'EMERGENCY_ACCESS_INPUT_INVALID',
   emergencyAccessConflict: 'EMERGENCY_ACCESS_CONFLICT',
+  employeeLifecycleInputInvalid: 'EMPLOYEE_LIFECYCLE_INPUT_INVALID',
+  employeeLifecycleConflict: 'EMPLOYEE_LIFECYCLE_CONFLICT',
+  offboardingCleanupIncomplete: 'OFFBOARDING_CLEANUP_INCOMPLETE',
   internalError: 'INTERNAL_ERROR',
 } as const;
 

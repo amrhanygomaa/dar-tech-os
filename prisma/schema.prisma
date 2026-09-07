@@ -40,6 +40,14 @@ enum EmployeeLifecycleStatus {
   @@map("employee_lifecycle_status")
 }
 
+enum OffboardingCleanupStatus {
+  PENDING
+  INCOMPLETE
+  COMPLETED
+
+  @@map("offboarding_cleanup_status")
+}
+
 enum EventRisk {
   LOW
   MEDIUM
@@ -193,49 +201,68 @@ model Organization {
 }
 
 model Employee {
-  id                       String                  @id @default(uuid()) @db.Uuid
-  organizationId           String                  @map("organization_id") @db.Uuid
-  employeeCode             String                  @map("employee_code") @db.VarChar(64)
-  firstName                String                  @map("first_name") @db.VarChar(100)
-  lastName                 String                  @map("last_name") @db.VarChar(100)
-  displayName              String                  @map("display_name") @db.VarChar(160)
-  workEmail                String                  @map("work_email") @db.VarChar(320)
-  lifecycleStatus          EmployeeLifecycleStatus @default(INVITED) @map("lifecycle_status")
-  invitedAt                DateTime                @default(now()) @map("invited_at") @db.Timestamptz(3)
-  activatedAt              DateTime?               @map("activated_at") @db.Timestamptz(3)
-  suspendedAt              DateTime?               @map("suspended_at") @db.Timestamptz(3)
-  offboardingAt            DateTime?               @map("offboarding_at") @db.Timestamptz(3)
-  archivedAt               DateTime?               @map("archived_at") @db.Timestamptz(3)
-  createdAt                DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization             Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  userAccount              UserAccount?
-  authoredAuditEvents      AuditEvent[]            @relation("AuditEventActor")
-  securityEvents           SecurityEvent[]         @relation("SecurityEventActor")
-  invitations              Invitation[]            @relation("InvitationEmployee")
-  issuedInvitations        Invitation[]            @relation("InvitationIssuer")
-  revokedInvitations       Invitation[]            @relation("InvitationRevoker")
-  roleAssignments          EmployeeRole[]          @relation("EmployeeRoleEmployee")
-  assignedRoles            EmployeeRole[]          @relation("EmployeeRoleAssigner")
-  removedRoles             EmployeeRole[]          @relation("EmployeeRoleRemover")
-  grantedPermissions       RolePermission[]        @relation("RolePermissionGrantor")
-  removedPermissions       RolePermission[]        @relation("RolePermissionRemover")
-  sessions                 Session[]               @relation("SessionEmployee")
-  revokedSessions          Session[]               @relation("SessionRevoker")
-  requestedApprovals       ApprovalRequest[]       @relation("ApprovalRequester")
-  decidedApprovalSteps     ApprovalStep[]          @relation("ApprovalStepDecider")
-  approvalHistoryEntries   ApprovalHistoryEntry[]  @relation("ApprovalHistoryActor")
-  issuedTemporaryAccess    TemporaryAccessGrant[]  @relation("TemporaryAccessIssuer")
-  receivedTemporaryAccess  TemporaryAccessGrant[]  @relation("TemporaryAccessRecipient")
-  revokedTemporaryAccess   TemporaryAccessGrant[]  @relation("TemporaryAccessRevoker")
-  requestedEmergencyAccess EmergencyAccessGrant[]  @relation("EmergencyAccessRequester")
-  receivedEmergencyAccess  EmergencyAccessGrant[]  @relation("EmergencyAccessRecipient")
-  revokedEmergencyAccess   EmergencyAccessGrant[]  @relation("EmergencyAccessRevoker")
+  id                                   String                    @id @default(uuid()) @db.Uuid
+  organizationId                       String                    @map("organization_id") @db.Uuid
+  employeeCode                         String                    @map("employee_code") @db.VarChar(64)
+  firstName                            String                    @map("first_name") @db.VarChar(100)
+  lastName                             String                    @map("last_name") @db.VarChar(100)
+  displayName                          String                    @map("display_name") @db.VarChar(160)
+  workEmail                            String                    @map("work_email") @db.VarChar(320)
+  lifecycleStatus                      EmployeeLifecycleStatus   @default(INVITED) @map("lifecycle_status")
+  invitedAt                            DateTime                  @default(now()) @map("invited_at") @db.Timestamptz(3)
+  activatedAt                          DateTime?                 @map("activated_at") @db.Timestamptz(3)
+  suspendedAt                          DateTime?                 @map("suspended_at") @db.Timestamptz(3)
+  offboardingAt                        DateTime?                 @map("offboarding_at") @db.Timestamptz(3)
+  archivedAt                           DateTime?                 @map("archived_at") @db.Timestamptz(3)
+  lifecycleVersion                     Int                       @default(1) @map("lifecycle_version")
+  offboardingSourceLifecycle           EmployeeLifecycleStatus?  @map("offboarding_source_lifecycle")
+  offboardingInitiatedByEmployeeId     String?                   @map("offboarding_initiated_by_employee_id") @db.Uuid
+  offboardingReason                    String?                   @map("offboarding_reason") @db.VarChar(500)
+  offboardingApprovalReference         String?                   @map("offboarding_approval_reference") @db.Uuid
+  offboardingCleanupStatus             OffboardingCleanupStatus? @map("offboarding_cleanup_status")
+  offboardingCleanupAttemptedAt        DateTime?                 @map("offboarding_cleanup_attempted_at") @db.Timestamptz(3)
+  offboardingCleanupCompletedAt        DateTime?                 @map("offboarding_cleanup_completed_at") @db.Timestamptz(3)
+  offboardingCleanupFailureCode        String?                   @map("offboarding_cleanup_failure_code") @db.VarChar(80)
+  offboardingSessionsRevokedCount      Int?                      @map("offboarding_sessions_revoked_count")
+  offboardingRolesEndedCount           Int?                      @map("offboarding_roles_ended_count")
+  offboardingTemporaryAccessEndedCount Int?                      @map("offboarding_temporary_access_ended_count")
+  offboardingEmergencyAccessEndedCount Int?                      @map("offboarding_emergency_access_ended_count")
+  createdAt                            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                            DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization                         Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userAccount                          UserAccount?
+  authoredAuditEvents                  AuditEvent[]              @relation("AuditEventActor")
+  securityEvents                       SecurityEvent[]           @relation("SecurityEventActor")
+  invitations                          Invitation[]              @relation("InvitationEmployee")
+  issuedInvitations                    Invitation[]              @relation("InvitationIssuer")
+  revokedInvitations                   Invitation[]              @relation("InvitationRevoker")
+  roleAssignments                      EmployeeRole[]            @relation("EmployeeRoleEmployee")
+  assignedRoles                        EmployeeRole[]            @relation("EmployeeRoleAssigner")
+  removedRoles                         EmployeeRole[]            @relation("EmployeeRoleRemover")
+  grantedPermissions                   RolePermission[]          @relation("RolePermissionGrantor")
+  removedPermissions                   RolePermission[]          @relation("RolePermissionRemover")
+  sessions                             Session[]                 @relation("SessionEmployee")
+  revokedSessions                      Session[]                 @relation("SessionRevoker")
+  requestedApprovals                   ApprovalRequest[]         @relation("ApprovalRequester")
+  decidedApprovalSteps                 ApprovalStep[]            @relation("ApprovalStepDecider")
+  approvalHistoryEntries               ApprovalHistoryEntry[]    @relation("ApprovalHistoryActor")
+  issuedTemporaryAccess                TemporaryAccessGrant[]    @relation("TemporaryAccessIssuer")
+  receivedTemporaryAccess              TemporaryAccessGrant[]    @relation("TemporaryAccessRecipient")
+  revokedTemporaryAccess               TemporaryAccessGrant[]    @relation("TemporaryAccessRevoker")
+  requestedEmergencyAccess             EmergencyAccessGrant[]    @relation("EmergencyAccessRequester")
+  receivedEmergencyAccess              EmergencyAccessGrant[]    @relation("EmergencyAccessRecipient")
+  revokedEmergencyAccess               EmergencyAccessGrant[]    @relation("EmergencyAccessRevoker")
+  initiatedOffboardings                Employee[]                @relation("EmployeeOffboardingInitiator")
+  offboardingInitiatedByEmployee       Employee?                 @relation("EmployeeOffboardingInitiator", fields: [organizationId, offboardingInitiatedByEmployeeId], references: [organizationId, id], onDelete: Restrict, map: "employees_offboarding_initiator_fkey")
+  offboardingApproval                  ApprovalRequest?          @relation("EmployeeOffboardingApproval", fields: [organizationId, offboardingApprovalReference], references: [organizationId, id], onDelete: Restrict, map: "employees_offboarding_approval_fkey")
 
   @@unique([organizationId, id], map: "employees_organization_id_id_key")
   @@unique([organizationId, employeeCode], map: "employees_organization_employee_code_key")
   @@index([organizationId, lifecycleStatus, createdAt], map: "employees_organization_lifecycle_created_at_idx")
   @@index([organizationId, workEmail], map: "employees_organization_work_email_idx")
+  @@index([organizationId, offboardingCleanupStatus, offboardingAt], map: "employees_offboarding_cleanup_idx")
+  @@index([organizationId, offboardingInitiatedByEmployeeId], map: "employees_offboarding_initiator_idx")
+  @@index([organizationId, offboardingApprovalReference], map: "employees_offboarding_approval_idx")
   @@map("employees")
 }
 
@@ -558,6 +585,7 @@ model ApprovalRequest {
   history                  ApprovalHistoryEntry[]
   temporaryAccessGrants    TemporaryAccessGrant[]
   emergencyAccessGrants    EmergencyAccessGrant[]
+  offboardingEmployees     Employee[]             @relation("EmployeeOffboardingApproval")
 
   @@unique([organizationId, id], map: "approval_requests_organization_id_id_key")
   @@unique([organizationId, idempotencyDigest], map: "approval_requests_organization_idempotency_key")

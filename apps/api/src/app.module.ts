@@ -35,6 +35,7 @@ import type { ApprovalApproverResolver } from './approvals/approval.contracts.js
 
 import { TemporaryAccessModule } from './temporary-access/temporary-access.module.js';
 import { EmergencyAccessModule } from './emergency-access/emergency-access.module.js';
+import { OffboardingModule, type OffboardingTestAdapters } from './offboarding/offboarding.module.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 
@@ -49,6 +50,7 @@ export interface AppModuleRegistrationOptions {
   readonly authorizationTestAdapters?: AuthorizationTestAdapters;
   readonly authorizationExtensions?: AuthorizationModuleExtensions;
   readonly approvalApproverTestAdapter?: ApprovalApproverResolver;
+  readonly offboardingTestAdapters?: OffboardingTestAdapters;
 }
 
 @Module({})
@@ -102,6 +104,7 @@ export class AppModule {
         ApprovalModule.register(config.appEnvironment, options.approvalApproverTestAdapter),
         TemporaryAccessModule.register(config.temporaryAccess),
         EmergencyAccessModule.register(config.emergencyAccess),
+        OffboardingModule.register(config.appEnvironment, options.offboardingTestAdapters),
         ApiFallbackModule,
       ],
       controllers: [AppController],
