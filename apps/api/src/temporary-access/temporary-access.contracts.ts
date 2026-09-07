@@ -149,6 +149,16 @@ export interface TemporaryAccessRepositoryPort {
     readonly outcome: "revoked" | "idempotent" | "not_found";
     readonly grant: TemporaryAccessGrantView | null;
   }>;
+  revokeAllForRecipient(
+    input: {
+      readonly organizationId: string;
+      readonly recipientEmployeeId: string;
+      readonly actorEmployeeId: string;
+      readonly correlationId: string;
+      readonly at: Date;
+    },
+    transaction: DatabaseTransaction,
+  ): Promise<number>;
 }
 
 export type TemporaryAccessRuntimeConfig = TemporaryAccessConfig;

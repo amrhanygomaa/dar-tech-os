@@ -96,6 +96,7 @@ export type EmployeeRoleAssignmentResult =
   | { readonly status: 'idempotent'; readonly assignment: EmployeeRoleView }
   | { readonly status: 'conflict' }
   | { readonly status: 'archived' }
+  | { readonly status: 'ineligible' }
   | { readonly status: 'not_found' };
 
 export type EmployeeRoleRemovalResult =

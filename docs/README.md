@@ -12,7 +12,7 @@ This directory is the implementation documentation set for Dar Tech OS.
 
 - Sprint 01 specification: `../SPRINT_01_ENGINEERING_FOUNDATION.md`
 - Sprint 01 closure: `execution/SPRINT_01_CLOSURE.md`
-- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **CONTROLLED IMPLEMENTATION; CURRENTLY IMPLEMENTED S02-T00–T12 TICKET SET COMPLETE THROUGH T11 (ACTUAL CHRONOLOGY RECORDED IN THE SPECIFICATION); S02-T11 COMPLETED — CLOSED — MERGED VIA PR #19; S02-T13–T15 UNAUTHORIZED**. Final T11 implementation head: `7b4ec88513ac1ed22cd7cadd32ea17607ab4dd21`; merge/main SHA: `ef5e71ee92f2870e28cb51948f9e4b1df230b003`.
+- Sprint 02 specification: `../SPRINT_02_IDENTITY_SECURITY_FOUNDATION.md` — **CONTROLLED IMPLEMENTATION; S02-T00–T12 COMPLETE; S02-T13 AUTHORIZED — IMPLEMENTATION UNDER REVIEW; S02-T14 AND S02-T15 NOT AUTHORIZED**. T11 final implementation head: `7b4ec88513ac1ed22cd7cadd32ea17607ab4dd21`; T11 closure/canonical main SHA: `55813da54b28157a03128ae98794e1481c75b0bb`.
 
 ### Source-of-truth rules
 
@@ -35,6 +35,7 @@ This directory is the implementation documentation set for Dar Tech OS.
 - `engineering/SPRINT_02_T10_TEMPORARY_ACCESS.md`
 - `engineering/SPRINT_02_T11_EMERGENCY_ACCESS.md`
 - `engineering/SPRINT_02_T12_AUDIT_SECURITY_EVENTS.md`
+- `engineering/SPRINT_02_T13_OFFBOARDING.md`
 - Accepted architecture decisions: `decisions/README.md`
 
 ### Primary source documents

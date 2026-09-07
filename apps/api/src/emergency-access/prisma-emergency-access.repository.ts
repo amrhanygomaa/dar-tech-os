@@ -117,7 +117,11 @@ export class PrismaEmergencyAccessRepository implements EmergencyAccessRepositor
     await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${digest}, 0))`;
   }
 
-  async findSubject(organizationId: string, employeeId: string, transaction: DatabaseTransaction = this.client): Promise<EmergencyAccessSubject | null> {
+  async findSubject(organizationId: string, employeeId: string, suppliedTransaction?: DatabaseTransaction): Promise<EmergencyAccessSubject | null> {
+    const transaction = suppliedTransaction ?? this.client;
+    if (suppliedTransaction) {
+      await suppliedTransaction.$queryRaw`SELECT id FROM employees WHERE organization_id = ${organizationId}::uuid AND id = ${employeeId}::uuid FOR UPDATE`;
+    }
     const employee = await transaction.employee.findFirst({
       where: { organizationId, id: employeeId },
       select: {
@@ -146,6 +150,18 @@ export class PrismaEmergencyAccessRepository implements EmergencyAccessRepositor
   }
 
   async create(input: EmergencyAccessCreateData, transaction: DatabaseTransaction): Promise<EmergencyAccessGrantView> {
+    const requester = await this.findSubject(
+      input.actor.organizationId,
+      input.actor.employeeId,
+      transaction,
+    );
+    if (!requester?.active) throw new Error('Emergency access requester is not current');
+    const recipient = await this.findSubject(
+      input.actor.organizationId,
+      input.recipient.employeeId,
+      transaction,
+    );
+    if (!recipient?.active) throw new Error('Emergency access recipient is not current');
     const grant = await transaction.emergencyAccessGrant.create({
       data: {
         id: input.id,
@@ -268,6 +284,45 @@ export class PrismaEmergencyAccessRepository implements EmergencyAccessRepositor
     const revoked = await transaction.emergencyAccessGrant.update({ where: { id: current.id }, data: { status: 'REVOKED', revokedAt: input.at, revokedByEmployeeId: input.actorEmployeeId, version: { increment: 1 } }, include });
     await this.recordLifecycle(transaction, 'revoked', revoked, input.actorEmployeeId, null, null, input.correlationId, input.at);
     return { outcome: 'revoked', grant: view(revoked, input.at) };
+  }
+
+  async revokeAllForRecipient(input: { readonly organizationId: string; readonly recipientEmployeeId: string; readonly actorEmployeeId: string; readonly correlationId: string; readonly at: Date }, transaction: DatabaseTransaction): Promise<number> {
+    const references = await transaction.emergencyAccessGrant.findMany({
+      where: {
+        organizationId: input.organizationId,
+        recipientEmployeeId: input.recipientEmployeeId,
+        status: { in: ['PENDING_APPROVAL', 'ACTIVATION_ELIGIBLE', 'ACTIVE'] },
+      },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+    let ended = 0;
+    for (const reference of references) {
+      await this.lockGrant(transaction, input.organizationId, reference.id);
+      const current = await transaction.emergencyAccessGrant.findFirst({
+        where: {
+          id: reference.id,
+          organizationId: input.organizationId,
+          recipientEmployeeId: input.recipientEmployeeId,
+          status: { in: ['PENDING_APPROVAL', 'ACTIVATION_ELIGIBLE', 'ACTIVE'] },
+        },
+        include,
+      });
+      if (!current) continue;
+      if (current.status === 'ACTIVE' && current.expiresAt <= input.at) {
+        const expired = await transaction.emergencyAccessGrant.update({ where: { id: current.id }, data: { status: 'EXPIRED', version: { increment: 1 } }, include });
+        await this.recordLifecycle(transaction, 'expired', expired, null, null, null, input.correlationId, input.at);
+      } else {
+        const revoked = await transaction.emergencyAccessGrant.update({
+          where: { id: current.id },
+          data: { status: 'REVOKED', revokedAt: input.at, revokedByEmployeeId: input.actorEmployeeId, version: { increment: 1 } },
+          include,
+        });
+        await this.recordLifecycle(transaction, 'revoked', revoked, input.actorEmployeeId, null, null, input.correlationId, input.at);
+      }
+      ended += 1;
+    }
+    return ended;
   }
 
   async recordMaterialUse(input: { readonly organizationId: string; readonly grantId: string; readonly actor: Parameters<EmergencyAccessRepositoryPort['recordMaterialUse']>[0]['actor']; readonly action: string; readonly resource: Parameters<EmergencyAccessRepositoryPort['recordMaterialUse']>[0]['resource']; readonly correlationId: string; readonly at: Date }, transaction: DatabaseTransaction): Promise<boolean> {

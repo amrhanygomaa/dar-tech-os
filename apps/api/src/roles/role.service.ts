@@ -145,7 +145,7 @@ export class RoleService {
       this.metrics.record({ operation: 'assign', outcome: 'not_found' });
       throw roleResourceNotFound();
     }
-    if (result.status === 'archived') {
+    if (result.status === 'archived' || result.status === 'ineligible') {
       this.metrics.record({ operation: 'assign', outcome: 'conflict' });
       throw roleArchived();
     }

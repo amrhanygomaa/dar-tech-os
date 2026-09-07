@@ -62,7 +62,7 @@ const config: ApiConfig = {
 };
 
 async function clearData(client: DatabaseClient): Promise<void> {
-  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events"');
+  await client.$executeRawUnsafe('TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests", "audit_events", "security_events" CASCADE');
   await client.outboxConsumerReceipt.deleteMany();
   await client.outboxEvent.deleteMany();
   await client.queueJob.deleteMany();

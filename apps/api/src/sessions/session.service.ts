@@ -273,11 +273,17 @@ export class SessionService {
   revokeAllForEmployee(input: {
     readonly organizationId: string;
     readonly employeeId: string;
+    readonly actorEmployeeId?: string;
+    readonly actorAccountId?: string;
+    readonly currentSessionId?: string;
     readonly now?: Date;
   }) {
     return this.repository.revokeAllForEmployee({
       organizationId: input.organizationId,
       employeeId: input.employeeId,
+      ...(input.actorEmployeeId ? { actorEmployeeId: input.actorEmployeeId } : {}),
+      ...(input.actorAccountId ? { actorAccountId: input.actorAccountId } : {}),
+      ...(input.currentSessionId ? { currentSessionId: input.currentSessionId } : {}),
       includeCurrent: true,
       reason: 'employee_lifecycle_revocation',
       now: input.now ?? this.clock.now(),

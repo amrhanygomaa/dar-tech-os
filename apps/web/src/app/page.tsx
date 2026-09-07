@@ -86,6 +86,7 @@ export default function FoundationPage() {
           <a className="button secondary" href="/account/sessions">My sessions</a>
           <a className="button secondary" href="/admin/invitations">Manage invitations</a>
           <a className="button secondary" href="/admin/roles">Manage roles</a>
+          <a className="button secondary" href="/admin/employees">Manage employee access</a>
           <a className="button secondary" href="/admin/emergency-access">Emergency access</a>
         </nav>
       </section>

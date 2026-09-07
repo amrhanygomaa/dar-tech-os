@@ -60,6 +60,7 @@ interface LockedEmployee {
   readonly organizationId: string;
   readonly displayName: string;
   readonly employeeCode: string;
+  readonly lifecycleStatus: string;
 }
 
 interface LockedEmployeeRole {
@@ -260,6 +261,7 @@ export class PrismaRoleRepository implements RoleRepositoryPort {
         input.employeeId,
       );
       if (!employee) return { status: 'not_found' } as const;
+      if (employee.lifecycleStatus !== 'ACTIVE') return { status: 'ineligible' } as const;
       const assignments = await this.lockAssignments(
         transaction,
         input.actor.organizationId,
@@ -460,7 +462,7 @@ export class PrismaRoleRepository implements RoleRepositoryPort {
   ): Promise<LockedEmployee | null> {
     const rows = await transaction.$queryRaw<LockedEmployee[]>(Prisma.sql`
       SELECT "id", "organization_id" AS "organizationId", "display_name" AS "displayName",
-        "employee_code" AS "employeeCode"
+        "employee_code" AS "employeeCode", "lifecycle_status"::text AS "lifecycleStatus"
       FROM "employees"
       WHERE "organization_id" = ${organizationId}::uuid AND "id" = ${employeeId}::uuid
       FOR UPDATE
@@ -493,7 +495,13 @@ export class PrismaRoleRepository implements RoleRepositoryPort {
   ): Promise<LockedEmployee> {
     const employee = await transaction.employee.findFirst({
       where: { id: employeeId, organizationId },
-      select: { id: true, organizationId: true, displayName: true, employeeCode: true },
+      select: {
+        id: true,
+        organizationId: true,
+        displayName: true,
+        employeeCode: true,
+        lifecycleStatus: true,
+      },
     });
     if (!employee) throw new Error('Trusted role actor was not found');
     return employee;

@@ -45,6 +45,11 @@ describe("Sprint 02 identity outbox routing", () => {
       "identity.emergency-access-used",
       "identity.emergency-access-revoked",
       "identity.emergency-access-expired",
+      "identity.employee-suspended",
+      "identity.employee-offboarding-started",
+      "identity.employee-access-revoked",
+      "identity.employee-offboarded",
+      "identity.employee-archived",
     ]);
     for (const route of IDENTITY_OUTBOX_ROUTES) {
       expect(routes.resolve(route.eventType, route.eventVersion)).toEqual(

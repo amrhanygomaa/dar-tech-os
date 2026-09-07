@@ -27,7 +27,7 @@ describe.skipIf(!databaseUrl)("S02-T09 approval PostgreSQL constraints", () => {
   });
   afterAll(async () => {
     await client.$executeRawUnsafe(
-      'TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests"',
+      'TRUNCATE TABLE "emergency_access_bindings", "emergency_access_grants", "temporary_access_bindings", "temporary_access_grants", "approval_history_entries", "approval_steps", "approval_requests" CASCADE',
     );
     await client.$disconnect();
   });

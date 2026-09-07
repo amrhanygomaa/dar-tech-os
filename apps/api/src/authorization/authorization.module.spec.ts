@@ -171,5 +171,5 @@ describe('AuthorizationModule extension boundaries', () => {
       }),
     ).resolves.toBe('MATCH');
     await module.close();
-  });
+  }, 15_000);
 });

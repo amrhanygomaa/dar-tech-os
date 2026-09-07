@@ -170,6 +170,13 @@ export interface EmergencyAccessRepositoryPort {
     readonly correlationId: string;
     readonly at: Date;
   }, transaction: DatabaseTransaction): Promise<{ readonly outcome: 'revoked' | 'idempotent' | 'not_found'; readonly grant: EmergencyAccessGrantView | null }>;
+  revokeAllForRecipient(input: {
+    readonly organizationId: string;
+    readonly recipientEmployeeId: string;
+    readonly actorEmployeeId: string;
+    readonly correlationId: string;
+    readonly at: Date;
+  }, transaction: DatabaseTransaction): Promise<number>;
   recordMaterialUse(input: {
     readonly organizationId: string;
     readonly grantId: string;
